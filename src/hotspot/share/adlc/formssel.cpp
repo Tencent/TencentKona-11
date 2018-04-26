@@ -4178,7 +4178,7 @@ bool MatchRule::is_vector() const {
     "CMoveVD", "CMoveVF",
     "DivVF","DivVD",
     "MinV","MaxV",
-    "AbsVF","AbsVD","AbsVI",
+    "AbsVF","AbsVD","AbsV",
     "NegVF","NegVD","NegVI",
     "SqrtVD","SqrtVF",
     "AndV" ,"XorV" ,"OrV", "NotV",
