@@ -6625,7 +6625,7 @@ static int get_opc(jint op, BasicType bt) {
     case OP_MIN: {
       switch (bt) {
         case T_BYTE:
-        case T_SHORT: 
+        case T_SHORT:
         case T_INT:    return Op_MinI;
         case T_LONG:   return Op_MinL;
         case T_FLOAT:  return Op_MinF;
@@ -6637,7 +6637,7 @@ static int get_opc(jint op, BasicType bt) {
     case OP_MAX: {
       switch (bt) {
         case T_BYTE:
-        case T_SHORT:  
+        case T_SHORT:
         case T_INT:    return Op_MaxI;
         case T_LONG:   return Op_MaxL;
         case T_FLOAT:  return Op_MaxF;
@@ -6788,11 +6788,13 @@ Node* LibraryCallKit::unbox_vector(Node* v, const TypeInstPtr* vbox_type, BasicT
 
 void LibraryCallKit::set_vector_result(Node* result, bool set_res) {
   if (DebugVectorApi) {
+#ifndef PRODUCT
     tty->print("============ ");
     callee()->print();
     tty->print_cr(" ============");
     result->dump(5);
     tty->print_cr("----------------------------------------------------");
+#endif
   }
   if (set_res) {
     set_result(result);
