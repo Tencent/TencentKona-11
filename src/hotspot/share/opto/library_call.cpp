@@ -6476,17 +6476,6 @@ static ciKlass* get_exact_klass_for_vector_box(ciKlass* ctx, BasicType bt, int n
   return vector_klass;
 }
 
-static BasicType getMaskBasicType(BasicType use_type) {
-  if (use_type == T_FLOAT) {
-    return T_INT;
-  }
-  if (use_type == T_DOUBLE) {
-    return T_LONG;
-  }
-  assert(is_java_primitive(use_type), "must be java primitive");
-  return use_type;
-}
-
 enum VectorMaskUseType {
   VecMaskUseLoad,
   VecMaskUseStore,
@@ -6986,6 +6975,14 @@ bool LibraryCallKit::inline_vector_mem_operation(bool is_store) {
     return false;
   }
 
+  // Since we are using byte array, we need to double check that the byte operations are supported by backend.
+  if (using_byte_array) {
+    int byte_num_elem = num_elem * type2aelembytes(elem_bt);
+    if (!arch_supports_vector(is_store ? Op_StoreVector : Op_LoadVector, byte_num_elem, T_BYTE, VecMaskNotUsed)) {
+      return false; // not supported
+    }
+  }
+
   Node* adr = array_element_address(arr, idx, using_byte_array ? T_BYTE : elem_bt);
   const TypePtr* adr_type = adr->bottom_type()->is_ptr();
 
@@ -7168,7 +7165,7 @@ bool LibraryCallKit::inline_vector_blend() {
     return false; // should be primitive type
   }
   BasicType elem_bt = elem_type->basic_type();
-  BasicType mask_bt = getMaskBasicType(elem_bt);
+  BasicType mask_bt = elem_bt;
   int num_elem = vlen->get_con();
 
   if (!arch_supports_vector(Op_VectorBlend, num_elem, elem_bt, VecMaskUseLoad)) {
@@ -7221,7 +7218,7 @@ bool LibraryCallKit::inline_vector_compare() {
 
   int num_elem = vlen->get_con();
   BasicType elem_bt = elem_type->basic_type();
-  BasicType mask_bt = getMaskBasicType(elem_bt);
+  BasicType mask_bt = elem_bt;
 
   if (!arch_supports_vector(Op_VectorMaskCmp, num_elem, elem_bt, VecMaskUseStore)) {
     return false;
@@ -7337,25 +7334,16 @@ bool LibraryCallKit::inline_vector_cast_reinterpret(bool is_cast) {
     return false; // should be primitive type
   }
   BasicType elem_bt_from = elem_type_from->basic_type();
-  if (is_mask) {
-    elem_bt_from = getMaskBasicType(elem_bt_from);
-  }
   ciType* elem_type_to = elem_klass_to->const_oop()->as_instance()->java_mirror_type();
   if (!elem_type_to->is_primitive_type()) {
     return false; // should be primitive type
   }
   BasicType elem_bt_to = elem_type_to->basic_type();
-  if (is_mask) {
-    elem_bt_to = getMaskBasicType(elem_bt_to);
-  }
   if (is_mask && elem_bt_from != elem_bt_to) {
     return false; // type mismatch
   }
   int num_elem_from = vlen_from->get_con();
   int num_elem_to = vlen_to->get_con();
-  if (is_mask) {
-    elem_bt_to = getMaskBasicType(elem_bt_to);
-  }
 
   // Check whether we can unbox to appropriate size. Even with casting, checking for reinterpret is needed
   // since we may need to change size.
