@@ -7565,7 +7565,7 @@ bool LibraryCallKit::inline_vector_extract() {
     return false;
   }
 
-  Node* operation = ExtractNode::make(opd, idx->get_con(), elem_bt);
+  Node* operation = gvn().transform(ExtractNode::make(opd, idx->get_con(), elem_bt));
 
   Node* bits = NULL;
   switch (elem_bt) {
