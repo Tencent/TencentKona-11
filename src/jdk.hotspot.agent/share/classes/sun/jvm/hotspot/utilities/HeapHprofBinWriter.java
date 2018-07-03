@@ -1088,9 +1088,9 @@ public class HeapHprofBinWriter extends AbstractHeapGraphWriter {
     }
 
     private void writeSymbol(Symbol sym) throws IOException {
-        if(sym != null) {
-            // If name is already written don't write it again.
-            if (names.add(sym)) {
+        // If name is already written don't write it again.
+        if (names.add(sym)) {
+            if(sym != null) {
                 byte[] buf = sym.asString().getBytes("UTF-8");
                 writeHeader(HPROF_UTF8, buf.length + OBJ_ID_SIZE);
                 writeSymbolID(sym);
