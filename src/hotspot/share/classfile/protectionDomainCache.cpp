@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,6 +23,8 @@
  */
 
 #include "precompiled.hpp"
+#include "classfile/classLoaderData.hpp"
+#include "classfile/dictionary.hpp"
 #include "classfile/protectionDomainCache.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "logging/log.hpp"
@@ -47,8 +49,30 @@ ProtectionDomainCacheTable::ProtectionDomainCacheTable(int table_size)
 {
 }
 
+class CleanProtectionDomainEntries : public CLDClosure {
+  void do_cld(ClassLoaderData* data) {
+    Dictionary* dictionary = data->dictionary();
+    if (dictionary != NULL) {
+      dictionary->clean_cached_protection_domains();
+    }
+  }
+};
+
 void ProtectionDomainCacheTable::unlink() {
   assert(SafepointSynchronize::is_at_safepoint(), "must be");
+
+  {
+    // First clean cached pd lists in loaded CLDs
+    // It's unlikely, but some loaded classes in a dictionary might
+    // point to a protection_domain that has been unloaded.
+    // The dictionary pd_set points at entries in the ProtectionDomainCacheTable.
+    // MutexLocker ml(ClassLoaderDataGraph_lock);
+    // MutexLocker mldict(SystemDictionary_lock);  // need both.
+    CleanProtectionDomainEntries clean;
+    // ClassLoaderDataGraph::loaded_cld_do(&clean);
+    ClassLoaderDataGraph::cld_do(&clean);
+  }
+
   for (int i = 0; i < table_size(); ++i) {
     ProtectionDomainCacheEntry** p = bucket_addr(i);
     ProtectionDomainCacheEntry* entry = bucket(i);
