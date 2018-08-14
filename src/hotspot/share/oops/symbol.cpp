@@ -396,4 +396,4 @@ bool Symbol::is_valid(Symbol* s) {
 }
 
 // SymbolTable prints this in its statistics
-NOT_PRODUCT(int Symbol::_total_count = 0;)
+NOT_PRODUCT(size_t Symbol::_total_count = 0;)
