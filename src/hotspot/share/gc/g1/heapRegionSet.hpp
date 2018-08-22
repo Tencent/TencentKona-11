@@ -47,14 +47,17 @@
   } while (0)
 
 
-class HRSMtSafeChecker : public CHeapObj<mtGC> {
+// Interface collecting various instance specific verification methods of
+// HeapRegionSets.
+class HeapRegionSetChecker : public CHeapObj<mtGC> {
 public:
-  virtual void check() = 0;
+  // Verify MT safety for this HeapRegionSet.
+  virtual void check_mt_safety() = 0;
+  // Returns true if the given HeapRegion is of the correct type for this HeapRegionSet.
+  virtual bool is_correct_type(HeapRegion* hr) = 0;
+  // Return a description of the type of regions this HeapRegionSet contains.
+  virtual const char* get_description() = 0;
 };
-
-class MasterFreeRegionListMtSafeChecker    : public HRSMtSafeChecker { public: void check(); };
-class HumongousRegionSetMtSafeChecker      : public HRSMtSafeChecker { public: void check(); };
-class OldRegionSetMtSafeChecker            : public HRSMtSafeChecker { public: void check(); };
 
 // Base class for all the classes that represent heap region sets. It
 // contains the basic attributes that each set needs to maintain
@@ -63,10 +66,8 @@ class OldRegionSetMtSafeChecker            : public HRSMtSafeChecker { public: v
 
 class HeapRegionSetBase {
   friend class VMStructs;
-private:
-  bool _is_humongous;
-  bool _is_free;
-  HRSMtSafeChecker* _mt_safety_checker;
+
+  HeapRegionSetChecker* _checker;
 
 protected:
   // The number of regions in to the set.
@@ -80,21 +81,13 @@ protected:
   // added to / removed from a set are consistent.
   void verify_region(HeapRegion* hr) PRODUCT_RETURN;
 
-  // Indicates whether all regions in the set should be humongous or
-  // not. Only used during verification.
-  bool regions_humongous() { return _is_humongous; }
-
-  // Indicates whether all regions in the set should be free or
-  // not. Only used during verification.
-  bool regions_free() { return _is_free; }
-
   void check_mt_safety() {
-    if (_mt_safety_checker != NULL) {
-      _mt_safety_checker->check();
+    if (_checker != NULL) {
+      _checker->check_mt_safety();
     }
   }
 
-  HeapRegionSetBase(const char* name, bool humongous, bool free, HRSMtSafeChecker* mt_safety_checker);
+  HeapRegionSetBase(const char* name, HeapRegionSetChecker* verifier);
 
 public:
   const char* name() { return _name; }
@@ -137,8 +130,9 @@ public:
 
 class HeapRegionSet : public HeapRegionSetBase {
 public:
-  HeapRegionSet(const char* name, bool humongous, HRSMtSafeChecker* mt_safety_checker):
-    HeapRegionSetBase(name, humongous, false /* free */, mt_safety_checker) { }
+  HeapRegionSet(const char* name, HeapRegionSetChecker* checker):
+    HeapRegionSetBase(name, checker) {
+  }
 
   void bulk_remove(const uint removed) {
     _length -= removed;
@@ -173,8 +167,8 @@ protected:
   virtual void clear();
 
 public:
-  FreeRegionList(const char* name, HRSMtSafeChecker* mt_safety_checker = NULL):
-    HeapRegionSetBase(name, false /* humongous */, true /* empty */, mt_safety_checker) {
+  FreeRegionList(const char* name, HeapRegionSetChecker* checker = NULL):
+    HeapRegionSetBase(name, checker) {
     clear();
   }
 
