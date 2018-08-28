@@ -19443,7 +19443,7 @@ instruct vcmpge16B(vecX dst, vecX src1, vecX src2, rRegL scratch) %{
 %}
 
 instruct extract8d(regD dst, vecZ src, immI idx) %{
-  predicate(UseAVX > 2 && n->as_Vector()->length() == 8 && n->bottom_type()->basic_type() == T_DOUBLE);
+  predicate(UseAVX > 2 && n->in(1)->bottom_type()->is_vect()->length() == 8);
   match(Set dst (ExtractD src idx));
   ins_encode %{
     int vector_len = 2;
@@ -19458,7 +19458,7 @@ instruct extract8d(regD dst, vecZ src, immI idx) %{
 %}
 
 instruct extract4d(regD dst, vecY src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 4 && n->bottom_type()->basic_type() == T_DOUBLE);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 4);
   match(Set dst (ExtractD src idx));
   ins_encode %{
     int vector_len = 1;
@@ -19474,7 +19474,7 @@ instruct extract4d(regD dst, vecY src, immI idx) %{
 %}
 
 instruct extract2d(regD dst, vecX src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 2 && n->bottom_type()->basic_type() == T_DOUBLE);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 2);
   match(Set dst (ExtractD src idx));
   ins_encode %{
     int vector_len = 0;
@@ -19489,7 +19489,7 @@ instruct extract2d(regD dst, vecX src, immI idx) %{
 %}
 
 instruct extract1d(regD dst, vecD src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 1 && n->bottom_type()->basic_type() == T_DOUBLE);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 1);
   match(Set dst (ExtractD src idx));
   ins_encode %{
     int vector_len = 0;
@@ -19502,7 +19502,7 @@ instruct extract1d(regD dst, vecD src, immI idx) %{
 %}
 
 instruct extract16f(regF dst, vecZ src, vecZ tmp, immI idx) %{
-  predicate(UseAVX > 2 && n->as_Vector()->length() == 16 && n->bottom_type()->basic_type() == T_FLOAT);
+  predicate(UseAVX > 2 && n->in(1)->bottom_type()->is_vect()->length() == 16);
   match(Set dst (ExtractF src idx));
   effect(TEMP tmp);
   ins_encode %{
@@ -19523,7 +19523,7 @@ instruct extract16f(regF dst, vecZ src, vecZ tmp, immI idx) %{
 %}
 
 instruct extract8f(regF dst, vecY src, vecY tmp, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 8 && n->bottom_type()->basic_type() == T_FLOAT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 8);
   match(Set dst (ExtractF src idx));
   effect(TEMP tmp);
   ins_encode %{
@@ -19542,7 +19542,7 @@ instruct extract8f(regF dst, vecY src, vecY tmp, immI idx) %{
 %}
 
 instruct extract4f(regF dst, vecX src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 4 && n->bottom_type()->basic_type() == T_FLOAT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 4);
   match(Set dst (ExtractF src idx));
   ins_encode %{
     int vector_len=0;
@@ -19557,7 +19557,7 @@ instruct extract4f(regF dst, vecX src, immI idx) %{
 %}
 
 instruct extract2f(regF dst, vecD src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 2 && n->bottom_type()->basic_type() == T_FLOAT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 2);
   match(Set dst (ExtractF src idx));
   ins_encode %{
     int vector_len=0;
@@ -19572,7 +19572,7 @@ instruct extract2f(regF dst, vecD src, immI idx) %{
 %}
  
 instruct extract8l(rRegL dst, vecZ src, vecZ tmp, immI idx) %{
-  predicate(UseAVX > 2 && n->as_Vector()->length() == 8 && n->bottom_type()->basic_type() == T_LONG);
+  predicate(UseAVX > 2 && n->in(1)->bottom_type()->is_vect()->length() == 8);
   match(Set dst (ExtractL src idx));
   effect(TEMP tmp);
   ins_encode %{
@@ -19591,7 +19591,7 @@ instruct extract8l(rRegL dst, vecZ src, vecZ tmp, immI idx) %{
 %}
 
 instruct extract4l(rRegL dst, vecY src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 4 && n->bottom_type()->basic_type() == T_LONG);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 4);
   match(Set dst (ExtractL src idx));
   ins_encode %{
     int midx = 0x3 & $idx$$constant;
@@ -19605,7 +19605,7 @@ instruct extract4l(rRegL dst, vecY src, immI idx) %{
 %}
 
 instruct extract2l(rRegL dst, vecX src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 2 && n->bottom_type()->basic_type() == T_LONG);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 2);
   match(Set dst (ExtractL src idx));
   ins_encode %{
     int midx = 0x1 & $idx$$constant;
@@ -19619,7 +19619,7 @@ instruct extract2l(rRegL dst, vecX src, immI idx) %{
 %}
 
 instruct extract1l(rRegL dst, vecD src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 1 && n->bottom_type()->basic_type() == T_LONG);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 1);
   match(Set dst (ExtractL src idx));
   ins_encode %{
     int midx = 0x1 & $idx$$constant;
@@ -19631,7 +19631,7 @@ instruct extract1l(rRegL dst, vecD src, immI idx) %{
 %}
 
 instruct extract16i(rRegI dst, vecZ src, vecZ tmp, immI idx) %{
-  predicate(UseAVX > 2 && n->as_Vector()->length() == 16 && n->bottom_type()->basic_type() == T_INT);
+  predicate(UseAVX > 2 && n->in(1)->bottom_type()->is_vect()->length() == 16);
   match(Set dst (ExtractI src idx));
   effect(TEMP tmp);
     ins_encode %{
@@ -19654,7 +19654,7 @@ instruct extract16i(rRegI dst, vecZ src, vecZ tmp, immI idx) %{
 %}
  
 instruct extract8i(rRegI dst, vecY src, vecY tmp, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 8 && n->bottom_type()->basic_type() == T_INT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 8);
   match(Set dst (ExtractI src idx));
   effect(TEMP tmp);
   ins_encode %{
@@ -19672,7 +19672,7 @@ instruct extract8i(rRegI dst, vecY src, vecY tmp, immI idx) %{
 %}
 
 instruct extract4i(rRegI dst, vecX src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 4 && n->bottom_type()->basic_type() == T_INT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 4);
   match(Set dst (ExtractI src idx));
   ins_encode %{
     int midx = 0x3 & $idx$$constant;
@@ -19686,7 +19686,7 @@ instruct extract4i(rRegI dst, vecX src, immI idx) %{
 %}
 
 instruct extract2i(rRegI dst, vecD src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 2 && n->bottom_type()->basic_type() == T_INT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 2);
   match(Set dst (ExtractI src idx));
   ins_encode %{
     int midx = 0x1 & $idx$$constant;
@@ -19700,7 +19700,7 @@ instruct extract2i(rRegI dst, vecD src, immI idx) %{
 %}
  
 instruct extract32s(rRegI dst, vecZ src, vecZ tmp, immI idx) %{
-  predicate(UseAVX > 2 && n->as_Vector()->length() == 32 && n->bottom_type()->basic_type() == T_SHORT);
+  predicate(UseAVX > 2 && n->in(1)->bottom_type()->is_vect()->length() == 32);
   match(Set dst (ExtractS src idx));
   effect(TEMP tmp);
     ins_encode %{
@@ -19725,7 +19725,7 @@ instruct extract32s(rRegI dst, vecZ src, vecZ tmp, immI idx) %{
 %}
 
 instruct extract16s(rRegI dst, vecY src, vecY tmp, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 16 && n->bottom_type()->basic_type() == T_SHORT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 16);
   match(Set dst (ExtractS src idx));
   effect(TEMP tmp);
   ins_encode %{
@@ -19747,7 +19747,7 @@ instruct extract16s(rRegI dst, vecY src, vecY tmp, immI idx) %{
 %}
  
 instruct extract8s(rRegI dst, vecX src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 8 && n->bottom_type()->basic_type() == T_SHORT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 8);
   match(Set dst (ExtractS src idx));
   ins_encode %{
     int midx = 0x7 & $idx$$constant;
@@ -19763,7 +19763,7 @@ instruct extract8s(rRegI dst, vecX src, immI idx) %{
 %}
 
 instruct extract4s(rRegI dst, vecD src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 4 && n->bottom_type()->basic_type() == T_SHORT);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 4);
   match(Set dst (ExtractS src idx));
   ins_encode %{
     int midx = 0x3 & $idx$$constant;
@@ -19779,7 +19779,7 @@ instruct extract4s(rRegI dst, vecD src, immI idx) %{
 %}
  
 instruct extract64b(rRegI dst, vecZ src, vecZ tmp, immI idx) %{
-  predicate(UseAVX > 2 && n->as_Vector()->length() == 64 && n->bottom_type()->basic_type() == T_BYTE);
+  predicate(UseAVX > 2 && n->in(1)->bottom_type()->is_vect()->length() == 64);
   match(Set dst (ExtractB src idx));
   effect(TEMP tmp);
     ins_encode %{
@@ -19804,7 +19804,7 @@ instruct extract64b(rRegI dst, vecZ src, vecZ tmp, immI idx) %{
 %}
 
 instruct extract32b(rRegI dst, vecY src, vecY tmp, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 32 && n->bottom_type()->basic_type() == T_BYTE);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 32);
   match(Set dst (ExtractB src idx));
   effect(TEMP tmp);
     ins_encode %{
@@ -19829,7 +19829,7 @@ instruct extract32b(rRegI dst, vecY src, vecY tmp, immI idx) %{
 %}
 
 instruct extract16b(rRegI dst, vecX src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 16 && n->bottom_type()->basic_type() == T_BYTE);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 16);
   match(Set dst (ExtractB src idx));
   ins_encode %{
     int midx = 0xF & $idx$$constant;
@@ -19845,7 +19845,7 @@ instruct extract16b(rRegI dst, vecX src, immI idx) %{
 %}
 
 instruct extract8b(rRegI dst, vecD src, immI idx) %{
-  predicate(UseAVX > 0 && n->as_Vector()->length() == 8 && n->bottom_type()->basic_type() == T_BYTE);
+  predicate(UseAVX > 0 && n->in(1)->bottom_type()->is_vect()->length() == 8);
   match(Set dst (ExtractB src idx));
   ins_encode %{
     int midx = 0x7 & $idx$$constant;
