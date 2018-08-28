@@ -90,6 +90,9 @@
 #if INCLUDE_JVMCI
 #include "jvmci/jvmciRuntime.hpp"
 #endif
+#if INCLUDE_JFR
+#include "jfr/jfr.hpp"
+#endif
 
 PlaceholderTable*      SystemDictionary::_placeholders        = NULL;
 Dictionary*            SystemDictionary::_shared_dictionary   = NULL;
@@ -1837,6 +1840,7 @@ bool SystemDictionary::do_unloading(GCTimer* gc_timer) {
     unloading_occurred = ClassLoaderDataGraph::do_unloading();
     if (unloading_occurred) {
       MutexLockerEx ml2(is_concurrent ? Module_lock : NULL);
+      JFR_ONLY(Jfr::on_unloading_classes();)
       MutexLockerEx ml1(is_concurrent ? SystemDictionary_lock : NULL);
       ClassLoaderDataGraph::clean_module_and_package_info();
     }

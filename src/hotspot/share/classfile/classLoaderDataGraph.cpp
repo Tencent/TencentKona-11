@@ -512,29 +512,6 @@ bool ClassLoaderDataGraph::is_valid(ClassLoaderData* loader_data) {
   return false;
 }
 
-#if INCLUDE_JFR
-static Ticks class_unload_time;
-static void post_class_unload_event(Klass* const k) {
-  assert(k != NULL, "invariant");
-  EventClassUnload event(UNTIMED);
-  event.set_endtime(class_unload_time);
-  event.set_unloadedClass(k);
-  event.set_definingClassLoader(k->class_loader_data());
-  event.commit();
-}
-
-static void post_class_unload_events() {
-  assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint!");
-  if (Jfr::is_enabled()) {
-    if (EventClassUnload::is_enabled()) {
-      class_unload_time = Ticks::now();
-      ClassLoaderDataGraph::classes_unloading_do(&post_class_unload_event);
-    }
-    Jfr::on_unloading_classes();
-  }
-}
-#endif // INCLUDE_JFR
-
 // Move class loader data from main list to the unloaded list for unloading
 // and deallocation later.
 bool ClassLoaderDataGraph::do_unloading() {
@@ -577,10 +554,6 @@ bool ClassLoaderDataGraph::do_unloading() {
     }
     dead->set_next(_unloading);
     _unloading = dead;
-  }
-
-  if (seen_dead_loader) {
-    JFR_ONLY(post_class_unload_events();)
   }
 
   log_debug(class, loader, data)("do_unloading: loaders processed %u, loaders removed %u", loaders_processed, loaders_removed);

@@ -72,11 +72,6 @@
 #include "utilities/growableArray.hpp"
 #include "utilities/macros.hpp"
 #include "utilities/ostream.hpp"
-#include "utilities/ticks.hpp"
-#if INCLUDE_JFR
-#include "jfr/jfr.hpp"
-#include "jfr/jfrEvents.hpp"
-#endif
 
 ClassLoaderData * ClassLoaderData::_the_null_class_loader_data = NULL;
 
