@@ -146,8 +146,7 @@ oop ResolvedMethodTable::add_method(const methodHandle& m, Handle resolved_metho
 }
 
 // Removing entries
-int ResolvedMethodTable::_oops_removed = 0;
-int ResolvedMethodTable::_oops_counted = 0;
+int ResolvedMethodTable::_total_oops_removed = 0;
 
 // There are no dead entries at start
 bool ResolvedMethodTable::_dead_entries = false;
@@ -162,8 +161,8 @@ void ResolvedMethodTable::trigger_cleanup() {
 // This is done by the ServiceThread after being notified on class unloading
 void ResolvedMethodTable::unlink() {
   MutexLocker ml(ResolvedMethodTable_lock);
-  _oops_removed = 0;
-  _oops_counted = 0;
+  int _oops_removed = 0;
+  int _oops_counted = 0;
   for (int i = 0; i < _the_table->table_size(); ++i) {
     ResolvedMethodEntry** p = _the_table->bucket_addr(i);
     ResolvedMethodEntry* entry = _the_table->bucket(i);
@@ -188,6 +187,7 @@ void ResolvedMethodTable::unlink() {
   }
   log_debug(membername, table) ("ResolvedMethod entries counted %d removed %d",
                                 _oops_counted, _oops_removed);
+  _total_oops_removed += _oops_removed;
   _dead_entries = false;
 }
 

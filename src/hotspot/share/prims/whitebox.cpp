@@ -48,6 +48,7 @@
 #include "oops/objArrayOop.inline.hpp"
 #include "oops/oop.inline.hpp"
 #include "oops/typeArrayOop.inline.hpp"
+#include "prims/resolvedMethodTable.hpp"
 #include "prims/wbtestmethods/parserTests.hpp"
 #include "prims/whitebox.inline.hpp"
 #include "runtime/arguments.hpp"
@@ -2020,6 +2021,10 @@ WB_ENTRY(void, WB_DisableElfSectionCache(JNIEnv* env))
 #endif
 WB_END
 
+WB_ENTRY(jint, WB_ResolvedMethodRemovedCount(JNIEnv* env, jobject o))
+  return (jint) ResolvedMethodTable::removed_entries_count();
+WB_END
+
 WB_ENTRY(jint, WB_AotLibrariesCount(JNIEnv* env, jobject o))
   jint result = 0;
 #if INCLUDE_AOT
@@ -2255,6 +2260,7 @@ static JNINativeMethod methods[] = {
   {CC"isContainerized",           CC"()Z",            (void*)&WB_IsContainerized },
   {CC"printOsInfo",               CC"()V",            (void*)&WB_PrintOsInfo },
   {CC"disableElfSectionCache",    CC"()V",            (void*)&WB_DisableElfSectionCache },
+  {CC"resolvedMethodRemovedCount",     CC"()I",       (void*)&WB_ResolvedMethodRemovedCount },
   {CC"aotLibrariesCount", CC"()I",                    (void*)&WB_AotLibrariesCount },
 };
 

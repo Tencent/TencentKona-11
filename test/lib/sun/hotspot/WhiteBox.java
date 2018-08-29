@@ -543,6 +543,9 @@ public class WhiteBox {
   // Decoder
   public native void disableElfSectionCache();
 
+  // Resolved Method Table
+  public native int resolvedMethodRemovedCount();
+
   // Number of loaded AOT libraries
   public native int aotLibrariesCount();
 }
