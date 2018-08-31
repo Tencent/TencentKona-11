@@ -799,6 +799,7 @@ void SystemDictionaryShared::finalize_verification_constraints_for(InstanceKlass
 }
 
 void SystemDictionaryShared::finalize_verification_constraints() {
+  MutexLocker mcld(ClassLoaderDataGraph_lock);
   ClassLoaderDataGraph::dictionary_classes_do(finalize_verification_constraints_for);
 }
 

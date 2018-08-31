@@ -360,7 +360,7 @@ void JfrCheckpointManager::write_type_set() {
   assert(!SafepointSynchronize::is_at_safepoint(), "invariant");
   // can safepoint here
   // TODO: CLDG lock does not exist in 11 - what shall we do?
-  // MutexLocker cld_lock(ClassLoaderDataGraph_lock);
+  MutexLocker cld_lock(ClassLoaderDataGraph_lock);
   MutexLocker module_lock(Module_lock);
   if (!LeakProfiler::is_running()) {
     JfrCheckpointWriter writer(true, true, Thread::current());

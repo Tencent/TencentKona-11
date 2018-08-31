@@ -1891,6 +1891,7 @@ void SystemDictionary::well_known_klasses_do(MetaspaceClosure* it) {
 
 void SystemDictionary::methods_do(void f(Method*)) {
   // Walk methods in loaded classes
+  MutexLocker ml(ClassLoaderDataGraph_lock);
   ClassLoaderDataGraph::methods_do(f);
   // Walk method handle intrinsics
   invoke_method_table()->methods_do(f);
@@ -1908,6 +1909,7 @@ class RemoveClassesClosure : public CLDClosure {
 void SystemDictionary::remove_classes_in_error_state() {
   ClassLoaderData::the_null_class_loader_data()->dictionary()->remove_classes_in_error_state();
   RemoveClassesClosure rcc;
+  MutexLocker ml(ClassLoaderDataGraph_lock);
   ClassLoaderDataGraph::cld_do(&rcc);
 }
 
