@@ -546,6 +546,9 @@ public class WhiteBox {
   // Resolved Method Table
   public native int resolvedMethodRemovedCount();
 
+  // Protection Domain Table
+  public native int protectionDomainRemovedCount();
+
   // Number of loaded AOT libraries
   public native int aotLibrariesCount();
 }
