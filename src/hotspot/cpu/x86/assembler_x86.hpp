@@ -2235,6 +2235,8 @@ private:
   void vpsrad(XMMRegister dst, XMMRegister src, int shift, int vector_len);
   void vpsraw(XMMRegister dst, XMMRegister src, XMMRegister shift, int vector_len);
   void vpsrad(XMMRegister dst, XMMRegister src, XMMRegister shift, int vector_len);
+  void evpsraq(XMMRegister dst, XMMRegister src, int shift, int vector_len);
+  void evpsraq(XMMRegister dst, XMMRegister src, XMMRegister shift, int vector_len);
 
   // Variable shift left packed integers
   void vpsllvd(XMMRegister dst, XMMRegister src, XMMRegister shift, int vector_len);
@@ -2246,7 +2248,7 @@ private:
 
   // Variable shift right arithmetic packed integers
   void vpsravd(XMMRegister dst, XMMRegister src, XMMRegister shift, int vector_len);
-  void vpsravq(XMMRegister dst, XMMRegister src, XMMRegister shift, int vector_len);
+  void evpsravq(XMMRegister dst, XMMRegister src, XMMRegister shift, int vector_len);
 
   // And packed integers
   void pand(XMMRegister dst, XMMRegister src);
