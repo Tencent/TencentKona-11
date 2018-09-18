@@ -497,12 +497,13 @@ void CollectedHeap::ensure_parsability(bool retire_tlabs) {
 }
 
 void CollectedHeap::resize_all_tlabs() {
-  if (UseTLAB) {
-    assert(SafepointSynchronize::is_at_safepoint() ||
-         !is_init_completed(),
-         "should only resize tlabs at safepoint");
+  assert(SafepointSynchronize::is_at_safepoint() || !is_init_completed(),
+         "Should only resize tlabs at safepoint");
 
-    ThreadLocalAllocBuffer::resize_all_tlabs();
+  if (UseTLAB && ResizeTLAB) {
+    for (JavaThreadIteratorWithHandle jtiwh; JavaThread *thread = jtiwh.next(); ) {
+      thread->tlab().resize();
+    }
   }
 }
 
