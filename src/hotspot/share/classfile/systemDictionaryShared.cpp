@@ -27,6 +27,7 @@
 #include "classfile/classListParser.hpp"
 #include "classfile/classLoader.hpp"
 #include "classfile/classLoaderData.inline.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/classLoaderExt.hpp"
 #include "classfile/compactHashtable.inline.hpp"
 #include "classfile/dictionary.hpp"
