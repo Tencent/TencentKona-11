@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2018, Red Hat, Inc. All rights reserved.
+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,31 +23,18 @@
  */
 
 #include "precompiled.hpp"
-#include "runtime/thread.hpp"
-#include "gc/epsilon/epsilonBarrierSet.hpp"
-#include "gc/epsilon/epsilonThreadLocalData.hpp"
-#include "gc/shared/collectorPolicy.hpp"
-#include "gc/shared/barrierSet.hpp"
-#include "gc/shared/barrierSetAssembler.hpp"
-#include "utilities/macros.hpp"
-#ifdef COMPILER1
-#include "gc/shared/c1/barrierSetC1.hpp"
-#endif
-#ifdef COMPILER2
-#include "gc/shared/c2/barrierSetC2.hpp"
-#endif
+#include "gc/shared/barrierSetNMethod.hpp"
+#include "utilities/debug.hpp"
 
-EpsilonBarrierSet::EpsilonBarrierSet() : BarrierSet(
-          make_barrier_set_assembler<BarrierSetAssembler>(),
-          make_barrier_set_c1<BarrierSetC1>(),
-          make_barrier_set_c2<BarrierSetC2>(),
-          NULL /* barrier_set_nmethod */,
-          BarrierSet::FakeRtti(BarrierSet::EpsilonBarrierSet)) {};
-
-void EpsilonBarrierSet::on_thread_create(Thread *thread) {
-  EpsilonThreadLocalData::create(thread);
+void BarrierSetNMethod::deoptimize(nmethod* nm, address* return_address_ptr) {
+  ShouldNotReachHere();
 }
 
-void EpsilonBarrierSet::on_thread_destroy(Thread *thread) {
-  EpsilonThreadLocalData::destroy(thread);
+void BarrierSetNMethod::disarm(nmethod* nm) {
+  ShouldNotReachHere();
+}
+
+bool BarrierSetNMethod::is_armed(nmethod* nm) {
+  ShouldNotReachHere();
+  return false;
 }
