@@ -234,8 +234,15 @@ ClassLoaderData* ClassLoaderDataGraph::add(Handle loader, bool is_unsafe_anonymo
   return loader_data;
 }
 
+void ClassLoaderDataGraph::cld_do(CLDClosure* cl) {
+  assert_locked_or_safepoint_weak(ClassLoaderDataGraph_lock);
+  for (ClassLoaderData* cld = _head;  cld != NULL; cld = cld->_next) {
+    cl->do_cld(cld);
+  }
+}
+
 void ClassLoaderDataGraph::cld_unloading_do(CLDClosure* cl) {
-  assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
+  assert_locked_or_safepoint_weak(ClassLoaderDataGraph_lock);
   // Only walk the head until any clds not purged from prior unloading
   // (CMS doesn't purge right away).
   for (ClassLoaderData* cld = _unloading; cld != _saved_unloading; cld = cld->next()) {
@@ -244,17 +251,8 @@ void ClassLoaderDataGraph::cld_unloading_do(CLDClosure* cl) {
   }
 }
 
-// These are functions called by the GC, which require all of the CLDs, including the
-// unloading ones.
-void ClassLoaderDataGraph::cld_do(CLDClosure* cl) {
-  assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
-  for (ClassLoaderData* cld = _head;  cld != NULL; cld = cld->_next) {
-    cl->do_cld(cld);
-  }
-}
-
 void ClassLoaderDataGraph::roots_cld_do(CLDClosure* strong, CLDClosure* weak) {
-  assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
+  assert_locked_or_safepoint_weak(ClassLoaderDataGraph_lock);
   for (ClassLoaderData* cld = _head;  cld != NULL; cld = cld->_next) {
     CLDClosure* closure = cld->keep_alive() ? strong : weak;
     if (closure != NULL) {
@@ -268,7 +266,7 @@ void ClassLoaderDataGraph::keep_alive_cld_do(CLDClosure* cl) {
 }
 
 void ClassLoaderDataGraph::always_strong_cld_do(CLDClosure* cl) {
-  assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
+  assert_locked_or_safepoint_weak(ClassLoaderDataGraph_lock);
   if (ClassUnloading) {
     keep_alive_cld_do(cl);
   } else {
