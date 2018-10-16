@@ -142,7 +142,7 @@ ClassLoaderData::ClassLoaderData(Handle h_class_loader, bool is_anonymous) :
   _keep_alive((is_anonymous || h_class_loader.is_null()) ? 1 : 0),
   _metaspace(NULL), _unloading(false), _klasses(NULL),
   _modules(NULL), _packages(NULL), _unnamed_module(NULL), _dictionary(NULL),
-  _claimed(0), _modified_oops(true), _accumulated_modified_oops(false),
+  _claim(0), _modified_oops(true), _accumulated_modified_oops(false),
   _jmethod_ids(NULL), _handles(), _deallocate_list(NULL),
   _next(NULL),
   _class_loader_klass(NULL), _name(NULL), _name_and_id(NULL),
@@ -270,12 +270,17 @@ bool ClassLoaderData::ChunkedHandleList::owner_of(oop* oop_handle) {
 }
 #endif // PRODUCT
 
-bool ClassLoaderData::claim() {
-  if (_claimed == 1) {
-    return false;
+bool ClassLoaderData::try_claim(int claim) {
+  for (;;) {
+    int old_claim = Atomic::load(&_claim);
+    if ((old_claim & claim) == claim) {
+      return false;
+    }
+    int new_claim = old_claim | claim;
+    if (Atomic::cmpxchg(new_claim, &_claim, old_claim) == old_claim) {
+      return true;
+    }
   }
-
-  return (int) Atomic::cmpxchg(1, &_claimed, 0) == 0;
 }
 
 // Anonymous classes have their own ClassLoaderData that is marked to keep alive
@@ -297,8 +302,8 @@ void ClassLoaderData::dec_keep_alive() {
   }
 }
 
-void ClassLoaderData::oops_do(OopClosure* f, bool must_claim, bool clear_mod_oops) {
-  if (must_claim && !claim()) {
+void ClassLoaderData::oops_do(OopClosure* f, int claim_value, bool clear_mod_oops) {
+  if (claim_value != ClassLoaderData::_claim_none && !try_claim(claim_value)) {
     return;
   }
 

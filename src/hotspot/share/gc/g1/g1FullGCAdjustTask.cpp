@@ -96,7 +96,7 @@ void G1FullGCAdjustTask::work(uint worker_id) {
   marker->preserved_stack()->adjust_during_full_gc();
 
   // Adjust the weak_roots.
-  CLDToOopClosure adjust_cld(&_adjust);
+  CLDToOopClosure adjust_cld(&_adjust, ClassLoaderData::_claim_strong);
   CodeBlobToOopClosure adjust_code(&_adjust, CodeBlobToOopClosure::FixRelocations);
   _root_processor.process_full_gc_weak_roots(&_adjust);
 
