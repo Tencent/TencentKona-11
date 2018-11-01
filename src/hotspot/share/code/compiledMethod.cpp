@@ -339,7 +339,7 @@ void CompiledMethod::clear_inline_caches() {
 // Clear IC callsites, releasing ICStubs of all compiled ICs
 // as well as any associated CompiledICHolders.
 void CompiledMethod::clear_ic_callsites() {
-  assert_locked_or_safepoint(CompiledIC_lock);
+  assert(CompiledICLocker::is_safe(this), "mt unsafe call");
   ResourceMark rm;
   RelocIterator iter(this);
   while(iter.next()) {
@@ -561,7 +561,7 @@ bool CompiledMethod::unload_nmethod_caches(bool parallel, bool unloading_occurre
 // Called to clean up after class unloading for live nmethods and from the sweeper
 // for all methods.
 bool CompiledMethod::cleanup_inline_caches_impl(bool parallel, bool unloading_occurred, bool clean_all) {
-  assert_locked_or_safepoint(CompiledIC_lock);
+  assert(CompiledICLocker::is_safe(this), "mt unsafe call");
   bool postponed = false;
   ResourceMark rm;
 

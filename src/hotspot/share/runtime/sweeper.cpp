@@ -606,7 +606,7 @@ NMethodSweeper::MethodStateChange NMethodSweeper::process_compiled_method(Compil
     // But still remember to clean-up inline caches for alive nmethods
     if (cm->is_alive()) {
       // Clean inline caches that point to zombie/non-entrant/unloaded nmethods
-      MutexLocker cl(CompiledIC_lock);
+      CompiledICLocker ml(cm);
       cm->cleanup_inline_caches();
       SWEEP(cm);
     }
@@ -652,7 +652,7 @@ NMethodSweeper::MethodStateChange NMethodSweeper::process_compiled_method(Compil
       }
     } else {
       // Still alive, clean up its inline caches
-      MutexLocker cl(CompiledIC_lock);
+      CompiledICLocker ml(cm);
       cm->cleanup_inline_caches();
       SWEEP(cm);
     }
@@ -677,7 +677,7 @@ NMethodSweeper::MethodStateChange NMethodSweeper::process_compiled_method(Compil
       possibly_flush((nmethod*)cm);
     }
     // Clean inline caches that point to zombie/non-entrant/unloaded nmethods
-    MutexLocker cl(CompiledIC_lock);
+    CompiledICLocker ml(cm);
     cm->cleanup_inline_caches();
     SWEEP(cm);
   }
