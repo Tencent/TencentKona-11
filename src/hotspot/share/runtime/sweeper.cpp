@@ -607,7 +607,7 @@ NMethodSweeper::MethodStateChange NMethodSweeper::process_compiled_method(Compil
     if (cm->is_alive()) {
       // Clean inline caches that point to zombie/non-entrant/unloaded nmethods
       CompiledICLocker ml(cm);
-      cm->cleanup_inline_caches();
+      cm->cleanup_inline_caches(false);
       SWEEP(cm);
     }
     return result;
@@ -653,7 +653,7 @@ NMethodSweeper::MethodStateChange NMethodSweeper::process_compiled_method(Compil
     } else {
       // Still alive, clean up its inline caches
       CompiledICLocker ml(cm);
-      cm->cleanup_inline_caches();
+      cm->cleanup_inline_caches(false);
       SWEEP(cm);
     }
   } else if (cm->is_unloaded()) {
@@ -678,7 +678,7 @@ NMethodSweeper::MethodStateChange NMethodSweeper::process_compiled_method(Compil
     }
     // Clean inline caches that point to zombie/non-entrant/unloaded nmethods
     CompiledICLocker ml(cm);
-    cm->cleanup_inline_caches();
+    cm->cleanup_inline_caches(false);
     SWEEP(cm);
   }
   return result;
