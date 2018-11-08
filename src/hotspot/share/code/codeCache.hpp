@@ -193,7 +193,7 @@ class CodeCache : AllStatic {
     }
   };
   static void do_unloading(BoolObjectClosure* is_alive, bool unloading_occurred);
-  static uint16_t unloading_cycle() { return _unloading_cycle; }
+  static uint8_t unloading_cycle() { return _unloading_cycle; }
   static void increment_unloading_cycle();
   static void asserted_non_scavengable_nmethods_do(CodeBlobClosure* f = NULL) PRODUCT_RETURN;
 
