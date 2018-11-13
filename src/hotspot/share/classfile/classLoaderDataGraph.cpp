@@ -537,11 +537,11 @@ static void post_class_unload_events() {
 
 // Move class loader data from main list to the unloaded list for unloading
 // and deallocation later.
-bool ClassLoaderDataGraph::do_unloading(bool do_cleaning) {
+bool ClassLoaderDataGraph::do_unloading() {
   assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
 
   // Indicate whether safepoint cleanup is needed.
-  _safepoint_cleanup_needed |= do_cleaning;
+  _safepoint_cleanup_needed = true;
 
   ClassLoaderData* data = _head;
   ClassLoaderData* prev = NULL;
