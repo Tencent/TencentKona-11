@@ -74,8 +74,7 @@ void ProtectionDomainCacheTable::unlink() {
     MutexLocker ml(ClassLoaderDataGraph_lock);
     MutexLocker mldict(SystemDictionary_lock);  // need both.
     CleanProtectionDomainEntries clean;
-    // ClassLoaderDataGraph::loaded_cld_do(&clean);
-    ClassLoaderDataGraph::cld_do(&clean);
+    ClassLoaderDataGraph::loaded_cld_do(&clean);
   }
 
   MutexLocker ml(SystemDictionary_lock);

@@ -581,7 +581,7 @@ class CLDCallback : public CLDClosure {
 
 static void do_class_loaders() {
   CLDCallback cld_cb;
-  ClassLoaderDataGraph::cld_do(&cld_cb);
+  ClassLoaderDataGraph::loaded_cld_do(&cld_cb);
 }
 
 typedef SerializePredicate<CldPtr> CldPredicate;

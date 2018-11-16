@@ -256,19 +256,21 @@ void ClassLoaderDataGraph::always_strong_oops_do(OopClosure* f, bool must_claim)
   }
 }
 
-void ClassLoaderDataGraph::cld_do(CLDClosure* cl) {
-  assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
-  for (ClassLoaderData* cld = _head;  cld != NULL; cld = cld->_next) {
-    cl->do_cld(cld);
-  }
-}
-
 void ClassLoaderDataGraph::cld_unloading_do(CLDClosure* cl) {
   assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
   // Only walk the head until any clds not purged from prior unloading
   // (CMS doesn't purge right away).
   for (ClassLoaderData* cld = _unloading; cld != _saved_unloading; cld = cld->next()) {
     assert(cld->is_unloading(), "invariant");
+    cl->do_cld(cld);
+  }
+}
+
+// These are functions called by the GC, which require all of the CLDs, including the
+// unloading ones.
+void ClassLoaderDataGraph::cld_do(CLDClosure* cl) {
+  assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
+  for (ClassLoaderData* cld = _head;  cld != NULL; cld = cld->_next) {
     cl->do_cld(cld);
   }
 }
@@ -316,6 +318,8 @@ class ClassLoaderDataGraphIterator : public StackObj {
   HandleMark       _hm;  // clean up handles when this is done.
   Handle           _holder;
   Thread*          _thread;
+  NoSafepointVerifier _nsv; // No safepoints allowed in this scope
+                            // unless verifying at a safepoint.
 
   void hold_next() {
     if (_next != NULL) {
@@ -323,7 +327,8 @@ class ClassLoaderDataGraphIterator : public StackObj {
     }
   }
 public:
-  ClassLoaderDataGraphIterator() : _next(ClassLoaderDataGraph::_head) {
+  ClassLoaderDataGraphIterator() : _next(ClassLoaderDataGraph::_head),
+     _nsv(true, !SafepointSynchronize::is_at_safepoint()) {
     _thread = Thread::current();
     assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
     hold_next();
@@ -342,6 +347,13 @@ public:
     return next;
   }
 };
+
+void ClassLoaderDataGraph::loaded_cld_do(CLDClosure* cl) {
+  ClassLoaderDataGraphIterator iter;
+  while (ClassLoaderData* cld = iter.get_next()) {
+    cl->do_cld(cld);
+  }
+}
 
 // These functions assume that the caller has locked the ClassLoaderDataGraph_lock
 // if they are not calling the function from a safepoint.
