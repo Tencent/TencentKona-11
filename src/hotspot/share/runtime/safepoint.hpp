@@ -115,17 +115,17 @@ class SafepointSynchronize : AllStatic {
   // safepoint. The fact that Threads_lock is held throughout each pair of
   // increments (at the beginning and end of each safepoint) guarantees
   // race freedom.
-public:
-  static volatile int _safepoint_counter;
+  static volatile uint64_t _safepoint_counter;
+
 private:
-  static long       _end_of_last_safepoint;     // Time of last safepoint in milliseconds
+  static long              _end_of_last_safepoint;     // Time of last safepoint in milliseconds
+  static julong            _coalesced_vmop_count;     // coalesced vmop count
 
   // Statistics
   static jlong            _safepoint_begin_time;     // time when safepoint begins
   static SafepointStats*  _safepoint_stats;          // array of SafepointStats struct
   static int              _cur_stat_index;           // current index to the above array
   static julong           _safepoint_reasons[];      // safepoint count for each VM op
-  static julong           _coalesced_vmop_count;     // coalesced vmop count
   static jlong            _max_sync_time;            // maximum sync time in nanos
   static jlong            _max_vmop_time;            // maximum vm operation time in nanos
   static float            _ts_of_current_safepoint;  // time stamp of current safepoint in seconds
@@ -157,9 +157,9 @@ public:
   static void check_for_lazy_critical_native(JavaThread *thread, JavaThreadState state);
 
   // Query
-  inline static bool is_at_safepoint()   { return _state == _synchronized;  }
-  inline static bool is_synchronizing()  { return _state == _synchronizing;  }
-  inline static int safepoint_counter()  { return _safepoint_counter; }
+  inline static bool is_at_safepoint()       { return _state == _synchronized; }
+  inline static bool is_synchronizing()      { return _state == _synchronizing; }
+  inline static uint64_t safepoint_counter() { return _safepoint_counter; }
 
   inline static void increment_jni_active_count() {
     assert_locked_or_safepoint(Safepoint_lock);
@@ -202,9 +202,18 @@ public:
   // Assembly support
   static address address_of_state()                        { return (address)&_state; }
 
-  static address safepoint_counter_addr()                  { return (address)&_safepoint_counter; }
+  // Only used for making sure that no safepoint has happened in
+  // JNI_FastGetField. Therefore only the low 32-bits are needed
+  // even if this is a 64-bit counter.
+  static address safepoint_counter_addr() {
+#ifdef VM_LITTLE_ENDIAN
+    return (address)&_safepoint_counter;
+#else /* BIG */
+    // Return pointer to the 32 LSB:
+    return (address) (((uint32_t*)(&_safepoint_counter)) + 1);
+#endif
+  }
 
-  // This method is only used for -Xconcurrentio support.
   static void set_defer_thr_suspend_loop_count() {
     _defer_thr_suspend_loop_count = 1;
   }
