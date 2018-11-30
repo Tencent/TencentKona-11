@@ -172,6 +172,9 @@ protected:
   CompiledMethod(Method* method, const char* name, CompilerType type, int size, int header_size, CodeBuffer* cb, int frame_complete_offset, int frame_size, OopMapSet* oop_maps, bool caller_must_gc_arguments);
 
 public:
+  // Only used by unit test.
+  CompiledMethod() {}
+
   virtual bool is_compiled() const                { return true; }
 
   bool  has_unsafe_access() const                 { return _has_unsafe_access; }
