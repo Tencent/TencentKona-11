@@ -51,7 +51,8 @@
 CompiledICLocker::CompiledICLocker(CompiledMethod* method)
   : _method(method),
     _behaviour(CompiledICProtectionBehaviour::current()),
-    _locked(_behaviour->lock(_method)){
+    _locked(_behaviour->lock(_method)),
+    _nsv(true, !SafepointSynchronize::is_at_safepoint()) {
 }
 
 CompiledICLocker::~CompiledICLocker() {

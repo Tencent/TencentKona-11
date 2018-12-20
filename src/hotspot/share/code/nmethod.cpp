@@ -1094,8 +1094,11 @@ void nmethod::make_unloaded() {
   // Make the class unloaded - i.e., change state and notify sweeper
   assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint");
 
-  // Clear ICStubs and release any CompiledICHolders.
-  clear_ic_callsites();
+  {
+    // Clear ICStubs and release any CompiledICHolders.
+    CompiledICLocker ml(this);
+    clear_ic_callsites();
+  }
 
   // Unregister must be done before the state change
   Universe::heap()->unregister_nmethod(this);
@@ -1283,6 +1286,13 @@ bool nmethod::make_not_entrant_or_zombie(int state) {
         Universe::heap()->unregister_nmethod(this);
       }
       flush_dependencies(/*delete_immediately*/true);
+    }
+
+    // Clear ICStubs to prevent back patching stubs of zombie or flushed
+    // nmethods during the next safepoint (see ICStub::finalize).
+    {
+      CompiledICLocker ml(this);
+      clear_ic_callsites();
     }
 
     // zombie only - if a JVMTI agent has enabled the CompiledMethodUnload
