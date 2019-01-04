@@ -21786,7 +21786,7 @@ instruct vnot64B_reg(vecZ dst, vecZ src, rRegL scratch) %{
   ins_pipe( pipe_slow );
 %}
 
-instruct vptest4inae(rRegI dst, vecX src1, vecX src2) %{
+instruct vptest4inae(rRegI dst, legVecX src1, legVecX src2) %{
   predicate(UseAVX > 0 && static_cast<const VectorTestNode*>(n)->get_predicate() == Assembler::carrySet);
   match(Set dst (VectorTest src1 src2 ));
   format %{ "vptest  $src1,$src2\n\t"
@@ -21800,7 +21800,7 @@ instruct vptest4inae(rRegI dst, vecX src1, vecX src2) %{
   ins_pipe( pipe_slow );
 %}
 
-instruct vptest4ieq(rRegI dst, vecX src1, vecX src2) %{
+instruct vptest4ieq(rRegI dst, legVecX src1, legVecX src2) %{
   predicate(UseAVX > 0 && static_cast<const VectorTestNode*>(n)->get_predicate() == Assembler::notZero);
   match(Set dst (VectorTest src1 src2 ));
   format %{ "vptest  $src1,$src2\n\t"
@@ -21814,7 +21814,7 @@ instruct vptest4ieq(rRegI dst, vecX src1, vecX src2) %{
   ins_pipe( pipe_slow );
 %}
 
-instruct vptest8inae(rRegI dst, vecY src1, vecY src2) %{
+instruct vptest8inae(rRegI dst, legVecY src1, legVecY src2) %{
   predicate(UseAVX > 0 && static_cast<const VectorTestNode*>(n)->get_predicate() == Assembler::carrySet);
   match(Set dst (VectorTest src1 src2 ));
   format %{ "vptest  $src1,$src2\n\t"
@@ -21828,7 +21828,7 @@ instruct vptest8inae(rRegI dst, vecY src1, vecY src2) %{
   ins_pipe( pipe_slow );
 %}
 
-instruct vptest8ieq(rRegI dst, vecY src1, vecY src2) %{
+instruct vptest8ieq(rRegI dst, legVecY src1, legVecY src2) %{
   predicate(UseAVX > 0 && static_cast<const VectorTestNode*>(n)->get_predicate() == Assembler::notZero);
   match(Set dst (VectorTest src1 src2 ));
   format %{ "vptest  $src1,$src2\n\t"
