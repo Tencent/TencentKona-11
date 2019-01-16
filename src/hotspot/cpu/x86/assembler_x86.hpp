@@ -1669,6 +1669,7 @@ private:
   // Permutations
   void vpermq(XMMRegister dst, XMMRegister src, int imm8, int vector_len);
   void vpermq(XMMRegister dst, XMMRegister src, int imm8);
+  void vpermq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void vpermb(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void vpermw(XMMRegister dst, KRegister mask, XMMRegister nds, XMMRegister src, bool merge, int vector_len);
   void vpermd(XMMRegister dst,  XMMRegister nds, XMMRegister src);
