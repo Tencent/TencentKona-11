@@ -1101,7 +1101,11 @@ void nmethod::make_unloaded() {
   }
 
   // Unregister must be done before the state change
-  Universe::heap()->unregister_nmethod(this);
+  {
+    MutexLockerEx ml(SafepointSynchronize::is_at_safepoint() ? NULL : CodeCache_lock,
+                     Mutex::_no_safepoint_check_flag);
+    Universe::heap()->unregister_nmethod(this);
+  }
 
 
   // Clear the method of this dead nmethod
