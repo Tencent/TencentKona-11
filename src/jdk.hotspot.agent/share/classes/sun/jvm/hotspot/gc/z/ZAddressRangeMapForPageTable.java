@@ -34,8 +34,6 @@ import sun.jvm.hotspot.types.TypeDataBase;
 public class ZAddressRangeMapForPageTable  extends VMObject {
     private static AddressField mapField;
 
-    private static long AddressRangeShift = ZGlobals.ZPageSizeMinShift;
-
     static {
         VM.registerVMInitializedObserver((o, d) -> initialize(VM.getVM().getTypeDataBase()));
     }
@@ -54,8 +52,12 @@ public class ZAddressRangeMapForPageTable  extends VMObject {
         return mapField.getValue(addr);
     }
 
+    public long size() {
+        return ZGlobals.ZAddressOffsetMax >> ZGlobals.ZGranuleSizeShift;
+    }
+
     private long index_for_addr(Address addr) {
-        long index = ZAddress.offset(addr) >> AddressRangeShift;
+        long index = ZAddress.offset(addr) >> ZGlobals.ZGranuleSizeShift;
 
         return index;
     }
