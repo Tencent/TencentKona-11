@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,33 +21,45 @@
  * questions.
  */
 
-#ifndef SHARE_GC_Z_ZRELOCATE_HPP
-#define SHARE_GC_Z_ZRELOCATE_HPP
+#ifndef SHARE_GC_Z_ZGRANULEMAP_HPP
+#define SHARE_GC_Z_ZGRANULEMAP_HPP
 
-#include "gc/z/zRelocationSet.hpp"
-#include "gc/z/zWorkers.hpp"
 #include "memory/allocation.hpp"
 
-class ZForwarding;
+template<typename T>
+class ZGranuleMapIterator;
 
-class ZRelocate {
-  friend class ZRelocateTask;
+template <typename T>
+class ZGranuleMap {
+  friend class VMStructs;
+  friend class ZGranuleMapIterator<T>;
 
 private:
-  ZWorkers* const _workers;
+  T* const _map;
 
-  ZForwarding* forwarding_for_page(ZPage* page) const;
-  uintptr_t relocate_object_inner(ZForwarding* forwarding, uintptr_t from_index, uintptr_t from_offset) const;
-  bool work(ZRelocationSetParallelIterator* iter);
+  size_t index_for_addr(uintptr_t addr) const;
+  size_t size() const;
 
 public:
-  ZRelocate(ZWorkers* workers);
+  ZGranuleMap();
+  ~ZGranuleMap();
 
-  uintptr_t relocate_object(ZForwarding* forwarding, uintptr_t from_addr) const;
-  uintptr_t forward_object(ZForwarding* forwarding, uintptr_t from_addr) const;
-
-  void start();
-  bool relocate(ZRelocationSet* relocation_set);
+  T get(uintptr_t addr) const;
+  void put(uintptr_t addr, T value);
+  void put(uintptr_t addr, size_t size, T value);
 };
 
-#endif // SHARE_GC_Z_ZRELOCATE_HPP
+template <typename T>
+class ZGranuleMapIterator : public StackObj {
+public:
+  const ZGranuleMap<T>* const _map;
+  size_t                      _next;
+
+public:
+  ZGranuleMapIterator(const ZGranuleMap<T>* map);
+
+  bool next(T* value);
+  bool next(T** value);
+};
+
+#endif // SHARE_GC_Z_ZGRANULEMAP_HPP
