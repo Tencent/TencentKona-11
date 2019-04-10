@@ -25,6 +25,7 @@
 #include "precompiled.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "gc/shared/weakProcessorPhases.hpp"
+#include "prims/resolvedMethodTable.hpp"
 #include "runtime/jniHandles.hpp"
 #include "utilities/debug.hpp"
 #include "utilities/macros.hpp"
@@ -71,6 +72,7 @@ const char* WeakProcessorPhases::description(Phase phase) {
   JVMTI_ONLY(case jvmti: return "JVMTI weak processing";)
   JFR_ONLY(case jfr: return "JFR weak processing";)
   case jni: return "JNI weak processing";
+  case resolved_method_table: return "ResolvedMethodTable weak processing";
   case vm: return "VM weak processing";
   default:
     ShouldNotReachHere();
@@ -91,9 +93,14 @@ WeakProcessorPhases::Processor WeakProcessorPhases::processor(Phase phase) {
 OopStorage* WeakProcessorPhases::oop_storage(Phase phase) {
   switch (phase) {
   case jni: return JNIHandles::weak_global_handles();
+  case resolved_method_table: return ResolvedMethodTable::weak_storage();
   case vm: return SystemDictionary::vm_weak_oop_storage();
   default:
     ShouldNotReachHere();
     return NULL;
   }
+}
+
+bool WeakProcessorPhases::is_resolved_method_table(Phase phase) {
+  return phase == resolved_method_table;
 }

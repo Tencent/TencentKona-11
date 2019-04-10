@@ -44,6 +44,7 @@ public:
 
     // OopStorage phases.
     jni,
+    resolved_method_table,
     vm
   };
 
@@ -61,6 +62,8 @@ public:
 
   static bool is_serial(Phase phase);
   static bool is_oop_storage(Phase phase);
+
+  static bool is_resolved_method_table(Phase phase);
 
   static const char* description(Phase phase);
   static Processor processor(Phase phase); // Precondition: is_serial(phase)
