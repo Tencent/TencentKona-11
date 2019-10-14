@@ -41,9 +41,6 @@
 #include "opto/rootnode.hpp"
 #include "opto/subnode.hpp"
 #include "utilities/macros.hpp"
-#if INCLUDE_ZGC
-#include "gc/z/c2/zBarrierSetC2.hpp"
-#endif
 
 //=============================================================================
 //------------------------------split_thru_phi---------------------------------
@@ -1455,12 +1452,6 @@ void PhaseIdealLoop::split_if_with_blocks_post(Node *n, bool last_round) {
       get_loop(get_ctrl(n)) == get_loop(get_ctrl(n->in(1))) ) {
     _igvn.replace_node( n, n->in(1) );
   }
-
-#if INCLUDE_ZGC
-  if (UseZGC) {
-    ZBarrierSetC2::loop_optimize_gc_barrier(this, n, last_round);
-  }
-#endif
 }
 
 //------------------------------split_if_with_blocks---------------------------

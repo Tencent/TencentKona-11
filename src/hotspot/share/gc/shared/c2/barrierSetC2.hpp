@@ -41,8 +41,8 @@ const DecoratorSet C2_UNALIGNED              = DECORATOR_LAST << 2;
 const DecoratorSet C2_WEAK_CMPXCHG           = DECORATOR_LAST << 3;
 // This denotes that a load has control dependency.
 const DecoratorSet C2_CONTROL_DEPENDENT_LOAD = DECORATOR_LAST << 4;
-// This denotes that a load that must be pinned.
-const DecoratorSet C2_PINNED_LOAD            = DECORATOR_LAST << 5;
+// This denotes that a load that must be pinned, but may float above safepoints.
+const DecoratorSet C2_UNKNOWN_CONTROL_LOAD   = DECORATOR_LAST << 5;
 // This denotes that the access is produced from the sun.misc.Unsafe intrinsics.
 const DecoratorSet C2_UNSAFE_ACCESS          = DECORATOR_LAST << 6;
 // This denotes that the access mutates state.
@@ -255,7 +255,7 @@ public:
   virtual void clone_barrier_at_expansion(ArrayCopyNode* ac, Node* call, PhaseIterGVN& igvn) const;
 
   // Support for GC barriers emitted during parsing
-  virtual bool has_load_barriers() const { return false; }
+  virtual bool has_load_barrier_nodes() const { return false; }
   virtual bool is_gc_barrier_node(Node* node) const { return false; }
   virtual Node* step_over_gc_barrier(Node* c) const { return c; }
 
@@ -265,15 +265,55 @@ public:
   virtual void eliminate_gc_barrier(PhaseMacroExpand* macro, Node* node) const { }
   virtual void enqueue_useful_gc_barrier(Unique_Node_List &worklist, Node* node) const {}
   virtual void eliminate_useless_gc_barriers(Unique_Node_List &useful) const {}
-  virtual void add_users_to_worklist(Unique_Node_List* worklist) const {}
 
   // Allow barrier sets to have shared state that is preserved across a compilation unit.
   // This could for example comprise macro nodes to be expanded during macro expansion.
   virtual void* create_barrier_state(Arena* comp_arena) const { return NULL; }
+
   // If the BarrierSetC2 state has kept macro nodes in its compilation unit state to be
   // expanded later, then now is the time to do so.
   virtual bool expand_macro_nodes(PhaseMacroExpand* macro) const { return false; }
   virtual void verify_gc_barriers(bool post_parse) const {}
+
+  // If the BarrierSetC2 state has barrier nodes in its compilation
+  // unit state to be expanded later, then now is the time to do so.
+  virtual bool expand_barriers(Compile* C, PhaseIterGVN& igvn) const { return false; }
+  virtual bool optimize_loops(PhaseIdealLoop* phase, LoopOptsMode mode, VectorSet& visited, Node_Stack& nstack, Node_List& worklist) const { return false; }
+  virtual bool strip_mined_loops_expanded(LoopOptsMode mode) const { return false; }
+  virtual bool is_gc_specific_loop_opts_pass(LoopOptsMode mode) const { return false; }
+
+  virtual bool has_special_unique_user(const Node* node) const { return false; }
+
+  enum CompilePhase {
+    BeforeOptimize,
+    BeforeMacroExpand,
+    BeforeCodeGen
+  };
+
+  virtual bool flatten_gc_alias_type(const TypePtr*& adr_type) const { return false; }
+#ifdef ASSERT
+  virtual bool verify_gc_alias_type(const TypePtr* adr_type, int offset) const { return false; }
+  virtual void verify_gc_barriers(Compile* compile, CompilePhase phase) const {}
+#endif
+
+  virtual bool final_graph_reshaping(Compile* compile, Node* n, uint opcode) const { return false; }
+
+  virtual bool escape_add_to_con_graph(ConnectionGraph* conn_graph, PhaseGVN* gvn, Unique_Node_List* delayed_worklist, Node* n, uint opcode) const { return false; }
+  virtual bool escape_add_final_edges(ConnectionGraph* conn_graph, PhaseGVN* gvn, Node* n, uint opcode) const { return false; }
+  virtual bool escape_has_out_with_unsafe_object(Node* n) const { return false; }
+  virtual bool escape_is_barrier_node(Node* n) const { return false; }
+
+  virtual bool matcher_find_shared_visit(Matcher* matcher, Matcher::MStack& mstack, Node* n, uint opcode, bool& mem_op, int& mem_addr_idx) const { return false; };
+  virtual bool matcher_find_shared_post_visit(Matcher* matcher, Node* n, uint opcode) const { return false; };
+  virtual bool matcher_is_store_load_barrier(Node* x, uint xop) const { return false; }
+
+  virtual Node* split_if_pre(PhaseIdealLoop* phase, Node* n) const { return NULL; }
+  virtual bool build_loop_late_post(PhaseIdealLoop* phase, Node* n) const { return false; }
+  virtual bool sink_node(PhaseIdealLoop* phase, Node* n, Node* x, Node* x_ctrl, Node* n_ctrl) const { return false; }
+
+  virtual void late_barrier_analysis() const { }
+  virtual int estimate_stub_size() const { return 0; }
+  virtual void emit_stubs(CodeBuffer& cb) const { }
 };
 
 #endif // SHARE_GC_SHARED_C2_BARRIERSETC2_HPP

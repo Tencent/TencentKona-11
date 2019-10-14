@@ -1465,10 +1465,10 @@ bool Node::rematerialize() const {
 //------------------------------needs_anti_dependence_check---------------------
 // Nodes which use memory without consuming it, hence need antidependences.
 bool Node::needs_anti_dependence_check() const {
-  if( req() < 2 || (_flags & Flag_needs_anti_dependence_check) == 0 )
+  if (req() < 2 || (_flags & Flag_needs_anti_dependence_check) == 0) {
     return false;
-  else
-    return in(1)->bottom_type()->has_memory();
+  }
+  return in(1)->bottom_type()->has_memory();
 }
 
 

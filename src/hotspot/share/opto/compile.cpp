@@ -962,6 +962,7 @@ Compile::Compile( ciEnv* ci_env,
                   bool return_pc,
                   DirectiveSet* directive)
   : Phase(Compiler),
+    _barrier_set_state(BarrierSet::barrier_set()->barrier_set_c2()->create_barrier_state(comp_arena())),
     _env(ci_env),
     _directive(directive),
     _log(ci_env->log()),
@@ -2223,8 +2224,8 @@ void Compile::Optimize() {
 
 #endif
 
-#ifdef ASSERT
   BarrierSetC2* bs = BarrierSet::barrier_set()->barrier_set_c2();
+#ifdef ASSERT
   bs->verify_gc_barriers(true);
 #endif
 
@@ -2396,12 +2397,6 @@ void Compile::Optimize() {
     return;
   }
 
-#if INCLUDE_ZGC
-  if (UseZGC) {
-    ZBarrierSetC2::find_dominating_barriers(igvn);
-  }
-#endif
-
   if (failing())  return;
 
   // Ensure that major progress is now clear
@@ -2421,7 +2416,6 @@ void Compile::Optimize() {
   }
 
 #ifdef ASSERT
-  BarrierSetC2* bs = BarrierSet::barrier_set()->barrier_set_c2();
   bs->verify_gc_barriers(false);
 #endif
 
@@ -2435,15 +2429,13 @@ void Compile::Optimize() {
     }
   }
 
-#if INCLUDE_SHENANDOAHGC
-  if (UseShenandoahGC) {
-    print_method(PHASE_BEFORE_BARRIER_EXPAND, 2);
-    if (((ShenandoahBarrierSetC2*)BarrierSet::barrier_set()->barrier_set_c2())->expand_barriers(this, igvn)) {
+  {
+    if (bs->expand_barriers(this, igvn)) {
       assert(failing(), "must bail out w/ explicit message");
       return;
     }
+    print_method(PHASE_BARRIER_EXPANSION, 2);
   }
-#endif
 
   if (opaque4_count() > 0) {
     C->remove_opaque4_nodes(igvn);
@@ -2990,10 +2982,6 @@ void Compile::final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc) {
   case Op_LoadL_unaligned:
   case Op_LoadPLocked:
   case Op_LoadP:
-#if INCLUDE_ZGC
-  case Op_LoadBarrierSlowReg:
-  case Op_LoadBarrierWeakSlowReg:
-#endif
   case Op_LoadN:
   case Op_LoadRange:
   case Op_LoadS: {

@@ -69,7 +69,6 @@ private:
 
   void out_of_memory();
   void flip_views();
-  void fixup_partial_loads();
 
 public:
   static ZHeap* heap();
