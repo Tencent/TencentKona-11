@@ -835,7 +835,7 @@ bool LoadNode::is_immutable_value(Node* adr) {
 //----------------------------LoadNode::make-----------------------------------
 // Polymorphic factory method:
 Node *LoadNode::make(PhaseGVN& gvn, Node *ctl, Node *mem, Node *adr, const TypePtr* adr_type, const Type *rt, BasicType bt, MemOrd mo,
-                     ControlDependency control_dependency, bool unaligned, bool mismatched, bool unsafe) {
+                     ControlDependency control_dependency, bool unaligned, bool mismatched, bool unsafe, uint8_t barrier_data) {
   Compile* C = gvn.C;
 
   // sanity check the alias category against the created node type
@@ -886,6 +886,7 @@ Node *LoadNode::make(PhaseGVN& gvn, Node *ctl, Node *mem, Node *adr, const TypeP
   if (unsafe) {
     load->set_unsafe_access();
   }
+  load->set_barrier_data(barrier_data);
   if (load->Opcode() == Op_LoadN) {
     Node* ld = gvn.transform(load);
     return new DecodeNNode(ld, ld->bottom_type()->make_ptr());
@@ -895,7 +896,7 @@ Node *LoadNode::make(PhaseGVN& gvn, Node *ctl, Node *mem, Node *adr, const TypeP
 }
 
 LoadLNode* LoadLNode::make_atomic(Node* ctl, Node* mem, Node* adr, const TypePtr* adr_type, const Type* rt, MemOrd mo,
-                                  ControlDependency control_dependency, bool unaligned, bool mismatched, bool unsafe) {
+                                  ControlDependency control_dependency, bool unaligned, bool mismatched, bool unsafe, uint8_t barrier_data) {
   bool require_atomic = true;
   LoadLNode* load = new LoadLNode(ctl, mem, adr, adr_type, rt->is_long(), mo, control_dependency, require_atomic);
   if (unaligned) {
@@ -907,11 +908,12 @@ LoadLNode* LoadLNode::make_atomic(Node* ctl, Node* mem, Node* adr, const TypePtr
   if (unsafe) {
     load->set_unsafe_access();
   }
+  load->set_barrier_data(barrier_data);
   return load;
 }
 
 LoadDNode* LoadDNode::make_atomic(Node* ctl, Node* mem, Node* adr, const TypePtr* adr_type, const Type* rt, MemOrd mo,
-                                  ControlDependency control_dependency, bool unaligned, bool mismatched, bool unsafe) {
+                                  ControlDependency control_dependency, bool unaligned, bool mismatched, bool unsafe, uint8_t barrier_data) {
   bool require_atomic = true;
   LoadDNode* load = new LoadDNode(ctl, mem, adr, adr_type, rt, mo, control_dependency, require_atomic);
   if (unaligned) {
@@ -923,6 +925,7 @@ LoadDNode* LoadDNode::make_atomic(Node* ctl, Node* mem, Node* adr, const TypePtr
   if (unsafe) {
     load->set_unsafe_access();
   }
+  load->set_barrier_data(barrier_data);
   return load;
 }
 
