@@ -161,12 +161,15 @@ HeapRegion* G1CollectedHeap::new_heap_region(uint hrs_index,
 
 // Private methods.
 
-HeapRegion* G1CollectedHeap::new_region(size_t word_size, bool is_old, bool do_expand) {
+HeapRegion* G1CollectedHeap::new_region(size_t word_size,
+                                        HeapRegionType type,
+                                        bool do_expand,
+                                        uint node_index) {
   assert(!is_humongous(word_size) || word_size <= HeapRegion::GrainWords,
          "the only time we use this to allocate a humongous region is "
          "when we are allocating a single humongous region");
 
-  HeapRegion* res = _hrm.allocate_free_region(is_old);
+  HeapRegion* res = _hrm.allocate_free_region(type, node_index);
 
   if (res == NULL && do_expand && _expand_heap_after_alloc_failure) {
     // Currently, only attempts to allocate GC alloc regions set
@@ -178,12 +181,15 @@ HeapRegion* G1CollectedHeap::new_region(size_t word_size, bool is_old, bool do_e
     log_debug(gc, ergo, heap)("Attempt heap expansion (region allocation request failed). Allocation request: " SIZE_FORMAT "B",
                               word_size * HeapWordSize);
 
-    if (expand(word_size * HeapWordSize)) {
-      // Given that expand() succeeded in expanding the heap, and we
+    assert(word_size * HeapWordSize < HeapRegion::GrainBytes,
+           "This kind of expansion should never be more than one region. Size: " SIZE_FORMAT,
+           word_size * HeapWordSize);
+    if (expand_single_region(node_index)) {
+      // Given that expand_single_region() succeeded in expanding the heap, and we
       // always expand the heap by an amount aligned to the heap
       // region size, the free list should in theory not be empty.
       // In either case allocate_free_region() will check for NULL.
-      res = _hrm.allocate_free_region(is_old);
+      res = _hrm.allocate_free_region(type, node_index);
     } else {
       _expand_heap_after_alloc_failure = false;
     }
@@ -330,7 +336,7 @@ HeapWord* G1CollectedHeap::humongous_obj_allocate(size_t word_size) {
     // Only one region to allocate, try to use a fast path by directly allocating
     // from the free lists. Do not try to expand here, we will potentially do that
     // later.
-    HeapRegion* hr = new_region(word_size, true /* is_old */, false /* do_expand */);
+    HeapRegion* hr = new_region(word_size, HeapRegionType::Humongous, false /* do_expand */);
     if (hr != NULL) {
       first = hr->hrm_index();
     }
@@ -1018,7 +1024,7 @@ void G1CollectedHeap::abort_concurrent_cycle() {
 
 void G1CollectedHeap::prepare_heap_for_full_collection() {
   // Make sure we'll choose a new allocation region afterwards.
-  _allocator->release_mutator_alloc_region();
+  _allocator->release_mutator_alloc_regions();
   _allocator->abandon_gc_alloc_regions();
   g1_rem_set()->cleanupHRRS();
 
@@ -1059,7 +1065,7 @@ void G1CollectedHeap::prepare_heap_for_mutators() {
   // Start a new incremental collection set for the next pause
   start_new_collection_set();
 
-  _allocator->init_mutator_alloc_region();
+  _allocator->init_mutator_alloc_regions();
 
   // Post collection state updates.
   MetaspaceGC::compute_new_size();
@@ -1377,6 +1383,19 @@ bool G1CollectedHeap::expand(size_t expand_bytes, WorkGang* pretouch_workers, do
   return regions_to_expand > 0;
 }
 
+bool G1CollectedHeap::expand_single_region(uint node_index) {
+  uint expanded_by = _hrm.expand_on_preferred_node(node_index);
+
+  if (expanded_by == 0) {
+    assert(is_maximal_no_gc(), "Should be no regions left, available: %u", _hrm.available());
+    log_debug(gc, ergo, heap)("Did not expand the heap (heap already fully expanded)");
+    return false;
+  }
+
+  g1_policy()->record_new_heap_size(num_regions());
+  return true;
+}
+
 void G1CollectedHeap::shrink_helper(size_t shrink_bytes) {
   size_t aligned_shrink_bytes =
     ReservedSpace::page_align_size_down(shrink_bytes);
@@ -1386,7 +1405,6 @@ void G1CollectedHeap::shrink_helper(size_t shrink_bytes) {
 
   uint num_regions_removed = _hrm.shrink_by(num_regions_to_remove);
   size_t shrunk_bytes = num_regions_removed * HeapRegion::GrainBytes;
-
 
   log_debug(gc, ergo, heap)("Shrink the heap. requested shrinking amount: " SIZE_FORMAT "B aligned shrinking amount: " SIZE_FORMAT "B attempted shrinking amount: " SIZE_FORMAT "B",
                             shrink_bytes, aligned_shrink_bytes, shrunk_bytes);
@@ -1501,6 +1519,7 @@ G1CollectedHeap::G1CollectedHeap(G1CollectorPolicy* collector_policy) :
   _is_alive_closure_cm(this),
   _is_subject_to_discovery_cm(this),
   _bot(NULL),
+  _numa(G1NUMA::create()),
   _hot_card_cache(NULL),
   _g1_rem_set(NULL),
   _cr(NULL),
@@ -1721,6 +1740,8 @@ jint G1CollectedHeap::initialize() {
     _humongous_reclaim_candidates.initialize(start, end, granularity);
   }
 
+  _numa->set_region_info(HeapRegion::GrainBytes, page_size);
+
   // Create the G1ConcurrentMark data structure and thread.
   // (Must do this late, so that "max_regions" is defined.)
   _cm = new G1ConcurrentMark(this, prev_bitmap_storage, next_bitmap_storage);
@@ -1782,7 +1803,7 @@ jint G1CollectedHeap::initialize() {
   dummy_region->set_top(dummy_region->end());
   G1AllocRegion::setup(this, dummy_region);
 
-  _allocator->init_mutator_alloc_region();
+  _allocator->init_mutator_alloc_regions();
 
   // Do create of the monitoring and management support so that
   // values in the heap have been properly initialized.
@@ -2995,7 +3016,7 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
 
         // Forget the current alloc region (we might even choose it to be part
         // of the collection set!).
-        _allocator->release_mutator_alloc_region();
+        _allocator->release_mutator_alloc_regions();
 
         // This timing is only used by the ergonomics to handle our pause target.
         // It is unclear why this should not include the full pause. We will
@@ -3093,7 +3114,7 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
 
         allocate_dummy_regions();
 
-        _allocator->init_mutator_alloc_region();
+        _allocator->init_mutator_alloc_regions();
 
         {
           size_t expand_bytes = _heap_sizing_policy->expansion_amount();
@@ -4619,13 +4640,15 @@ bool G1CollectedHeap::is_in_closed_subset(const void* p) const {
 // Methods for the mutator alloc region
 
 HeapRegion* G1CollectedHeap::new_mutator_alloc_region(size_t word_size,
-                                                      bool force) {
+                                                      bool force,
+                                                      uint node_index) {
   assert_heap_locked_or_at_safepoint(true /* should_be_vm_thread */);
   bool should_allocate = g1_policy()->should_allocate_mutator_region();
   if (force || should_allocate) {
     HeapRegion* new_alloc_region = new_region(word_size,
-                                              false /* is_old */,
-                                              false /* do_expand */);
+                                              HeapRegionType::Eden,
+                                              false /* do_expand */,
+                                              node_index);
     if (new_alloc_region != NULL) {
       set_region_short_lived_locked(new_alloc_region);
       _hr_printer.alloc(new_alloc_region, !should_allocate);
@@ -4668,13 +4691,18 @@ HeapRegion* G1CollectedHeap::new_gc_alloc_region(size_t word_size, InCSetState d
     return NULL;
   }
 
-  const bool is_survivor = dest.is_young();
+  HeapRegionType type;
+  if (dest.is_young()) {
+    type = HeapRegionType::Survivor;
+  } else {
+    type = HeapRegionType::Old;
+  }
 
   HeapRegion* new_alloc_region = new_region(word_size,
-                                            !is_survivor,
+                                            type,
                                             true /* do_expand */);
   if (new_alloc_region != NULL) {
-    if (is_survivor) {
+    if (type.is_survivor()) {
       new_alloc_region->set_survivor();
       _survivor.add(new_alloc_region);
       _verifier->check_bitmaps("Survivor Region Allocation", new_alloc_region);

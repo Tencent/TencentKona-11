@@ -189,6 +189,9 @@ public class WhiteBox {
     return parseCommandLine0(commandline, delim, args);
   }
 
+  public native int g1ActiveMemoryNodeCount();
+  public native int[] g1MemoryNodeIds();
+
   // Parallel GC
   public native long psVirtualSpaceAlignment();
   public native long psHeapGenerationAlignment();
