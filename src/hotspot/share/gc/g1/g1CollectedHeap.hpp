@@ -473,7 +473,7 @@ private:
 
   // For GC alloc regions.
   bool has_more_regions(InCSetState dest);
-  HeapRegion* new_gc_alloc_region(size_t word_size, InCSetState dest);
+  HeapRegion* new_gc_alloc_region(size_t word_size, InCSetState dest, uint node_index);
   void retire_gc_alloc_region(HeapRegion* alloc_region,
                               size_t allocated_bytes, InCSetState dest);
 
