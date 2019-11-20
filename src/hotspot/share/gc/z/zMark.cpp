@@ -137,7 +137,9 @@ public:
     // Retire TLAB
     if (UseTLAB && thread->is_Java_thread()) {
       thread->tlab().retire(ZStatTLAB::get());
-      thread->tlab().resize();
+      if (ResizeTLAB) {
+        thread->tlab().resize();
+      }
     }
   }
 
