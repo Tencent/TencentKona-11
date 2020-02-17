@@ -1659,6 +1659,8 @@ private:
   void vpmovzxbw(XMMRegister dst, XMMRegister src, int vector_len);
   void evpmovzxbw(XMMRegister dst, KRegister mask, Address src, int vector_len);
 
+  void vpmovzxbd(XMMRegister dst, XMMRegister src, int vector_len);
+
   void evpmovwb(Address dst, XMMRegister src, int vector_len);
   void evpmovwb(Address dst, KRegister mask, XMMRegister src, int vector_len);
 
@@ -1721,6 +1723,9 @@ private:
   // Logical Compare 256bit
   void vptest(XMMRegister dst, XMMRegister src);
   void vptest(XMMRegister dst, Address src);
+
+  // Vector compare
+  void vptest(XMMRegister dst, XMMRegister src, int vector_len);
 
   // Interleave Low Bytes
   void punpcklbw(XMMRegister dst, XMMRegister src);
