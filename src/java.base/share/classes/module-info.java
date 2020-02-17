@@ -134,6 +134,8 @@ module java.base {
 
     exports com.sun.security.ntlm to
         java.security.sasl;
+    exports jdk.internal to // for @HotSpotIntrinsicCandidate
+        jdk.incubator.vector;
     exports jdk.internal to
         jdk.jfr;
     exports jdk.internal.event to

@@ -823,6 +823,7 @@ const Type *Type::meet_helper(const Type *t, bool include_speculative) const {
   const Type *mt = this_t->xmeet(t);
   if (isa_narrowoop() || t->isa_narrowoop()) return mt;
   if (isa_narrowklass() || t->isa_narrowklass()) return mt;
+  if (isa_vect() || t->isa_vect()) return mt;
 #ifdef ASSERT
   assert(mt == t->xmeet(this_t), "meet not commutative");
   const Type* dual_join = mt->_dual;
@@ -2268,6 +2269,13 @@ const Type *TypeVect::xmeet( const Type *t ) const {
   case Bottom:                  // Ye Olde Default
     return t;
 
+  case OopPtr:
+    if (t->is_oopptr()->speculative_type() != NULL) {
+      if (t->is_oopptr()->speculative_type()->is_vectorapi_vector()) {
+        tty->print_cr("Meeting vector with object override");
+        return this;
+      }
+    }  // Fallthrough
   default:                      // All else is a mistake
     typerr(t);
 
@@ -3088,6 +3096,17 @@ const Type *TypeOopPtr::xmeet_helper(const Type *t) const {
   case Top:
     return this;
 
+  case VectorS:
+  case VectorD:
+  case VectorX:
+  case VectorY:
+  case VectorZ:
+    if (speculative_type() != NULL) {
+      if (speculative_type()->is_vectorapi_vector()) {
+        return t;
+      }
+    }  // Fallthrough
+
   default:                      // All else is a mistake
     typerr(t);
 
@@ -3618,6 +3637,17 @@ const Type *TypeInstPtr::xmeet_helper(const Type *t) const {
     return Type::BOTTOM;
   case Top:
     return this;
+
+  case VectorS:
+  case VectorD:
+  case VectorX:
+  case VectorY:
+  case VectorZ:
+    if (speculative_type() != NULL) {
+      if (speculative_type()->is_vectorapi_vector()) {
+        return t;
+      }
+    }  // Fallthrough
 
   default:                      // All else is a mistake
     typerr(t);
