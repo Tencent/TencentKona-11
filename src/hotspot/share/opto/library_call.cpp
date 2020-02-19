@@ -6430,6 +6430,9 @@ static bool is_vector_cmp(vmIntrinsics::ID id) {
     case vmIntrinsics::_VectorLessThanFloat:
     case vmIntrinsics::_VectorLessThanDouble:
     case vmIntrinsics::_VectorLessThanInt:
+    case vmIntrinsics::_VectorGreaterThanFloat:
+    case vmIntrinsics::_VectorGreaterThanDouble:
+    case vmIntrinsics::_VectorGreaterThanInt:
       return true;
     default:
       return false;
@@ -7098,6 +7101,11 @@ bool LibraryCallKit::inline_vector_cmp(const TypeInstPtr* box_type, BasicType ty
     case vmIntrinsics::_VectorLessThanDouble:
     case vmIntrinsics::_VectorLessThanInt:
       comp = BoolTest::lt;
+      break;
+    case vmIntrinsics::_VectorGreaterThanFloat:
+    case vmIntrinsics::_VectorGreaterThanDouble:
+    case vmIntrinsics::_VectorGreaterThanInt:
+      comp = BoolTest::gt;
       break;
     default:
       assert(false, "Unknown mask predicate");
