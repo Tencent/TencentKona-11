@@ -2751,6 +2751,7 @@ void PhaseMacroExpand::expand_vbox_nodes() {
     if (C->failing())  return;
     macro_idx = MIN2(macro_idx - 1, C->macro_count() - 1);
   }
+  // TODO Should gvn be run here in order to prune phis? Which may keep live usage of VectorBox
 
   macro_idx = C->macro_count() - 1;
   while(macro_idx >= 0) {
@@ -2919,6 +2920,7 @@ void PhaseMacroExpand::eliminate_vectorbox_node(VectorBoxNode *vec_box, bool fin
 
     if (final || handled) {
       if (outproj  != NULL) {
+        // TODO Is this assert valid? What if it is a constant oop?
         assert (!obj->is_Con(), "Not expecting the object to be a constant");
         _igvn.replace_node(outproj, obj);
       }
