@@ -6404,7 +6404,6 @@ bool LibraryCallKit::inline_sha_implCompressMB(Node* digestBase_obj, ciInstanceK
   return true;
 }
 
-#ifdef ASSERT
 static bool is_vector_shift(vmIntrinsics::ID id) {
   switch (id) {
   case vmIntrinsics::_VectorShiftLInt:
@@ -6453,7 +6452,6 @@ static bool is_bin_vector_op(vmIntrinsics::ID id) {
       return is_vector_shift(id);
   }
 }
-#endif // ASSERT
 
 static bool is_vector_cmp(vmIntrinsics::ID id) {
   switch(id) {
