@@ -186,6 +186,7 @@ module java.base {
         jdk.compiler,
         java.net.http,
         jdk.jfr,
+        jdk.incubator.vector,
         jdk.jlink,
         jdk.jshell,
         jdk.net,
