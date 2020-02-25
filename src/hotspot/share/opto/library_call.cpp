@@ -7062,7 +7062,7 @@ Node* LibraryCallKit::wrapWithVectorBox(Node* vector, const TypeInstPtr* box_typ
   assert(!field->is_volatile(), "not defined for volatile fields");
   int offset = field->offset_in_bytes();
   Node* vec_field = basic_plus_adr(obj, offset);
-  Node* field_store = _gvn.transform(store_oop_to_object(control(),
+  Node* field_store = _gvn.transform(access_store_at(control(),
                                                          obj,
                                                          vec_field,
                                                          vec_field->bottom_type()->is_ptr(),
