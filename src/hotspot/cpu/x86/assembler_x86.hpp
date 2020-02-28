@@ -1707,6 +1707,8 @@ private:
   void pmovzxbw(XMMRegister dst, XMMRegister src);
   void pmovzxbw(XMMRegister dst, Address src);
   void vpmovzxbw( XMMRegister dst, Address src, int vector_len);
+  void pmovzxdq(XMMRegister dst, XMMRegister src);
+  void vpmovzxdq(XMMRegister dst, XMMRegister src, int vector_len);
   void vpmovzxbw(XMMRegister dst, XMMRegister src, int vector_len);
   void vpmovzxbq(XMMRegister dst, XMMRegister src, int vector_len);
   void evpmovzxbw(XMMRegister dst, KRegister mask, Address src, int vector_len);
@@ -2098,9 +2100,11 @@ private:
   // Multiply packed integers (only shorts and ints)
   void pmullw(XMMRegister dst, XMMRegister src);
   void pmulld(XMMRegister dst, XMMRegister src);
+  void pmuludq(XMMRegister dst, XMMRegister src);
   void vpmullw(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void vpmulld(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void vpmullq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
+  void vpmuludq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void vpmullw(XMMRegister dst, XMMRegister nds, Address src, int vector_len);
   void vpmulld(XMMRegister dst, XMMRegister nds, Address src, int vector_len);
   void vpmullq(XMMRegister dst, XMMRegister nds, Address src, int vector_len);
@@ -2211,6 +2215,7 @@ private:
   void vpbroadcastb(XMMRegister dst, Address src, int vector_len);
   void vpbroadcastw(XMMRegister dst, XMMRegister src, int vector_len);
   void vpbroadcastw(XMMRegister dst, Address src, int vector_len);
+  void vpbroadcastd(XMMRegister dst, XMMRegister src);
   void vpbroadcastd(XMMRegister dst, XMMRegister src, int vector_len);
   void vpbroadcastd(XMMRegister dst, Address src, int vector_len);
   void vpbroadcastq(XMMRegister dst, XMMRegister src, int vector_len);

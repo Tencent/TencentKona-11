@@ -4024,6 +4024,14 @@ void Assembler::pmovzxbw(XMMRegister dst, XMMRegister src) {
   emit_int8((unsigned char)(0xC0 | encode));
 }
 
+void Assembler::pmovzxdq(XMMRegister dst, XMMRegister src) {
+  assert(VM_Version::supports_sse4_1(), "");
+  InstructionAttr attributes(AVX_128bit, /* rex_w */ false, /* legacy_mode */ _legacy_mode_bw, /* no_mask_reg */ true, /* uses_vl */ false);
+  int encode = simd_prefix_and_encode(dst, xnoreg, src, VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
+  emit_int8(0x35);
+  emit_int8((unsigned char)(0xC0 | encode));
+}
+
 void Assembler::pmovsxbw(XMMRegister dst, XMMRegister src) {
   assert(VM_Version::supports_sse4_1(), "");
   InstructionAttr attributes(AVX_128bit, /* rex_w */ false, /* legacy_mode */ _legacy_mode_bw, /* no_mask_reg */ true, /* uses_vl */ false);
@@ -4081,6 +4089,14 @@ void Assembler::evpmovzxbw(XMMRegister dst, KRegister mask, Address src, int vec
   vex_prefix(src, 0, dst->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8(0x30);
   emit_operand(dst, src);
+}
+
+void Assembler::vpmovzxdq(XMMRegister dst, XMMRegister src, int vector_len) {
+  assert(vector_len > AVX_128bit ? VM_Version::supports_avx2() : VM_Version::supports_avx(), "");
+  InstructionAttr attributes(vector_len, /* rex_w */ false, /* legacy_mode */ _legacy_mode_bw, /* no_mask_reg */ true, /* uses_vl */ false);
+  int encode = simd_prefix_and_encode(dst, xnoreg, src, VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
+  emit_int8(0x35);
+  emit_int8((unsigned char)(0xC0 | encode));
 }
 
 void Assembler::vpmovzxbd(XMMRegister dst, XMMRegister src, int vector_len) {
@@ -6065,6 +6081,14 @@ void Assembler::pmulld(XMMRegister dst, XMMRegister src) {
   emit_int8((unsigned char)(0xC0 | encode));
 }
 
+void Assembler::pmuludq(XMMRegister dst, XMMRegister src) {
+  assert(VM_Version::supports_sse2(), "");
+  InstructionAttr attributes(AVX_128bit, /* rex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ false, /* uses_vl */ true);
+  int encode = simd_prefix_and_encode(dst, dst, src, VEX_SIMD_66, VEX_OPCODE_0F, &attributes);
+  emit_int8((unsigned char)(0xF4));
+  emit_int8((unsigned char)(0xC0 | encode));
+}
+
 void Assembler::vpmullw(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len) {
   assert(UseAVX > 0, "requires some form of AVX");
   InstructionAttr attributes(vector_len, /* vex_w */ false, /* legacy_mode */ _legacy_mode_bw, /* no_mask_reg */ true, /* uses_vl */ true);
@@ -6087,6 +6111,14 @@ void Assembler::vpmullq(XMMRegister dst, XMMRegister nds, XMMRegister src, int v
   attributes.set_is_evex_instruction();
   int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8(0x40);
+  emit_int8((unsigned char)(0xC0 | encode));
+}
+
+void Assembler::vpmuludq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len) {
+  assert(UseAVX > 0, "requires some form of AVX");
+  InstructionAttr attributes(vector_len, /* vex_w */ VM_Version::supports_evex(), /* legacy_mode */ false, /* no_mask_reg */ false, /* uses_vl */ true);
+  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F, &attributes);
+  emit_int8((unsigned char)(0xF4));
   emit_int8((unsigned char)(0xC0 | encode));
 }
 
@@ -7082,6 +7114,14 @@ void Assembler::vpbroadcastd(XMMRegister dst, Address src, int vector_len) {
   emit_int8(0x58);
   emit_operand(dst, src);
 }
+
+void Assembler::vpbroadcastd(XMMRegister dst, XMMRegister src) { 
+  assert(VM_Version::supports_avx2(), "");
+  InstructionAttr attributes(AVX_256bit, /* vex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ false, /* uses_vl */ true);
+  int encode = vex_prefix_and_encode(dst->encoding(), 0, src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
+  emit_int8(0x58);
+  emit_int8((unsigned char)(0xC0 | encode));
+} 
 
 // duplicate 8-byte integer data from src into programmed locations in dest : requires AVX512VL
 void Assembler::vpbroadcastq(XMMRegister dst, XMMRegister src, int vector_len) {
