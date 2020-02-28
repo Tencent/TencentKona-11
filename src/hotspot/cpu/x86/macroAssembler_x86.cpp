@@ -3545,13 +3545,32 @@ void MacroAssembler::vmovdqu(XMMRegister dst, XMMRegister src) {
     Assembler::vmovdqu(dst, src);
 }
 
-void MacroAssembler::vmovdqu(XMMRegister dst, AddressLiteral src) {
+void MacroAssembler::vmovdqu(XMMRegister dst, AddressLiteral src, Register scratch_reg) {
   if (reachable(src)) {
     vmovdqu(dst, as_Address(src));
+  } else {
+    lea(scratch_reg, src);
+    vmovdqu(dst, Address(scratch_reg, 0));
   }
-  else {
-    lea(rscratch1, src);
-    vmovdqu(dst, Address(rscratch1, 0));
+}
+
+void MacroAssembler::evmovdqub(XMMRegister dst, KRegister mask, AddressLiteral src, bool merge,
+                               int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evmovdqub(dst, mask, as_Address(src), merge, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evmovdqub(dst, mask, Address(scratch_reg, 0), merge, vector_len);
+  }
+}
+
+void MacroAssembler::evmovdqul(XMMRegister dst, KRegister mask, AddressLiteral src, bool merge,
+                               int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evmovdqul(dst, mask, as_Address(src), merge, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evmovdqul(dst, mask, Address(scratch_reg, 0), merge, vector_len);
   }
 }
 
@@ -4044,6 +4063,56 @@ void MacroAssembler::vpcmpeqw(XMMRegister dst, XMMRegister nds, XMMRegister src,
   Assembler::vpcmpeqw(dst, nds, src, vector_len);
 }
 
+void MacroAssembler::evpcmpeqd(KRegister kdst, KRegister mask, XMMRegister nds,
+                               AddressLiteral src, int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evpcmpeqd(kdst, mask, nds, as_Address(src), vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evpcmpeqd(kdst, mask, nds, Address(scratch_reg, 0), vector_len);
+  }
+}
+
+void MacroAssembler::evpcmpd(KRegister kdst, KRegister mask, XMMRegister nds, AddressLiteral src,
+                             int comparison, int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evpcmpd(kdst, mask, nds, as_Address(src), comparison, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evpcmpd(kdst, mask, nds, Address(scratch_reg, 0), comparison, vector_len);
+  }
+}
+
+void MacroAssembler::evpcmpq(KRegister kdst, KRegister mask, XMMRegister nds, AddressLiteral src,
+                             int comparison, int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evpcmpq(kdst, mask, nds, as_Address(src), comparison, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evpcmpq(kdst, mask, nds, Address(scratch_reg, 0), comparison, vector_len);
+  }
+}
+
+void MacroAssembler::evpcmpb(KRegister kdst, KRegister mask, XMMRegister nds, AddressLiteral src,
+                             int comparison, int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evpcmpb(kdst, mask, nds, as_Address(src), comparison, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evpcmpb(kdst, mask, nds, Address(scratch_reg, 0), comparison, vector_len);
+  }
+}
+
+void MacroAssembler::evpcmpw(KRegister kdst, KRegister mask, XMMRegister nds, AddressLiteral src,
+                             int comparison, int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evpcmpw(kdst, mask, nds, as_Address(src), comparison, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evpcmpw(kdst, mask, nds, Address(scratch_reg, 0), comparison, vector_len);
+  }
+}
+
 void MacroAssembler::vpmovzxbw(XMMRegister dst, Address src, int vector_len) {
   assert(((dst->encoding() < 16) || VM_Version::supports_avx512vlbw()),"XMM register should be 0-15");
   Assembler::vpmovzxbw(dst, src, vector_len);
@@ -4149,6 +4218,16 @@ void MacroAssembler::vandps(XMMRegister dst, XMMRegister nds, AddressLiteral src
   } else {
     lea(rscratch1, src);
     vandps(dst, nds, Address(rscratch1, 0), vector_len);
+  }
+}
+
+void MacroAssembler::evpord(XMMRegister dst, KRegister mask, XMMRegister nds, AddressLiteral src,
+                            bool merge, int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evpord(dst, mask, nds, as_Address(src), merge, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evpord(dst, mask, nds, Address(scratch_reg, 0), merge, vector_len);
   }
 }
 
@@ -4445,6 +4524,15 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
     // Got a hit.
     movl(scan_temp, Address(scan_temp, itableOffsetEntry::offset_offset_in_bytes()));
     movptr(method_result, Address(recv_klass, scan_temp, Address::times_1));
+  }
+}
+
+void MacroAssembler::vpermd(XMMRegister dst,  XMMRegister nds, AddressLiteral src, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::vpermd(dst, nds, as_Address(src));
+  } else {
+    lea(scratch_reg, src);
+    Assembler::vpermd(dst, nds, Address(scratch_reg, 0));
   }
 }
 
@@ -8113,7 +8201,7 @@ void MacroAssembler::vectorized_mismatch(Register obja, Register objb, Register 
 
     bind(VECTOR64_LOOP);
     // AVX512 code to compare 64 byte vectors.
-    evmovdqub(rymm0, Address(obja, result), Assembler::AVX_512bit);
+    evmovdqub(rymm0, Address(obja, result), false, Assembler::AVX_512bit);
     evpcmpeqb(k7, rymm0, Address(objb, result), Assembler::AVX_512bit);
     kortestql(k7, k7);
     jcc(Assembler::aboveEqual, VECTOR64_NOT_EQUAL);     // mismatch
@@ -8132,7 +8220,7 @@ void MacroAssembler::vectorized_mismatch(Register obja, Register objb, Register 
     notq(tmp2);
     kmovql(k3, tmp2);
 
-    evmovdqub(rymm0, k3, Address(obja, result), Assembler::AVX_512bit);
+    evmovdqub(rymm0, k3, Address(obja, result), false, Assembler::AVX_512bit);
     evpcmpeqb(k7, k3, rymm0, Address(objb, result), Assembler::AVX_512bit);
 
     ktestql(k7, k3);
@@ -9570,7 +9658,7 @@ void MacroAssembler::char_array_compress(Register src, Register dst, Register le
     notl(result);
     kmovdl(k3, result);
 
-    evmovdquw(tmp1Reg, k3, Address(src, 0), Assembler::AVX_512bit);
+    evmovdquw(tmp1Reg, k3, Address(src, 0), /*merge*/ false, Assembler::AVX_512bit);
     evpcmpuw(k2, k3, tmp1Reg, tmp2Reg, Assembler::le, Assembler::AVX_512bit);
     ktestd(k2, k3);
     jcc(Assembler::carryClear, return_zero);
@@ -9595,7 +9683,7 @@ void MacroAssembler::char_array_compress(Register src, Register dst, Register le
     negptr(len);
 
     bind(copy_32_loop);
-    evmovdquw(tmp1Reg, Address(src, len, Address::times_2), Assembler::AVX_512bit);
+    evmovdquw(tmp1Reg, Address(src, len, Address::times_2), /*merge*/ false, Assembler::AVX_512bit);
     evpcmpuw(k2, tmp1Reg, tmp2Reg, Assembler::le, Assembler::AVX_512bit);
     kortestdl(k2, k2);
     jcc(Assembler::carryClear, return_zero);
@@ -9620,7 +9708,7 @@ void MacroAssembler::char_array_compress(Register src, Register dst, Register le
 
     kmovdl(k3, result);
 
-    evmovdquw(tmp1Reg, k3, Address(src, 0), Assembler::AVX_512bit);
+    evmovdquw(tmp1Reg, k3, Address(src, 0), /*merge*/ false, Assembler::AVX_512bit);
     evpcmpuw(k2, k3, tmp1Reg, tmp2Reg, Assembler::le, Assembler::AVX_512bit);
     ktestd(k2, k3);
     jcc(Assembler::carryClear, return_zero);
@@ -9765,7 +9853,7 @@ void MacroAssembler::byte_array_inflate(Register src, Register dst, Register len
     // inflate 32 chars per iter
     bind(copy_32_loop);
     vpmovzxbw(tmp1, Address(src, len, Address::times_1), Assembler::AVX_512bit);
-    evmovdquw(Address(dst, len, Address::times_2), tmp1, Assembler::AVX_512bit);
+    evmovdquw(Address(dst, len, Address::times_2), tmp1, /*merge*/ false, Assembler::AVX_512bit);
     addptr(len, 32);
     jcc(Assembler::notZero, copy_32_loop);
 
@@ -9780,7 +9868,7 @@ void MacroAssembler::byte_array_inflate(Register src, Register dst, Register len
     notl(tmp3_aliased);
     kmovdl(k2, tmp3_aliased);
     evpmovzxbw(tmp1, k2, Address(src, 0), Assembler::AVX_512bit);
-    evmovdquw(Address(dst, 0), k2, tmp1, Assembler::AVX_512bit);
+    evmovdquw(Address(dst, 0), k2, tmp1, /*merge*/ true, Assembler::AVX_512bit);
 
     jmp(done);
     bind(avx3_threshold);
