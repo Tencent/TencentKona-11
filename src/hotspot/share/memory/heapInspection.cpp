@@ -166,14 +166,12 @@ void KlassInfoTable::AllClassesFinder::do_klass(Klass* k) {
 
 KlassInfoTable::KlassInfoTable(bool add_all_classes) {
   _size_of_instances_in_words = 0;
-  _size = 0;
   _ref = (HeapWord*) Universe::boolArrayKlassObj();
   _buckets =
     (KlassInfoBucket*)  AllocateHeap(sizeof(KlassInfoBucket) * _num_buckets,
        mtInternal, CURRENT_PC, AllocFailStrategy::RETURN_NULL);
   if (_buckets != NULL) {
-    _size = _num_buckets;
-    for (int index = 0; index < _size; index++) {
+    for (int index = 0; index < _num_buckets; index++) {
       _buckets[index].initialize();
     }
     if (add_all_classes) {
@@ -185,11 +183,11 @@ KlassInfoTable::KlassInfoTable(bool add_all_classes) {
 
 KlassInfoTable::~KlassInfoTable() {
   if (_buckets != NULL) {
-    for (int index = 0; index < _size; index++) {
+    for (int index = 0; index < _num_buckets; index++) {
       _buckets[index].empty();
     }
     FREE_C_HEAP_ARRAY(KlassInfoBucket, _buckets);
-    _size = 0;
+    _buckets = NULL;
   }
 }
 
@@ -198,7 +196,7 @@ uint KlassInfoTable::hash(const Klass* p) {
 }
 
 KlassInfoEntry* KlassInfoTable::lookup(Klass* k) {
-  uint         idx = hash(k) % _size;
+  uint         idx = hash(k) % _num_buckets;
   assert(_buckets != NULL, "Allocation failure should have been caught");
   KlassInfoEntry*  e   = _buckets[idx].lookup(k);
   // Lookup may fail if this is a new klass for which we
@@ -226,8 +224,8 @@ bool KlassInfoTable::record_instance(const oop obj) {
 }
 
 void KlassInfoTable::iterate(KlassInfoClosure* cic) {
-  assert(_size == 0 || _buckets != NULL, "Allocation failure should have been caught");
-  for (int index = 0; index < _size; index++) {
+  assert(_buckets != NULL, "Allocation failure should have been caught");
+  for (int index = 0; index < _num_buckets; index++) {
     _buckets[index].iterate(cic);
   }
 }
