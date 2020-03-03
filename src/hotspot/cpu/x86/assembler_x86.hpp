@@ -2157,7 +2157,6 @@ private:
   void vpand(XMMRegister dst, XMMRegister nds, Address src, int vector_len);
   void vpandq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void evpandd(XMMRegister dst, KRegister mask, XMMRegister nds, XMMRegister src, bool merge, int vector_len);
-  void vpandq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
 
   // Andn packed integers
   void pandn(XMMRegister dst, XMMRegister src);
