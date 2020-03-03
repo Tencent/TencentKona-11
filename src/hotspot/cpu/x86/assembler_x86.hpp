@@ -2215,7 +2215,6 @@ private:
   void vpbroadcastb(XMMRegister dst, Address src, int vector_len);
   void vpbroadcastw(XMMRegister dst, XMMRegister src, int vector_len);
   void vpbroadcastw(XMMRegister dst, Address src, int vector_len);
-  void vpbroadcastd(XMMRegister dst, XMMRegister src);
   void vpbroadcastd(XMMRegister dst, XMMRegister src, int vector_len);
   void vpbroadcastd(XMMRegister dst, Address src, int vector_len);
   void vpbroadcastq(XMMRegister dst, XMMRegister src, int vector_len);

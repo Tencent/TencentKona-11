@@ -7115,14 +7115,6 @@ void Assembler::vpbroadcastd(XMMRegister dst, Address src, int vector_len) {
   emit_operand(dst, src);
 }
 
-void Assembler::vpbroadcastd(XMMRegister dst, XMMRegister src) { 
-  assert(VM_Version::supports_avx2(), "");
-  InstructionAttr attributes(AVX_256bit, /* vex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ false, /* uses_vl */ true);
-  int encode = vex_prefix_and_encode(dst->encoding(), 0, src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
-  emit_int8(0x58);
-  emit_int8((unsigned char)(0xC0 | encode));
-} 
-
 // duplicate 8-byte integer data from src into programmed locations in dest : requires AVX512VL
 void Assembler::vpbroadcastq(XMMRegister dst, XMMRegister src, int vector_len) {
   assert(VM_Version::supports_avx2(), "");
