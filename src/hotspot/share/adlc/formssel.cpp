@@ -4080,6 +4080,8 @@ int MatchRule::is_expensive() const {
         strcmp(opType,"MulReductionVF")==0 ||
         strcmp(opType,"MulReductionVD")==0 ||
         strcmp(opType,"AndReductionV")==0 ||
+        strcmp(opType,"OrReductionV")==0 ||
+        strcmp(opType,"XorReductionV")==0 ||
         0 /* 0 to line up columns nicely */ )
       return 1;
   }
@@ -4181,7 +4183,8 @@ bool MatchRule::is_vector() const {
     "AddReductionVF", "AddReductionVD",
     "MulReductionVI", "MulReductionVL",
     "MulReductionVF", "MulReductionVD",
-    "AndReductionV",
+    "AndReductionV", "OrReductionV",
+    "XorReductionV",
     "LShiftCntV","RShiftCntV",
     "LShiftVB","LShiftVS","LShiftVI","LShiftVL",
     "RShiftVB","RShiftVS","RShiftVI","RShiftVL",

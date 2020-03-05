@@ -2174,6 +2174,8 @@ private:
   void por(XMMRegister dst, XMMRegister src);
   void vpor(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void vpor(XMMRegister dst, XMMRegister nds, Address src, int vector_len);
+  void vporq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
+
   void evpord(XMMRegister dst, KRegister mask, XMMRegister nds, XMMRegister src, bool merge, int vector_len);
   void evpord(XMMRegister dst, KRegister mask, XMMRegister nds, Address src, bool merge, int vector_len);
   void vporq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
@@ -2182,6 +2184,7 @@ private:
   void pxor(XMMRegister dst, XMMRegister src);
   void vpxor(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void vpxor(XMMRegister dst, XMMRegister nds, Address src, int vector_len);
+  void vpxorq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void evpxord(XMMRegister dst, KRegister mask, XMMRegister nds, XMMRegister src, bool merge, int vector_len);
   void evpxorq(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len);
   void evpxorq(XMMRegister dst, XMMRegister nds, Address src, int vector_len);
