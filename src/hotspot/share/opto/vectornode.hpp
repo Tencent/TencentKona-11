@@ -970,6 +970,10 @@ class VectorMaskCmpNode : public VectorNode {
   }
 
   virtual int Opcode() const;
+  virtual uint hash() const { return VectorNode::hash() + _predicate; }
+  virtual uint cmp( const Node &n ) const {
+    return VectorNode::cmp(n) && _predicate == ((VectorMaskCmpNode&)n)._predicate;
+  }
   BoolTest::mask get_predicate() { return _predicate; }
 #ifndef PRODUCT
   virtual void dump_spec(outputStream *st) const;
@@ -1006,6 +1010,10 @@ class VectorTestNode : public Node {
            "same number of elements is needed");
   }
   virtual int Opcode() const;
+  virtual uint hash() const { return Node::hash() + _predicate; }
+  virtual uint cmp( const Node &n ) const {
+    return Node::cmp(n) && _predicate == ((VectorTestNode&)n)._predicate;
+  }
   virtual const Type *bottom_type() const { return TypeInt::BOOL; }
   virtual uint ideal_reg() const { return Op_RegI; }  // TODO Should be RegFlags but due to missing comparison flags for BoolTest
                                                       // in middle-end, we make it boolean result directly.
@@ -1049,6 +1057,10 @@ class VectorStoreMaskNode : public VectorNode {
     _mask_size = type2aelembytes(in_type);
   }
 
+  virtual uint hash() const { return VectorNode::hash() + _mask_size; }
+  virtual uint cmp( const Node &n ) const {
+    return VectorNode::cmp(n) && _mask_size == ((VectorStoreMaskNode&)n)._mask_size;
+  }
   int GetInputMaskSize() const { return _mask_size; }
   virtual int Opcode() const;
 };

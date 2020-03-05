@@ -3564,6 +3564,16 @@ void MacroAssembler::evmovdqub(XMMRegister dst, KRegister mask, AddressLiteral s
   }
 }
 
+void MacroAssembler::evmovdquw(XMMRegister dst, KRegister mask, AddressLiteral src, bool merge,
+                               int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evmovdquw(dst, mask, as_Address(src), merge, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evmovdquw(dst, mask, Address(scratch_reg, 0), merge, vector_len);
+  }
+}
+
 void MacroAssembler::evmovdqul(XMMRegister dst, KRegister mask, AddressLiteral src, bool merge,
                                int vector_len, Register scratch_reg) {
   if (reachable(src)) {
@@ -3580,6 +3590,16 @@ void MacroAssembler::evmovdquq(XMMRegister dst, AddressLiteral src, int vector_l
   } else {
     lea(rscratch, src);
     Assembler::evmovdquq(dst, Address(rscratch, 0), vector_len);
+  }
+}
+
+void MacroAssembler::evmovdquq(XMMRegister dst, KRegister mask, AddressLiteral src, bool merge,
+                               int vector_len, Register scratch_reg) {
+  if (reachable(src)) {
+    Assembler::evmovdquq(dst, mask, as_Address(src), merge, vector_len);
+  } else {
+    lea(scratch_reg, src);
+    Assembler::evmovdquq(dst, mask, Address(scratch_reg, 0), merge, vector_len);
   }
 }
 
@@ -4295,12 +4315,12 @@ void MacroAssembler::vnegatesd(XMMRegister dst, XMMRegister nds, AddressLiteral 
   vxorpd(dst, nds, src, Assembler::AVX_128bit);
 }
 
-void MacroAssembler::vxorpd(XMMRegister dst, XMMRegister nds, AddressLiteral src, int vector_len) {
+void MacroAssembler::vxorpd(XMMRegister dst, XMMRegister nds, AddressLiteral src, int vector_len, Register scratch_reg) {
   if (reachable(src)) {
     vxorpd(dst, nds, as_Address(src), vector_len);
   } else {
-    lea(rscratch1, src);
-    vxorpd(dst, nds, Address(rscratch1, 0), vector_len);
+    lea(scratch_reg, src);
+    vxorpd(dst, nds, Address(scratch_reg, 0), vector_len);
   }
 }
 
@@ -4524,6 +4544,20 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
     // Got a hit.
     movl(scan_temp, Address(scan_temp, itableOffsetEntry::offset_offset_in_bytes()));
     movptr(method_result, Address(recv_klass, scan_temp, Address::times_1));
+  }
+}
+
+void MacroAssembler::vpxor(XMMRegister dst, XMMRegister nds, AddressLiteral src, int vector_len, Register scratch_reg) {
+  if (UseAVX > 1 || (vector_len < 1)) {
+    if (reachable(src)) {
+      Assembler::vpxor(dst, nds, as_Address(src), vector_len);
+    } else {
+      lea(scratch_reg, src);
+      Assembler::vpxor(dst, nds, Address(scratch_reg, 0), vector_len);
+    }
+  }
+  else {
+    MacroAssembler::vxorpd(dst, nds, src, vector_len, scratch_reg);
   }
 }
 
