@@ -951,7 +951,9 @@ private:
   void adcq(Register dst, Address src);
   void adcq(Register dst, Register src);
 
+  void addb(Register dst, Register src);
   void addb(Address dst, int imm8);
+  void addw(Register dst, Register src);
   void addw(Address dst, int imm16);
 
   void addl(Address dst, int32_t imm32);
@@ -1060,6 +1062,8 @@ private:
   void cmovq(Condition cc, Register dst, Register src);
   void cmovq(Condition cc, Register dst, Address src);
 
+  void andb(Register dst, Register src);
+  void andw(Register dst, Register src);
 
   void cmpb(Address dst, int imm8);
 
@@ -1698,6 +1702,7 @@ private:
   void pextrq(Register dst, XMMRegister src, int imm8);
   void pextrd(Address dst, XMMRegister src, int imm8);
   void pextrq(Address dst, XMMRegister src, int imm8);
+  void pextrb(Register dst, XMMRegister src, int imm8);
   void pextrb(Address dst, XMMRegister src, int imm8);
   // SSE 2 extract
   void pextrw(Register dst, XMMRegister src, int imm8);

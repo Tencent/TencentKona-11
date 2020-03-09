@@ -614,8 +614,16 @@ int ReductionNode::opcode(int opc, BasicType bt) {
   int vopc = opc;
   switch (opc) {
     case Op_AddI:
-      assert(bt == T_INT, "must be");
-      vopc = Op_AddReductionVI;
+      switch (bt) {
+        case T_BOOLEAN:
+        case T_CHAR: return 0;
+        case T_BYTE:
+        case T_SHORT:
+        case T_INT:       
+          vopc = Op_AddReductionVI;
+          break;
+        default:          ShouldNotReachHere(); return 0;
+      }
       break;
     case Op_AddL:
       assert(bt == T_LONG, "must be");
@@ -646,8 +654,16 @@ int ReductionNode::opcode(int opc, BasicType bt) {
       vopc = Op_MulReductionVD;
       break;
     case Op_AndI:
-      assert(bt == T_INT, "must be");
-      vopc = Op_AndReductionV;
+      switch (bt) {
+      case T_BOOLEAN:
+      case T_CHAR: return 0;
+      case T_BYTE:
+      case T_SHORT:
+      case T_INT:
+        vopc = Op_AndReductionV;
+        break;
+      default:          ShouldNotReachHere(); return 0;
+      }
       break;
     case Op_AndL:
       assert(bt == T_LONG, "must be");
@@ -717,6 +733,8 @@ Node* ReductionNode::make_reduction_input(PhaseGVN& gvn, int opc, BasicType bt) 
   switch (vopc) {
     case Op_AndReductionV:
       switch (bt) {
+        case T_BYTE:
+        case T_SHORT:
         case T_INT:
           return gvn.makecon(TypeInt::MINUS_1);
         case T_LONG:
