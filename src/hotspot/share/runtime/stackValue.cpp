@@ -28,6 +28,7 @@
 #include "oops/oop.hpp"
 #include "runtime/frame.inline.hpp"
 #include "runtime/handles.inline.hpp"
+#include "runtime/interfaceSupport.inline.hpp"
 #include "runtime/stackValue.hpp"
 #if INCLUDE_ZGC
 #include "gc/z/zBarrier.inline.hpp"
