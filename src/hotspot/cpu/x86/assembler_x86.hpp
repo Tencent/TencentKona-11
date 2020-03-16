@@ -2334,6 +2334,7 @@ private:
   void evpbroadcastb(XMMRegister dst, Register src, int vector_len);
   void evpbroadcastw(XMMRegister dst, Register src, int vector_len);
   void evpbroadcastd(XMMRegister dst, Register src, int vector_len);
+  void evpbroadcastd(XMMRegister dst, XMMRegister src, int vector_len);
   void evpbroadcastq(XMMRegister dst, Register src, int vector_len);
 
   void evpgatherdd(XMMRegister dst, KRegister k1, Address src, int vector_len);
