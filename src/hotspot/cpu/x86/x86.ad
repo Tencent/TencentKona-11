@@ -13016,7 +13016,7 @@ instruct vmul64B_reg_avx(vecZ dst, vecZ src1, vecZ src2, vecZ tmp1, vecZ tmp2, v
     __ vpmovsxbw($tmp3$$XMMRegister, $tmp5$$XMMRegister, vector_len);
     __ vpmullw($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vmovdqu($tmp3$$XMMRegister, ExternalAddress(vector_short_to_byte_mask()));
-    __ vpbroadcastd($tmp3$$XMMRegister, $tmp3$$XMMRegister);
+    __ vpbroadcastd($tmp3$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vpand($tmp1$$XMMRegister, $tmp1$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vpand($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vpackuswb($tmp6$$XMMRegister, $tmp2$$XMMRegister, $tmp1$$XMMRegister, vector_len);
@@ -13032,7 +13032,7 @@ instruct vmul64B_reg_avx(vecZ dst, vecZ src1, vecZ src2, vecZ tmp1, vecZ tmp2, v
     __ vpmovsxbw($tmp3$$XMMRegister, $tmp5$$XMMRegister, vector_len);
     __ vpmullw($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vmovdqu($tmp3$$XMMRegister, ExternalAddress(vector_short_to_byte_mask()));
-    __ vpbroadcastd($tmp3$$XMMRegister, $tmp3$$XMMRegister);
+    __ vpbroadcastd($tmp3$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vpand($tmp1$$XMMRegister, $tmp1$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vpand($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vpackuswb($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp1$$XMMRegister, vector_len);
