@@ -336,6 +336,7 @@ protected:
 #define CPU_AVX512_VPOPCNTDQ ((uint64_t)UCONST64(0x2000000000)) // Vector popcount
 #define CPU_AVX512_VPCLMULQDQ ((uint64_t)UCONST64(0x4000000000)) //Vector carryless multiplication
 #define CPU_VAES ((uint64_t)UCONST64(0x8000000000))    // Vector AES instructions
+#define CPU_AVX512VBMI ((uint64_t)UCONST64(0x10000000000))    // Vector BMI instructions
 
   enum Extended_Family {
     // AMD
@@ -548,6 +549,8 @@ protected:
           result |= CPU_AVX512_VPCLMULQDQ;
         if (_cpuid_info.sef_cpuid7_ecx.bits.vaes != 0)
           result |= CPU_VAES;
+        if (_cpuid_info.sef_cpuid7_ecx.bits.avx512_vbmi != 0)
+          result |= CPU_AVX512VBMI;
       }
     }
     if(_cpuid_info.sef_cpuid7_ebx.bits.bmi1 != 0)
@@ -824,6 +827,7 @@ public:
   static bool supports_avx512vlbwdq() { return (supports_evex() && supports_avx512vl() &&
                                                 supports_avx512bw() && supports_avx512dq()); }
   static bool supports_avx512novl() { return (supports_evex() && !supports_avx512vl()); }
+  static bool supports_avx512vbmi() { return (_features & CPU_AVX512VBMI) != 0; }
   static bool supports_avx512nobw() { return (supports_evex() && !supports_avx512bw()); }
   static bool supports_avx256only() { return (supports_avx2() && !supports_evex()); }
   static bool supports_avxonly()    { return ((supports_avx2() || supports_avx()) && !supports_evex()); }
