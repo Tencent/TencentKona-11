@@ -181,6 +181,11 @@ public final class Unsafe {
     @HotSpotIntrinsicCandidate
     public native Object getObject(Object o, long offset);
 
+    @ForceInline
+    public Object getReference(Object o, long offset) {
+        return getObject(o, offset);
+    }
+
     /**
      * Stores a reference value into a given Java variable.
      * <p>
