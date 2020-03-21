@@ -1897,6 +1897,8 @@ typedef PaddedEnd<ObjectMonitor>              PaddedObjectMonitor;
   declare_c2_type(OverflowMulLNode, OverflowLNode)                        \
   declare_c2_type(FmaDNode, Node)                                         \
   declare_c2_type(FmaFNode, Node)                                         \
+  declare_c2_type(LoadVectorGatherNode, LoadVectorNode)                   \
+  declare_c2_type(StoreVectorScatterNode, StoreVectorNode)                \
   declare_c2_type(VectorLoadMaskNode, VectorNode)                         \
   declare_c2_type(VectorLoadShuffleNode, VectorNode)                      \
   declare_c2_type(VectorStoreMaskNode, VectorNode)                        \
