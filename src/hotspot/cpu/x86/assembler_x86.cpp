@@ -496,20 +496,20 @@ void Assembler::emit_operand(Register reg, Register base, Register index,
           base != rbp LP64_ONLY(&& base != r13)) {
         // [base + index*scale]
         // [00 reg 100][ss index base]
-        assert((xmmindexVal || (index != rsp)), "illegal addressing mode");
+        assert(xmmindexVal || (index != rsp), "illegal addressing mode");
         emit_int8(0x04 | regenc);
         emit_int8(scale << 6 | indexenc | baseenc);
       } else if (emit_compressed_disp_byte(disp) && rtype == relocInfo::none) {
         // [base + index*scale + imm8]
         // [01 reg 100][ss index base] imm8
-        assert((xmmindexVal || (index != rsp)), "illegal addressing mode");
+        assert(xmmindexVal || (index != rsp), "illegal addressing mode");
         emit_int8(0x44 | regenc);
         emit_int8(scale << 6 | indexenc | baseenc);
         emit_int8(disp & 0xFF);
       } else {
         // [base + index*scale + disp32]
         // [10 reg 100][ss index base] disp32
-        assert((xmmindexVal || (index != rsp)), "illegal addressing mode");
+        assert(xmmindexVal || (index != rsp), "illegal addressing mode");
         emit_int8(0x84 | regenc);
         emit_int8(scale << 6 | indexenc | baseenc);
         emit_data(disp, rspec, disp32_operand);
@@ -4788,7 +4788,7 @@ void Assembler::vpshufpd(XMMRegister dst, XMMRegister nds, XMMRegister src, int 
   emit_int8((unsigned char)0xC6);
   emit_int8((unsigned char)(0xC0 | encode));
   emit_int8(imm8 & 0xFF);
-} 
+}
 
 void Assembler::pshufps(XMMRegister dst, XMMRegister src, int imm8) {
   assert(isByte(imm8), "invalid value");
@@ -9231,7 +9231,7 @@ void Assembler::evpblendmb (XMMRegister dst, KRegister mask, XMMRegister nds, XM
   if (merge) {
     attributes.reset_is_clear_context();
   }
-  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);	
+  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8((unsigned char)0x66);
   emit_int8((unsigned char)(0xC0 | encode));
 }
@@ -9246,9 +9246,9 @@ void Assembler::evpblendmw (XMMRegister dst, KRegister mask, XMMRegister nds, XM
   if (merge) {
     attributes.reset_is_clear_context();
   }
-  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);	
+  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8((unsigned char)0x66);
-  emit_int8((unsigned char)(0xC0 | encode));	
+  emit_int8((unsigned char)(0xC0 | encode));
 }
 
 void Assembler::evpblendmd (XMMRegister dst, KRegister mask, XMMRegister nds, XMMRegister src, bool merge, int vector_len) {
@@ -9260,23 +9260,23 @@ void Assembler::evpblendmd (XMMRegister dst, KRegister mask, XMMRegister nds, XM
   if (merge) {
     attributes.reset_is_clear_context();
   }
-  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);	
+  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8((unsigned char)0x64);
   emit_int8((unsigned char)(0xC0 | encode));
 }
 
 void Assembler::evpblendmq (XMMRegister dst, KRegister mask, XMMRegister nds, XMMRegister src, bool merge, int vector_len) {
-  assert(VM_Version::supports_evex(), "");	
+  assert(VM_Version::supports_evex(), "");
   //Encoding: EVEX.NDS.512.66.0F38.W1 64 /r
   InstructionAttr attributes(vector_len, /* vex_w */ true, /* legacy_mode */ false, /* no_mask_reg */ false, /* uses_vl */ true);
   attributes.set_is_evex_instruction();
   attributes.set_embedded_opmask_register_specifier(mask);
   if (merge) {
     attributes.reset_is_clear_context();
-  }	
-  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);	
+  }
+  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8((unsigned char)0x64);
-  emit_int8((unsigned char)(0xC0 | encode));	
+  emit_int8((unsigned char)(0xC0 | encode));
 }
 
 void Assembler::shlxl(Register dst, Register src1, Register src2) {
