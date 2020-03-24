@@ -1705,6 +1705,21 @@ void GraphKit::access_clone(Node* ctl, Node* src, Node* dst, Node* size, bool is
   return _barrier_set->clone(this, src, dst, size, is_array);
 }
 
+Node* GraphKit::access_resolve(Node* n, DecoratorSet decorators) {
+  // == Resolve barrier decorators ==
+  // * ACCESS_READ: Indicate that the resolved object is accessed read-only. This allows the GC
+  //   backend to use weaker and more efficient barriers.
+  // * ACCESS_WRITE: Indicate that the resolved object is used for write access.
+  const DecoratorSet ACCESS_READ  = UCONST64(1) << 29;
+  const DecoratorSet ACCESS_WRITE = UCONST64(1) << 30;
+
+  // Use stronger ACCESS_WRITE|ACCESS_READ by default.
+  if ((decorators & (ACCESS_READ | ACCESS_WRITE)) == 0) {
+    decorators |= ACCESS_READ | ACCESS_WRITE;
+  }
+  return _barrier_set->resolve(this, n, decorators);
+}
+
 //-------------------------array_element_address-------------------------
 Node* GraphKit::array_element_address(Node* ary, Node* idx, BasicType elembt,
                                       const TypeInt* sizetype, Node* ctrl) {

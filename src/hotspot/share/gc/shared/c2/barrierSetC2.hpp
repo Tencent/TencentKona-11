@@ -190,6 +190,8 @@ public:
 
   virtual void clone(GraphKit* kit, Node* src, Node* dst, Node* size, bool is_array) const;
 
+  virtual Node* resolve(GraphKit* kit, Node* n, DecoratorSet decorators) const { return n; }
+
   virtual Node* ideal_node(PhaseGVN* phase, Node* n, bool can_reshape) const { return NULL; }
   virtual Node* identity_node(PhaseGVN* phase, Node* n) const { return n; }
 

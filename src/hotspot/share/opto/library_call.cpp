@@ -246,6 +246,7 @@ class LibraryCallKit : public GraphKit {
   // This returns Type::AnyPtr, RawPtr, or OopPtr.
   int classify_unsafe_addr(Node* &base, Node* &offset, BasicType type);
   Node* make_unsafe_address(Node*& base, Node* offset, BasicType type = T_ILLEGAL, bool can_cast = false);
+  Node* make_unsafe_address(Node*& base, Node* offset, DecoratorSet decorators, BasicType type = T_ILLEGAL, bool can_cast = false);
 
   typedef enum { Relaxed, Opaque, Volatile, Acquire, Release } AccessKind;
   DecoratorSet mo_decorator_for_access_kind(AccessKind kind);
@@ -2263,6 +2264,48 @@ inline Node* LibraryCallKit::make_unsafe_address(Node*& base, Node* offset, Basi
     }
     // We don't know if it's an on heap or off heap access. Fall back
     // to raw memory access.
+    Node* raw = _gvn.transform(new CheckCastPPNode(control(), base, TypeRawPtr::BOTTOM));
+    return basic_plus_adr(top(), raw, offset);
+  } else {
+    assert(base == uncasted_base, "unexpected base change");
+    // We know it's an on heap access so base can't be null
+    if (TypePtr::NULL_PTR->higher_equal(_gvn.type(base))) {
+      base = must_be_not_null(base, true);
+    }
+    return basic_plus_adr(base, offset);
+  }
+}
+
+inline Node* LibraryCallKit::make_unsafe_address(Node*& base, Node* offset, DecoratorSet decorators, BasicType type, bool can_cast) {
+  Node* uncasted_base = base;
+  int kind = classify_unsafe_addr(uncasted_base, offset, type);
+  if (kind == Type::RawPtr) {
+    return basic_plus_adr(top(), uncasted_base, offset);
+  } else if (kind == Type::AnyPtr) {
+    assert(base == uncasted_base, "unexpected base change");
+    if (can_cast) {
+      if (!_gvn.type(base)->speculative_maybe_null() &&
+          !too_many_traps(Deoptimization::Reason_speculate_null_check)) {
+        // According to profiling, this access is always on
+        // heap. Casting the base to not null and thus avoiding membars
+        // around the access should allow better optimizations
+        Node* null_ctl = top();
+        base = null_check_oop(base, &null_ctl, true, true, true);
+        assert(null_ctl->is_top(), "no null control here");
+        return basic_plus_adr(base, offset);
+      } else if (_gvn.type(base)->speculative_always_null() &&
+                 !too_many_traps(Deoptimization::Reason_speculate_null_assert)) {
+        // According to profiling, this access is always off
+        // heap.
+        base = null_assert(base);
+        Node* raw_base = _gvn.transform(new CastX2PNode(offset));
+        offset = MakeConX(0);
+        return basic_plus_adr(top(), raw_base, offset);
+      }
+    }
+    // We don't know if it's an on heap or off heap access. Fall back
+    // to raw memory access.
+    base = access_resolve(base, decorators);
     Node* raw = _gvn.transform(new CheckCastPPNode(control(), base, TypeRawPtr::BOTTOM));
     return basic_plus_adr(top(), raw, offset);
   } else {
