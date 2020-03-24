@@ -7032,6 +7032,9 @@ bool LibraryCallKit::inline_vector_mem_operation(bool is_store) {
     return false; // not supported
   }
 
+  ciKlass* vbox_klass = vector_klass->const_oop()->as_instance()->java_lang_Class_klass();
+  bool is_mask = vbox_klass->is_vectormask();
+
   Node* base = argument(3);
   Node* offset = ConvL2X(argument(4));
   Node* addr = make_unsafe_address(base, offset, elem_bt, true);
@@ -7154,6 +7157,7 @@ bool LibraryCallKit::inline_vector_gather_scatter(bool is_scatter) {
 
   Node* base = argument(4);
   Node* offset = ConvL2X(argument(5));
+  DecoratorSet decorators = C2_UNSAFE_ACCESS;
   Node* addr = make_unsafe_address(base, offset, decorators, (is_mask ? T_BOOLEAN : elem_bt), true);
 
   const TypePtr *addr_type = gvn().type(addr)->isa_ptr();
@@ -7163,7 +7167,6 @@ bool LibraryCallKit::inline_vector_gather_scatter(bool is_scatter) {
   if (arr_type == NULL || (arr_type != NULL && elem_bt != arr_type->elem()->array_element_basic_type())) {
     return false;
   }
-  ciKlass* vbox_klass = vector_klass->const_oop()->as_instance()->java_lang_Class_klass();
   const TypeInstPtr* vbox_type = TypeInstPtr::make_exact(TypePtr::NotNull, vbox_klass);
 
   ciKlass* vbox_idx_klass = vector_idx_klass->const_oop()->as_instance()->java_lang_Class_klass();
