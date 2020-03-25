@@ -1516,6 +1516,7 @@ const bool Matcher::match_rule_supported_vector(int opcode, int vlen, BasicType 
         case Op_LShiftVS:
         case Op_RShiftVS:
         case Op_URShiftVS:
+          if (MaxVectorSize < 32) return false;
           if (size_in_bits <= 128 && UseSSE < 4) { ret_value = false; }
           else if (size_in_bits > 256 && UseAVX < 2) { ret_value = false; }
           break;
