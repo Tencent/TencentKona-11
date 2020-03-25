@@ -342,9 +342,14 @@ Node* CheckCastPPNode::Identity(PhaseGVN* phase) {
   if (_carry_dependency) {
     return this;
   }
-  // Toned down to rescue meeting at a Phi 3 different oops all implementing
-  // the same interface.  CompileTheWorld starting at 502, kd12rc1.zip.
-  return (phase->type(in(1)) == phase->type(this)) ? in(1) : this;
+  const Type* t = phase->type(in(1));
+  if (in(1)->Opcode() == Op_VectorBox) {
+    return t->higher_equal_speculative(phase->type(this)) ? in(1) : this;
+  } else {
+    // Toned down to rescue meeting at a Phi 3 different oops all implementing
+    // the same interface.
+    return (t == phase->type(this)) ? in(1) : this;
+  }
 }
 
 //------------------------------Value------------------------------------------
