@@ -1115,7 +1115,7 @@ class Compile : public Phase {
   void inline_string_calls(bool parse_time);
   void inline_boxing_calls(PhaseIterGVN& igvn);
   bool optimize_loops(int& loop_opts_cnt, PhaseIterGVN& igvn, LoopOptsMode mode);
-  void remove_root_to_sfpts_edges();
+  void remove_root_to_sfpts_edges(PhaseIterGVN& igvn);
 
   void expand_vbox_nodes();
   void expand_vbox_node(VectorBoxNode* vec_box);
