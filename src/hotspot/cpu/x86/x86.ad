@@ -7152,7 +7152,7 @@ instruct rvsub4D_reduction_reg(regD dst, vecY src2, regD tmp, regD tmp2) %{
     __ vsubsd($dst$$XMMRegister, $dst$$XMMRegister, $src2$$XMMRegister);
     __ pshufd($tmp$$XMMRegister, $src2$$XMMRegister, 0xE);
     __ vsubsd($dst$$XMMRegister, $dst$$XMMRegister, $tmp$$XMMRegister);
-    __ vextractf32x4($tmp2$$XMMRegister, $src2$$XMMRegister, 0x1);
+    __ vextractf128($tmp2$$XMMRegister, $src2$$XMMRegister, 0x1);
     __ vsubsd($dst$$XMMRegister, $dst$$XMMRegister, $tmp2$$XMMRegister);
     __ pshufd($tmp$$XMMRegister, $tmp2$$XMMRegister, 0xE);
     __ vsubsd($dst$$XMMRegister, $dst$$XMMRegister, $tmp$$XMMRegister);
@@ -9004,7 +9004,7 @@ instruct rvmin4D_reduction_reg(regD dst, vecY src2, regD tmp, regD tmp2) %{
     __ vminpd($dst$$XMMRegister, $dst$$XMMRegister, $src2$$XMMRegister, vector_len);
     __ pshufd($tmp$$XMMRegister, $src2$$XMMRegister, 0xE);
     __ vminpd($dst$$XMMRegister, $dst$$XMMRegister, $tmp$$XMMRegister, vector_len);
-    __ vextractf32x4($tmp2$$XMMRegister, $src2$$XMMRegister, 0x1);
+    __ vextractf128($tmp2$$XMMRegister, $src2$$XMMRegister, 0x1);
     __ vminpd($dst$$XMMRegister, $dst$$XMMRegister, $tmp2$$XMMRegister, vector_len);
     __ pshufd($tmp$$XMMRegister, $tmp2$$XMMRegister, 0xE);
     __ vminpd($dst$$XMMRegister, $dst$$XMMRegister, $tmp$$XMMRegister, vector_len);
@@ -10105,7 +10105,7 @@ instruct rvmax4D_reduction_reg(regD dst, vecY src2, regD tmp, regD tmp2) %{
     __ vmaxpd($dst$$XMMRegister, $dst$$XMMRegister, $src2$$XMMRegister, vector_len);
     __ pshufd($tmp$$XMMRegister, $src2$$XMMRegister, 0xE);
     __ vmaxpd($dst$$XMMRegister, $dst$$XMMRegister, $tmp$$XMMRegister, vector_len);
-    __ vextractf32x4($tmp2$$XMMRegister, $src2$$XMMRegister, 0x1);
+    __ vextractf128($tmp2$$XMMRegister, $src2$$XMMRegister, 0x1);
     __ vmaxpd($dst$$XMMRegister, $dst$$XMMRegister, $tmp2$$XMMRegister, vector_len);
     __ pshufd($tmp$$XMMRegister, $tmp2$$XMMRegister, 0xE);
     __ vmaxpd($dst$$XMMRegister, $dst$$XMMRegister, $tmp$$XMMRegister, vector_len);
@@ -20327,7 +20327,7 @@ instruct extract32b(rRegI dst, vecY src, vecX tmp, immI idx) %{
     } else {
       int extr_idx1 = midx / 16;
       int extr_idx2 = midx % 16;
-      __ vextracti32x4($tmp$$XMMRegister, $src$$XMMRegister, extr_idx1);
+      __ vextractf128($tmp$$XMMRegister, $src$$XMMRegister, extr_idx1);
       __ pextrb($dst$$Register, $tmp$$XMMRegister, extr_idx2);
       __ movsbl($dst$$Register, $dst$$Register);
     }
