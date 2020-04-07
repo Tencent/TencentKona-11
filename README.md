@@ -1,5 +1,5 @@
 # Tencent JDK 11
-![tencentjdk.png](/uploads/8BA83EB497FD40B1B398D8CB2156DD1B/tencentjdk.png)
+![Tencent-kona.jpg](/uploads/53E12E7E40644E75B522447E91862F81/Tencent-kona.jpg)
 - 免费、定制优化的OpenJDK版本
  - 基于OpenJDK11，兼容Java SE标准
  - 经过数据平台部多个系统内测使用，保障稳定性
