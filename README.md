@@ -16,4 +16,11 @@
 - [开发指南](https://git.code.oa.com/JDK/tencentJDK/wikis/How_to_Contribute)（与TencentKona 8保持一致）
 
 # Release Notes
+
 ## [下载地址](http://jdk.oa.com/download.html)
+
+## 2020.04 [TencentKona11.0.7-ea](http://bia.oa.com/mirror/dev/11.0.7/linux-x86_64/ea/b1/TencentKona11.0.7.b1-ea_jdk_linux-x86_64.tar.gz)
+FEAT(g1): Backport of JEP 346: Promptly Return Unused Committed Memory from G1
+FEAT(g1): Implementation of JDK-8204089 Promptly Return Unused Committed Memory from G1
+FEAT(svc): Enable PrintExtendThreadInfo by default
+FEAT(GC): Backport of JEP 344: Abortable Mixed Collections for G1 GC
