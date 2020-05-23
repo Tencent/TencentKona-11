@@ -7482,7 +7482,7 @@ instruct rvmul32S_reduction_reg(rRegI dst, rRegI src1, vecZ src2, regF tmp, regF
 %}
 
 instruct rsmul2I_reduction_reg(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD tmp2) %{
-  predicate(UseSSE > 3 && UseAVX == 0);
+  predicate(UseSSE > 3 && UseAVX == 0 && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (MulReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "pshufd  $tmp2,$src2,0x1\n\t"
@@ -7501,7 +7501,7 @@ instruct rsmul2I_reduction_reg(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD 
 %}
 
 instruct rvmul2I_reduction_reg(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD tmp2) %{
-  predicate(UseAVX > 0);
+  predicate(UseAVX > 0 && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (MulReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "pshufd   $tmp2,$src2,0x1\n\t"
@@ -7521,7 +7521,7 @@ instruct rvmul2I_reduction_reg(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD 
 %}
 
 instruct rsmul4I_reduction_reg(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX tmp2) %{
-  predicate(UseSSE > 3 && UseAVX == 0);
+  predicate(UseSSE > 3 && UseAVX == 0 && UseAVX == 0 && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (MulReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "pshufd  $tmp2,$src2,0xE\n\t"
@@ -7544,7 +7544,7 @@ instruct rsmul4I_reduction_reg(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX 
 %}
 
 instruct rvmul4I_reduction_reg(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX tmp2) %{
-  predicate(UseAVX > 0);
+  predicate(UseAVX > 0 && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (MulReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "pshufd   $tmp2,$src2,0xE\n\t"
@@ -7568,7 +7568,7 @@ instruct rvmul4I_reduction_reg(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX 
 %}
 
 instruct rvmul8I_reduction_reg(rRegI dst, rRegI src1, vecY src2, vecY tmp, vecY tmp2) %{
-  predicate(UseAVX > 1);
+  predicate(UseAVX > 1 && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (MulReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "vextracti128_high  $tmp,$src2\n\t"
@@ -7596,7 +7596,7 @@ instruct rvmul8I_reduction_reg(rRegI dst, rRegI src1, vecY src2, vecY tmp, vecY 
 %}
 
 instruct rvmul16I_reduction_reg(rRegI dst, rRegI src1, legVecZ src2, legVecZ tmp, legVecZ tmp2, legVecZ tmp3) %{
-  predicate(UseAVX > 2);
+  predicate(UseAVX > 2 && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (MulReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2, TEMP tmp3);
   format %{ "vextracti64x4_high  $tmp3,$src2\n\t"
