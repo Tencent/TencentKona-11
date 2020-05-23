@@ -6369,7 +6369,7 @@ instruct rvadd32S_reduction_reg_evex(rRegI dst, rRegI src1, vecZ src2, regF tmp,
 
 
 instruct rsadd2I_reduction_reg(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD tmp2) %{
-  predicate(UseSSE > 2 && UseAVX == 0);
+  predicate(UseSSE > 2 && UseAVX == 0 && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp2, TEMP tmp);
   format %{ "movdqu  $tmp2,$src2\n\t"
@@ -6388,7 +6388,7 @@ instruct rsadd2I_reduction_reg(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD 
 %}
 
 instruct rvadd2I_reduction_reg(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD tmp2) %{
-  predicate(VM_Version::supports_avxonly());
+  predicate(VM_Version::supports_avxonly()  && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "vphaddd  $tmp,$src2,$src2\n\t"
@@ -6406,7 +6406,7 @@ instruct rvadd2I_reduction_reg(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD 
 %}
 
 instruct rvadd2I_reduction_reg_evex(rRegI dst, rRegI src1, vecD src2, vecD tmp, vecD tmp2) %{
-  predicate(UseAVX > 2);
+  predicate(UseAVX > 2  && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "pshufd  $tmp2,$src2,0x1\n\t"
@@ -6426,7 +6426,7 @@ instruct rvadd2I_reduction_reg_evex(rRegI dst, rRegI src1, vecD src2, vecD tmp, 
 %}
 
 instruct rsadd4I_reduction_reg(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX tmp2) %{
-  predicate(UseSSE > 2 && UseAVX == 0);
+  predicate(UseSSE > 2 && UseAVX == 0  && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "movdqu  $tmp,$src2\n\t"
@@ -6447,7 +6447,7 @@ instruct rsadd4I_reduction_reg(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX 
 %}
 
 instruct rvadd4I_reduction_reg(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX tmp2) %{
-  predicate(VM_Version::supports_avxonly());
+  predicate(VM_Version::supports_avxonly() && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "vphaddd  $tmp,$src2,$src2\n\t"
@@ -6467,7 +6467,7 @@ instruct rvadd4I_reduction_reg(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX 
 %}
 
 instruct rvadd4I_reduction_reg_evex(rRegI dst, rRegI src1, vecX src2, vecX tmp, vecX tmp2) %{
-  predicate(UseAVX > 2);
+  predicate(UseAVX > 2  && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "pshufd  $tmp2,$src2,0xE\n\t"
@@ -6491,7 +6491,7 @@ instruct rvadd4I_reduction_reg_evex(rRegI dst, rRegI src1, vecX src2, vecX tmp, 
 %}
 
 instruct rvadd8I_reduction_reg(rRegI dst, rRegI src1, vecY src2, vecY tmp, vecY tmp2) %{
-  predicate(VM_Version::supports_avxonly());
+  predicate(VM_Version::supports_avxonly()  && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "vphaddd  $tmp,$src2,$src2\n\t"
@@ -6515,7 +6515,7 @@ instruct rvadd8I_reduction_reg(rRegI dst, rRegI src1, vecY src2, vecY tmp, vecY 
 %}
 
 instruct rvadd8I_reduction_reg_evex(rRegI dst, rRegI src1, vecY src2, vecY tmp, vecY tmp2) %{
-  predicate(UseAVX > 2);
+  predicate(UseAVX > 2  && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2);
   format %{ "vextracti128_high  $tmp,$src2\n\t"
@@ -6543,7 +6543,7 @@ instruct rvadd8I_reduction_reg_evex(rRegI dst, rRegI src1, vecY src2, vecY tmp, 
 %}
 
 instruct rvadd16I_reduction_reg_evex(rRegI dst, rRegI src1, legVecZ src2, legVecZ tmp, legVecZ tmp2, legVecZ tmp3) %{
-  predicate(UseAVX > 2);
+  predicate(UseAVX > 2  && n->in(2)->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AddReductionVI src1 src2));
   effect(TEMP tmp, TEMP tmp2, TEMP tmp3);
   format %{ "vextracti64x4_high  $tmp3,$src2\n\t"
