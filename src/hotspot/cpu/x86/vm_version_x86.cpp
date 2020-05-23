@@ -1533,6 +1533,13 @@ void VM_Version::get_processor_features() {
     FLAG_SET_DEFAULT(UseUnalignedAccesses, true);
   }
 
+#ifdef COMPILER2
+  // Disable 512-bit vectors
+  if (MaxVectorSize > 32) {
+    MaxVectorSize = 32;
+  }
+#endif
+
 #ifndef PRODUCT
   if (log_is_enabled(Info, os, cpu)) {
     LogStream ls(Log(os, cpu)::info());
