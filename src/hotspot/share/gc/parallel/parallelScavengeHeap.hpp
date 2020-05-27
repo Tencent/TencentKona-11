@@ -49,6 +49,7 @@ class MemoryPool;
 class PSAdaptiveSizePolicy;
 class PSCardTable;
 class PSHeapSummary;
+class WorkGang;
 
 class ParallelScavengeHeap : public CollectedHeap {
   friend class VMStructs;
@@ -217,6 +218,8 @@ class ParallelScavengeHeap : public CollectedHeap {
 
   void object_iterate(ObjectClosure* cl);
   void safe_object_iterate(ObjectClosure* cl) { object_iterate(cl); }
+  // Runs the given AbstractGangTask with the current active workers.
+  virtual void run_task(AbstractGangTask* task);
 
   HeapWord* block_start(const void* addr) const;
   size_t block_size(const HeapWord* addr) const;
@@ -308,6 +311,7 @@ class AdaptiveSizePolicyOutput : AllStatic {
       size_policy->print();
     }
   }
+
 };
 
 #endif // SHARE_VM_GC_PARALLEL_PARALLELSCAVENGEHEAP_HPP
