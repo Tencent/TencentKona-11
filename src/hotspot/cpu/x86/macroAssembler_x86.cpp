@@ -4570,12 +4570,12 @@ void MacroAssembler::vpxor(XMMRegister dst, XMMRegister nds, AddressLiteral src,
   }
 }
 
-void MacroAssembler::vpermd(XMMRegister dst,  XMMRegister nds, AddressLiteral src, Register scratch_reg) {
+void MacroAssembler::vpermd(XMMRegister dst,  XMMRegister nds, AddressLiteral src, int vector_len, Register scratch_reg) {
   if (reachable(src)) {
-    Assembler::vpermd(dst, nds, as_Address(src));
+    Assembler::vpermd(dst, nds, as_Address(src), vector_len);
   } else {
     lea(scratch_reg, src);
-    Assembler::vpermd(dst, nds, Address(scratch_reg, 0));
+    Assembler::vpermd(dst, nds, Address(scratch_reg, 0), vector_len);
   }
 }
 

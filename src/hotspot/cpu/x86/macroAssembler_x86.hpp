@@ -1366,8 +1366,8 @@ public:
   void vpxor(XMMRegister dst, XMMRegister src) { Assembler::vpxor(dst, dst, src, true); }
   void vpxor(XMMRegister dst, Address src) { Assembler::vpxor(dst, dst, src, true); }
 
-  void vpermd(XMMRegister dst, XMMRegister nds, XMMRegister src) { Assembler::vpermd(dst, nds, src); }
-  void vpermd(XMMRegister dst, XMMRegister nds, AddressLiteral src, Register scratch_reg);
+  void vpermd(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len) { Assembler::vpermd(dst, nds, src, vector_len); }
+  void vpermd(XMMRegister dst, XMMRegister nds, AddressLiteral src, int vector_len, Register scratch_reg);
 
   void vinserti128(XMMRegister dst, XMMRegister nds, XMMRegister src, uint8_t imm8) {
     if (UseAVX > 2 && VM_Version::supports_avx512novl()) {

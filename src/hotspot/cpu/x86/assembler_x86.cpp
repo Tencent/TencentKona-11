@@ -3785,32 +3785,25 @@ void Assembler::vpermw(XMMRegister dst, KRegister mask, XMMRegister nds, XMMRegi
   emit_int8((unsigned char)(0xC0 | encode));
 }
 
-void Assembler::vpermd(XMMRegister dst, XMMRegister nds, XMMRegister src) {
-  assert(VM_Version::supports_avx2(), "");
+void Assembler::vpermd(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len) {
+  assert(vector_len <= AVX_256bit ? VM_Version::supports_avx2() : VM_Version::supports_evex(), "");
   // VEX.NDS.256.66.0F38.W0 36 /r
-  InstructionAttr attributes(AVX_256bit, /* rex_w */ false, /* legacy_mode */ true, /* no_mask_reg */ false, /* uses_vl */ false);
+  InstructionAttr attributes(vector_len, /* rex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ true);
   int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8(0x36);
-  emit_int8(0xC0 | encode);
+  emit_int8((unsigned char)(0xC0 | encode));
 }
 
-void Assembler::vpermd(XMMRegister dst, XMMRegister nds, Address src) {
-  assert(VM_Version::supports_avx2(), "");
+void Assembler::vpermd(XMMRegister dst, XMMRegister nds, Address src, int vector_len) {
+  assert(vector_len <= AVX_256bit ? VM_Version::supports_avx2() : VM_Version::supports_evex(), "");
   // VEX.NDS.256.66.0F38.W0 36 /r
   InstructionMark im(this);
-  InstructionAttr attributes(AVX_256bit, /* rex_w */ false, /* legacy_mode */ true, /* no_mask_reg */ false, /* uses_vl */ false);
+  InstructionAttr attributes(vector_len, /* rex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ true);
   vex_prefix(src, nds->encoding(), dst->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8(0x36);
   emit_operand(dst, src);
 }
 
-void Assembler::evpermd(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len) {
-  assert(VM_Version::supports_evex(), "");
-  InstructionAttr attributes(vector_len, /* vex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ false, /* uses_vl */ true);
-  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
-  emit_int8(0x36);
-  emit_int8((unsigned char)(0xC0 | encode));
-}
 
 void Assembler::vperm2i128(XMMRegister dst,  XMMRegister nds, XMMRegister src, int imm8) {
   assert(VM_Version::supports_avx2(), "");

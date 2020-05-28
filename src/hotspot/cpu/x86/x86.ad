@@ -22788,7 +22788,7 @@ instruct storemask4l(vecS dst, vecY src, rRegL scratch) %{
     // vpermd and load are 256-bit, but all others are 128-bit instructions.
     int vector_len = 0;
     __ vmovdqu($dst$$XMMRegister, ExternalAddress(vector_long_perm_mask()), $scratch$$Register);
-    __ vpermd($dst$$XMMRegister, $dst$$XMMRegister, $src$$XMMRegister);
+    __ vpermd($dst$$XMMRegister, $dst$$XMMRegister, $src$$XMMRegister, 1);
     __ vpabsd($dst$$XMMRegister, $dst$$XMMRegister, vector_len);
     __ vpackusdw($dst$$XMMRegister, $dst$$XMMRegister, $dst$$XMMRegister, vector_len);
     __ vpackuswb($dst$$XMMRegister, $dst$$XMMRegister, $dst$$XMMRegister, vector_len);
@@ -23177,7 +23177,7 @@ instruct rearrange8i(vecY dst, vecY src, vecY shuffle) %{
   format %{ "vpermd $dst, $src, $shuffle\t! rearrange (8IRearrange)" %}
   ins_encode %{
     int vector_len = 1;
-    __ vpermd($dst$$XMMRegister, $shuffle$$XMMRegister, $src$$XMMRegister);
+    __ vpermd($dst$$XMMRegister, $shuffle$$XMMRegister, $src$$XMMRegister, vector_len);
   %}
   ins_pipe( pipe_slow );
 %}
@@ -23191,7 +23191,7 @@ instruct rearrange16i(vecZ dst, vecZ src, vecZ shuffle) %{
   format %{ "vpermd $dst, $src, $shuffle\t! rearrange (16IRearrange)" %}
   ins_encode %{
     int vector_len = 2;
-    __ evpermd($dst$$XMMRegister, $shuffle$$XMMRegister, $src$$XMMRegister, vector_len);
+    __ vpermd($dst$$XMMRegister, $shuffle$$XMMRegister, $src$$XMMRegister, vector_len);
   %}
   ins_pipe( pipe_slow );
 %}
@@ -23205,7 +23205,7 @@ instruct rearrange4l(vecY dst, vecY src, vecY shuffle) %{
   format %{ "vpermd $dst, $src, $shuffle\t! rearrange (4LRearrange)" %}
   ins_encode %{
     int vector_len = 1;
-    __ vpermd($dst$$XMMRegister, $shuffle$$XMMRegister, $src$$XMMRegister);
+    __ vpermd($dst$$XMMRegister, $shuffle$$XMMRegister, $src$$XMMRegister, vector_len);
   %}
   ins_pipe( pipe_slow );
 %}
@@ -23219,7 +23219,7 @@ instruct rearrange8l(vecZ dst, vecZ src, vecZ shuffle) %{
   format %{ "vpermd $dst, $src, $shuffle\t! rearrange (8LRearrange)" %}
   ins_encode %{
     int vector_len = 2;
-    __ evpermd($dst$$XMMRegister, $shuffle$$XMMRegister, $src$$XMMRegister, vector_len);
+    __ vpermd($dst$$XMMRegister, $shuffle$$XMMRegister, $src$$XMMRegister, vector_len);
   %}
   ins_pipe( pipe_slow );
 %}
