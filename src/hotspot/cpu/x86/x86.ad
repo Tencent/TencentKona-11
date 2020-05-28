@@ -13009,9 +13009,9 @@ instruct vmul64B_reg_avx(vecZ dst, vecZ src1, vecZ src2, vecZ tmp1, vecZ tmp2, v
            "vpmovsxbw $tmp3,$src2\n\t"
            "vpmullw $tmp2,$tmp2,$tmp3\n\t"
            "vmovdqu $tmp3, [0x00ff00ff0x00ff00ff]\n\t"
-           "evpbroadcastd $tmp3, $tmp3\n\t"
-           "evpandd $tmp1,$tmp1,$tmp3\n\t"
-           "evpandd $tmp2,$tmp2,$tmp3\n\t"
+           "vpbroadcastd $tmp3, $tmp3\n\t"
+           "vpand $tmp1,$tmp1,$tmp3\n\t"
+           "vpand $tmp2,$tmp2,$tmp3\n\t"
            "vpackuswb $tmp1,$tmp2,$tmp1\n\t"
            "vextracti64x4_high  $tmp3,$tmp1\n\t"
            "vpermq $tmp3, $tmp3, 0x8D\n\t"
@@ -13025,7 +13025,6 @@ instruct vmul64B_reg_avx(vecZ dst, vecZ src1, vecZ src2, vecZ tmp1, vecZ tmp2, v
            "vinserti64x4 $dst,$dst,$tmp2,0x01\t! mul packed64B" %}
   ins_encode %{
     int vector_len = 2;
-    KRegister ktmp = k1;
     __ vextracti64x4_high($tmp1$$XMMRegister, $src1$$XMMRegister);
     __ vextracti64x4_high($tmp3$$XMMRegister, $src2$$XMMRegister);
     __ vpmovsxbw($tmp1$$XMMRegister, $tmp1$$XMMRegister, vector_len);
@@ -13035,9 +13034,9 @@ instruct vmul64B_reg_avx(vecZ dst, vecZ src1, vecZ src2, vecZ tmp1, vecZ tmp2, v
     __ vpmovsxbw($tmp3$$XMMRegister, $src2$$XMMRegister, vector_len);
     __ vpmullw($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vmovdqu($tmp3$$XMMRegister, ExternalAddress(vector_short_to_byte_mask()));
-    __ evpbroadcastd($tmp3$$XMMRegister, $tmp3$$XMMRegister, vector_len);
-    __ evpandd($tmp1$$XMMRegister, ktmp, $tmp1$$XMMRegister, $tmp3$$XMMRegister, false, vector_len);
-    __ evpandd($tmp2$$XMMRegister, ktmp, $tmp2$$XMMRegister, $tmp3$$XMMRegister, false, vector_len);
+    __ vpbroadcastd($tmp3$$XMMRegister, $tmp3$$XMMRegister, vector_len);
+    __ vpand($tmp1$$XMMRegister, $tmp1$$XMMRegister, $tmp3$$XMMRegister, vector_len);
+    __ vpand($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp3$$XMMRegister, vector_len);
     __ vpackuswb($tmp1$$XMMRegister, $tmp2$$XMMRegister, $tmp1$$XMMRegister, vector_len);
     __ vextracti64x4_high($tmp3$$XMMRegister, $tmp1$$XMMRegister);
     __ vpermq($tmp3$$XMMRegister, $tmp3$$XMMRegister, 0x8D, 1);
