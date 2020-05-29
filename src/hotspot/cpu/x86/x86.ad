@@ -21937,11 +21937,11 @@ instruct vabs32B_reg(vecY dst, vecY src) %{
 instruct vabs64B_reg(vecZ dst, vecZ src) %{
   predicate(UseAVX > 2 && n->as_Vector()->length() == 64 && n->bottom_type()->is_vect()->element_basic_type() == T_BYTE);
   match(Set dst (AbsV  src));
-  format %{ "evpabsb $dst,$src\t# $dst = |$src| abs packed64B" %}
+  format %{ "vpabsb $dst,$src\t# $dst = |$src| abs packed64B" %}
   ins_cost(150);
   ins_encode %{
     int vector_len = 2;
-    __ evpabsb($dst$$XMMRegister, $src$$XMMRegister, vector_len);
+    __ vpabsb($dst$$XMMRegister, $src$$XMMRegister, vector_len);
   %}
   ins_pipe( pipe_slow );
 %}
@@ -21983,11 +21983,11 @@ instruct vabs16S_reg(vecY dst, vecY src) %{
 instruct vabs32S_reg(vecZ dst, vecZ src) %{
   predicate(UseAVX > 2 && n->as_Vector()->length() == 32 && n->bottom_type()->is_vect()->element_basic_type() == T_SHORT);
   match(Set dst (AbsV  src));
-  format %{ "evpabsw $dst,$src\t# $dst = |$src| abs packed32S" %}
+  format %{ "vpabsw $dst,$src\t# $dst = |$src| abs packed32S" %}
   ins_cost(150);
   ins_encode %{
     int vector_len = 2;
-    __ evpabsw($dst$$XMMRegister, $src$$XMMRegister, vector_len);
+    __ vpabsw($dst$$XMMRegister, $src$$XMMRegister, vector_len);
   %}
   ins_pipe( pipe_slow );
 %}
@@ -22029,11 +22029,11 @@ instruct vabs8I_reg(vecY dst, vecY src) %{
 instruct vabs16I_reg(vecZ dst, vecZ src) %{
   predicate(UseAVX > 2 && n->as_Vector()->length() == 16 && n->bottom_type()->is_vect()->element_basic_type() == T_INT);
   match(Set dst (AbsV  src));
-  format %{ "evpabsd $dst,$src\t# $dst = |$src| abs packed16I" %}
+  format %{ "vpabsd $dst,$src\t# $dst = |$src| abs packed16I" %}
   ins_cost(150);
   ins_encode %{
     int vector_len = 2;
-    __ evpabsd($dst$$XMMRegister, $src$$XMMRegister, vector_len);
+    __ vpabsd($dst$$XMMRegister, $src$$XMMRegister, vector_len);
   %}
   ins_pipe( pipe_slow );
 %}
