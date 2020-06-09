@@ -4441,7 +4441,7 @@ void Assembler::vpmovzxdq(XMMRegister dst, XMMRegister src, int vector_len) {
 
 void Assembler::vpmovzxbd(XMMRegister dst, XMMRegister src, int vector_len) {
   assert(vector_len > AVX_128bit ? VM_Version::supports_avx2() : VM_Version::supports_avx(), "");
-  InstructionAttr attributes(vector_len, /* rex_w */ false, /* legacy_mode */ _legacy_mode_bw, /* no_mask_reg */ true, /* uses_vl */ false);
+  InstructionAttr attributes(vector_len, /* rex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ true);
   int encode = simd_prefix_and_encode(dst, xnoreg, src, VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
   emit_int8(0x31);
   emit_int8((unsigned char)(0xC0 | encode));
