@@ -142,7 +142,7 @@ public abstract class ByteVector extends Vector<Byte> {
                                      a, ((long) ix) + Unsafe.ARRAY_BYTE_BASE_OFFSET,
                                      a, ix, species,
                                      (c, idx, s) -> {
-                                         ByteBuffer bbc = ByteBuffer.wrap(c, idx, a.length - idx).order(ByteOrder.nativeOrder());
+                                         ByteBuffer bbc = ByteBuffer.wrap(c, idx, c.length - idx).order(ByteOrder.nativeOrder());
                                          ByteBuffer tb = bbc;
                                          return ((ByteSpecies)s).op(i -> tb.get());
                                      });

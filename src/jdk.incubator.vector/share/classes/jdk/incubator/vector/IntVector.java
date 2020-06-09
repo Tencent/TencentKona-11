@@ -143,7 +143,7 @@ public abstract class IntVector extends Vector<Integer> {
                                      a, ((long) ix) + Unsafe.ARRAY_BYTE_BASE_OFFSET,
                                      a, ix, species,
                                      (c, idx, s) -> {
-                                         ByteBuffer bbc = ByteBuffer.wrap(c, idx, a.length - idx).order(ByteOrder.nativeOrder());
+                                         ByteBuffer bbc = ByteBuffer.wrap(c, idx, c.length - idx).order(ByteOrder.nativeOrder());
                                          IntBuffer tb = bbc.asIntBuffer();
                                          return ((IntSpecies)s).op(i -> tb.get());
                                      });

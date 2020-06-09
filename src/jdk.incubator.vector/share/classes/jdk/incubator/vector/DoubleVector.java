@@ -143,7 +143,7 @@ public abstract class DoubleVector extends Vector<Double> {
                                      a, ((long) ix) + Unsafe.ARRAY_BYTE_BASE_OFFSET,
                                      a, ix, species,
                                      (c, idx, s) -> {
-                                         ByteBuffer bbc = ByteBuffer.wrap(c, idx, a.length - idx).order(ByteOrder.nativeOrder());
+                                         ByteBuffer bbc = ByteBuffer.wrap(c, idx, c.length - idx).order(ByteOrder.nativeOrder());
                                          DoubleBuffer tb = bbc.asDoubleBuffer();
                                          return ((DoubleSpecies)s).op(i -> tb.get());
                                      });
