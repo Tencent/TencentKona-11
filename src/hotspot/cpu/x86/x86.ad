@@ -23047,7 +23047,7 @@ instruct loadshuffle8l(vecZ dst, vecD src, vecZ tmp, vecZ tmp2, rRegI scratch) %
     __ vpmovsxdq($tmp2$$XMMRegister, $tmp$$XMMRegister, vector_len);
     __ vpsllq($tmp$$XMMRegister, $tmp2$$XMMRegister, 0x20, vector_len);
     __ vpaddd($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp$$XMMRegister, vector_len);
-    __ evmovdqul($tmp$$XMMRegister, k1, ExternalAddress(vector_long_shufflemask()), false, vector_len, $scratch$$Register);
+    __ evmovdqul($tmp$$XMMRegister, k0, ExternalAddress(vector_long_shufflemask()), false, vector_len, $scratch$$Register);
     __ vpaddd($tmp2$$XMMRegister, $tmp2$$XMMRegister, $tmp$$XMMRegister, vector_len);
     __ evmovdqul($dst$$XMMRegister, $tmp2$$XMMRegister, vector_len);
   %}
