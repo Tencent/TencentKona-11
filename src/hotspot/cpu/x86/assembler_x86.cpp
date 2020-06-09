@@ -2916,8 +2916,8 @@ void Assembler::evmovdqul(Address dst, KRegister mask, XMMRegister src, bool mer
 }
 
 void Assembler::evmovdquq(XMMRegister dst, XMMRegister src, int vector_len) {
-  // Users of this routine assume k1 usage.
-  evmovdquq(dst, k1, src, /*merge*/ false, vector_len);
+  // Unmasked instruction
+  evmovdquq(dst, k0, src, /*merge*/ false, vector_len);
 }
 
 void Assembler::evmovdquq(XMMRegister dst, KRegister mask, XMMRegister src, bool merge, int vector_len) {
@@ -2934,8 +2934,8 @@ void Assembler::evmovdquq(XMMRegister dst, KRegister mask, XMMRegister src, bool
 }
 
 void Assembler::evmovdquq(XMMRegister dst, Address src, int vector_len) {
-  // Users of this routine assume k1 usage.
-  evmovdquq(dst, k1, src, /*merge*/ false, vector_len);
+  // Unmasked instruction
+  evmovdquq(dst, k0, src, /*merge*/ false, vector_len);
 }
 
 void Assembler::evmovdquq(XMMRegister dst, KRegister mask, Address src, bool merge, int vector_len) {
@@ -2954,8 +2954,8 @@ void Assembler::evmovdquq(XMMRegister dst, KRegister mask, Address src, bool mer
 }
 
 void Assembler::evmovdquq(Address dst, XMMRegister src, int vector_len) {
-  // Users of this routine assume k1 usage.
-  evmovdquq(dst, k1, src, /*merge*/ true, vector_len);
+  // Unmasked instruction
+  evmovdquq(dst, k0, src, /*merge*/ true, vector_len);
 }
 
 void Assembler::evmovdquq(Address dst, KRegister mask, XMMRegister src, bool merge, int vector_len) {
