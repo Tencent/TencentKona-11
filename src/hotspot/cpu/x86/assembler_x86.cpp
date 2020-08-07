@@ -1386,6 +1386,15 @@ void Assembler::aesenc(XMMRegister dst, XMMRegister src) {
   emit_int8(0xC0 | encode);
 }
 
+void Assembler::vaesenc(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len) {
+  assert(VM_Version::supports_vaes(), "requires vaes support/enabling");
+  InstructionAttr attributes(vector_len, /* vex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ true);
+  attributes.set_is_evex_instruction();
+  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
+  emit_int8((unsigned char)0xDC);
+  emit_int8((unsigned char)(0xC0 | encode));
+}
+
 void Assembler::aesenclast(XMMRegister dst, Address src) {
   assert(VM_Version::supports_aes(), "");
   InstructionMark im(this);
@@ -1406,6 +1415,15 @@ void Assembler::aesenclast(XMMRegister dst, XMMRegister src) {
 void Assembler::andw(Register dst, Register src) {
   (void)prefix_and_encode(dst->encoding(), src->encoding());
   emit_arith(0x23, 0xC0, dst, src);
+}
+
+void Assembler::vaesenclast(XMMRegister dst, XMMRegister nds, XMMRegister src, int vector_len) {
+  assert(VM_Version::supports_vaes(), "requires vaes support/enabling");
+  InstructionAttr attributes(vector_len, /* vex_w */ false, /* legacy_mode */ false, /* no_mask_reg */ true, /* uses_vl */ true);
+  attributes.set_is_evex_instruction();
+  int encode = vex_prefix_and_encode(dst->encoding(), nds->encoding(), src->encoding(), VEX_SIMD_66, VEX_OPCODE_0F_38, &attributes);
+  emit_int8((unsigned char)0xDD);
+  emit_int8((unsigned char)(0xC0 | encode));
 }
 
 void Assembler::andl(Address dst, int32_t imm32) {
