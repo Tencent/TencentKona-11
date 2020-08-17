@@ -31,7 +31,6 @@
 #include "memory/resourceArea.hpp"
 #include "oops/oop.inline.hpp"
 #include "oops/reflectionAccessorImplKlassHelper.hpp"
-#include "runtime/atomic.hpp"
 #include "runtime/os.hpp"
 #include "utilities/globalDefinitions.hpp"
 #include "utilities/macros.hpp"
@@ -233,42 +232,6 @@ void KlassInfoTable::iterate(KlassInfoClosure* cic) {
 
 size_t KlassInfoTable::size_of_instances_in_words() const {
   return _size_of_instances_in_words;
-}
-
-// Return false if the entry could not be recorded on account
-// of running out of space required to create a new entry.
-bool KlassInfoTable::merge_entry(const KlassInfoEntry* cie) {
-  Klass*        k = cie->klass();
-  KlassInfoEntry* elt = lookup(k);
-  // elt may be NULL if it's a new klass for which we
-  // could not allocate space for a new entry in the hashtable.
-  if (elt != NULL) {
-    elt->set_count(elt->count() + cie->count());
-    elt->set_words(elt->words() + cie->words());
-    _size_of_instances_in_words += cie->words();
-    return true;
-  } else {
-    return false;
-  }
-}
-
-class KlassInfoTableMergeClosure : public KlassInfoClosure {
-private:
-  KlassInfoTable* _dest;
-  bool _success;
-public:
-  KlassInfoTableMergeClosure(KlassInfoTable* table) : _dest(table), _success(true) {}
-  void do_cinfo(KlassInfoEntry* cie) {
-    _success &= _dest->merge_entry(cie);
-  }
-  bool is_success() { return _success; }
-};
-
-// merge from table
-bool KlassInfoTable::merge(KlassInfoTable* table) {
-  KlassInfoTableMergeClosure closure(this);
-  table->iterate(&closure);
-  return closure.is_success();
 }
 
 int KlassInfoHisto::sort_helper(KlassInfoEntry** e1, KlassInfoEntry** e2) {
@@ -744,60 +707,15 @@ class RecordInstanceClosure : public ObjectClosure {
   }
 };
 
-// Heap inspection for every worker.
-// When native OOM hanppens for KlassInfoTable, set _success to false.
-void ParHeapInspectTask::work(uint worker_id) {
-  size_t missed_count = 0;
-  bool merge_success = true;
-  if (!Atomic::load(&_success)) {
-    // other worker has failed on parallel iteration.
-    return;
-  }
-
-  KlassInfoTable cit(false);
-  if (!cit.allocation_failed()) {
-    RecordInstanceClosure ric(&cit, _filter);
-    _poi->object_iterate(&ric, worker_id);
-    missed_count = ric.missed_count();
-  } else {
-    // fail to allocate memory, stop parallel mode
-    Atomic::store(false, &_success);
-    return;
-  }
-  {
-    MutexLocker x(&_mutex);
-    merge_success = _shared_cit->merge(&cit);
-  }
-  if (!merge_success) {
-    Atomic::store(false, &_success);
-    return;
-   }
-   Atomic::add(missed_count, &_shared_missed_count);
-}
-
-size_t HeapInspection::populate_table(KlassInfoTable* cit, BoolObjectClosure *filter, size_t parallel_thread_num) {
+size_t HeapInspection::populate_table(KlassInfoTable* cit, BoolObjectClosure *filter) {
   ResourceMark rm;
 
-  // Try parallel first.
-  if (parallel_thread_num > 1) {
-    ParallelObjectIterator* poi = Universe::heap()->parallel_object_iterator(parallel_thread_num);
-    if (poi != NULL) {
-      ParHeapInspectTask task(poi, cit, filter);
-      Universe::heap()->run_task(&task);
-      delete poi;
-      if (task.success()) {
-        return task.missed_count();
-      }
-    }
-  }
-
-  // If no parallel iteration available, run serially.
   RecordInstanceClosure ric(cit, filter);
   Universe::heap()->safe_object_iterate(&ric);
   return ric.missed_count();
 }
 
-void HeapInspection::heap_inspection(outputStream* st, size_t parallel_thread_num) {
+void HeapInspection::heap_inspection(outputStream* st) {
   ResourceMark rm;
 
   if (_print_help) {
@@ -821,7 +739,7 @@ void HeapInspection::heap_inspection(outputStream* st, size_t parallel_thread_nu
   KlassInfoTable cit(_print_class_stats);
   if (!cit.allocation_failed()) {
     // populate table with object allocation info
-    size_t missed_count = populate_table(&cit, NULL, parallel_thread_num);
+    size_t missed_count = populate_table(&cit);
     if (missed_count != 0) {
       st->print_cr("WARNING: Ran out of C-heap; undercounted " SIZE_FORMAT
                    " total instances in data below",

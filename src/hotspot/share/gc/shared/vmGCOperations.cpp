@@ -152,7 +152,7 @@ void VM_GC_HeapInspection::doit() {
   }
   HeapInspection inspect(_csv_format, _print_help, _print_class_stats,
                          _columns);
-  inspect.heap_inspection(_out, _parallel_thread_num);
+  inspect.heap_inspection(_out);
 }
 
 

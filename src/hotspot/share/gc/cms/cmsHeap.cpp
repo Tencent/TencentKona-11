@@ -92,10 +92,6 @@ jint CMSHeap::initialize() {
   return JNI_OK;
 }
 
-void CMSHeap::run_task(AbstractGangTask* task) {
-  _workers->run_task(task);
-}
-
 CardTableRS* CMSHeap::create_rem_set(const MemRegion& reserved_region) {
   return new CMSCardTable(reserved_region);
 }

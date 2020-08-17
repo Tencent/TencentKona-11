@@ -28,7 +28,6 @@
 #include "gc/shared/gcCause.hpp"
 #include "gc/shared/gcWhen.hpp"
 #include "memory/allocation.hpp"
-#include "memory/heapInspection.hpp"
 #include "runtime/handles.hpp"
 #include "runtime/perfData.hpp"
 #include "runtime/safepoint.hpp"
@@ -42,7 +41,6 @@
 // class defines the functions that a heap must implement, and contains
 // infrastructure common to all heaps.
 
-class AbstractGangTask;
 class AdaptiveSizePolicy;
 class BarrierSet;
 class CollectorPolicy;
@@ -82,11 +80,6 @@ class GCHeapLog : public EventLogBase<GCMessage> {
   void log_heap_after(CollectedHeap* heap) {
     log_heap(heap, false);
   }
-};
-
-class ParallelObjectIterator : public CHeapObj<mtGC> {
-public:
-  virtual void object_iterate(ObjectClosure* cl, uint worker_id) = 0;
 };
 
 //
@@ -439,13 +432,6 @@ class CollectedHeap : public CHeapObj<mtInternal> {
   // Similar to object_iterate() except iterates only
   // over live objects.
   virtual void safe_object_iterate(ObjectClosure* cl) = 0;
-
-  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num) {
-    return NULL;
-  }
-
-  // Run given task. Possibly in parallel if the GC supports it.
-  virtual void run_task(AbstractGangTask* task) = 0;
 
   // NOTE! There is no requirement that a collector implement these
   // functions.

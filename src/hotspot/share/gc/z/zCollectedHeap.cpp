@@ -240,10 +240,6 @@ void ZCollectedHeap::safe_object_iterate(ObjectClosure* cl) {
   _heap.object_iterate(cl, true /* visit_referents */);
 }
 
-void ZCollectedHeap::run_task(AbstractGangTask* task) {
-  return _heap.run_task(task);
-}
-
 HeapWord* ZCollectedHeap::block_start(const void* addr) const {
   return (HeapWord*)_heap.block_start((uintptr_t)addr);
 }

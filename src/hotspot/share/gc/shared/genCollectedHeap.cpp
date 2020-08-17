@@ -778,12 +778,6 @@ public:
 static AssertNonScavengableClosure assert_is_non_scavengable_closure;
 #endif
 
-void GenCollectedHeap::run_task(AbstractGangTask* task) {
-  WorkGang workers("GC Threads", ParallelGCThreads, true, false);
-  workers.initialize_workers();
-  workers.run_task(task); 
-}
-
 void GenCollectedHeap::process_roots(StrongRootsScope* scope,
                                      ScanningOption so,
                                      OopClosure* strong_roots,

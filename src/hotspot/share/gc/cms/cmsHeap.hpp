@@ -114,8 +114,6 @@ public:
   void oop_since_save_marks_iterate(OopClosureType1* cur,
                                     OopClosureType2* older);
 
-  virtual void run_task(AbstractGangTask* task);
-
 private:
   WorkGang* _workers;
   MemoryPool* _eden_pool;

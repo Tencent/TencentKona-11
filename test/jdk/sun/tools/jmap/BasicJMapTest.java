@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -80,21 +80,6 @@ public class BasicJMapTest {
         output.shouldHaveExitValue(0);
     }
 
-    private static void testHistoParallelZero() throws Exception {
-        OutputAnalyzer output = jmap("-histo:parallel=0");
-        output.shouldHaveExitValue(0);
-    }
-
-    private static void testHistoParallel() throws Exception {
-        OutputAnalyzer output = jmap("-histo:parallel=2");
-        output.shouldHaveExitValue(0);
-    }
-
-    private static void testHistoNonParallel() throws Exception {
-        OutputAnalyzer output = jmap("-histo:parallel=1");
-        output.shouldHaveExitValue(0);
-    }
-
     private static void testHistoToFile() throws Exception {
         histoToFile(false);
     }
@@ -106,18 +91,6 @@ public class BasicJMapTest {
     private static void testHistoAllToFile() throws Exception {
         boolean explicitAll = true;
         histoToFile(false, explicitAll);
-    }
-
-    private static void testHistoFileParallelZero() throws Exception {
-        histoToFile(false, false, 0);
-    }
-
-    private static void testHistoFileParallel() throws Exception {
-        histoToFile(false, false, 2);
-    }
-
-    private static void testHistoFileNonParallel() throws Exception {
-        histoToFile(false, false, 1);
     }
 
     private static void histoToFile(boolean live) throws Exception {
@@ -140,43 +113,6 @@ public class BasicJMapTest {
             output = jmap("-histo:all,file=" + file.getName());
         } else {
             output = jmap("-histo:file=" + file.getName());
-        }
-        output.shouldHaveExitValue(0);
-        output.shouldContain("Heap inspection file created");
-        file.delete();
-    }
-
-    private static void histoToFile(boolean live,
-                                    boolean explicitAll,
-                                    int parallelThreadNum) throws Exception {
-        String liveArg = "";
-        String fileArg = "";
-        String parArg = "parallel=" + parallelThreadNum;
-        String allArgs = "-histo:";
-
-        if (live == true && explicitAll == true) {
-            fail("Illegal argument setting for jmap -histo");
-        }
-        if (live == true ) {
-            liveArg = "live,";
-        } else if(explicitAll) {
-            liveArg = "all,";
-        }
-
-        File file = new File("jmap.histo.file" + System.currentTimeMillis() + ".histo");
-        if (file.exists()) {
-            file.delete();
-        }
-        fileArg = "file=" + file.getName();
-
-        OutputAnalyzer output;
-        allArgs = allArgs + liveArg + fileArg + "," + parArg + "";
-        if (live) {
-            output = jmap(allArgs);
-        } else if (explicitAll == true) {
-            output = jmap(allArgs);
-        } else {
-            output = jmap(allArgs);
         }
         output.shouldHaveExitValue(0);
         output.shouldContain("Heap inspection file created");

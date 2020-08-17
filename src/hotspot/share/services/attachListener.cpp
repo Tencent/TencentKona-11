@@ -253,97 +253,45 @@ jint dump_heap(AttachOperation* op, outputStream* out) {
   return JNI_OK;
 }
 
-// Valid Arguments:
-// "-live" or "-all"
-// "parallel=<N>"
-// "<filepath>"
-static jint process_heap_inspect_options(const char* argline,
-                                         outputStream* out,
-                                         HeapInspectArgs* args) {
-  char* save_ptr;
-  char* buf = NEW_C_HEAP_ARRAY(char, strlen(argline)+1, mtInternal);
-  snprintf(buf, strlen(argline)+1, "%s", argline);
-  if (buf == NULL) {
-    return JNI_ERR;
-  }
-  char* arg = strtok_r(buf, ",", &save_ptr);
-  while (arg != NULL) {
-    // "-live" or "-all"
-    if (strcmp(arg, "-live") == 0) {
-      args->_live_object_only = true;
-    } else if (strcmp(arg, "-all") == 0) {
-      args->_live_object_only = false;
-    } else if (strncmp(arg, "parallel=", 9) == 0) {
-      char* num_str = &arg[9];
-      uintx num = 0;
-      if (!Arguments::parse_uintx(num_str, &num, 0)) {
-        out->print_cr("Invalid parallel thread number");
-        return JNI_ERR;
-      }
-      args->_parallel_thread_num = num;
-    } else {
-      // must be file path
-      assert(args->_path == NULL, "Must be");
-      char* path = args->_path = NEW_C_HEAP_ARRAY(char, strlen(arg)+1, mtInternal);
-      if (path == NULL) {
-        out->print_cr("Out of internal memory.");
-        return JNI_ERR;
-      }
-      snprintf(path, strlen(arg)+1, "%s", arg);
-      if (path[0] == '\0') {
-        out->print_cr("No dump file specified.");
-      } else {
-        fileStream* fs = new (ResourceObj::C_HEAP, mtInternal) fileStream(path);
-        if (fs == NULL) {
-          out->print_cr("Failed to allocate filestream for file: %s", path);
-          return JNI_ERR;
-        }
-        args->_fs = fs;
-      }
-    }
-   arg = strtok_r(NULL, ",", &save_ptr);
-  }
-  FREE_C_HEAP_ARRAY(char, buf);
-  return JNI_OK;
-}
-
-// Parse command options
-static jint parse_cmd_options(const char* cmd, const char* argline,
-                              outputStream* out, void* args) {
-  assert(argline != NULL, "Must be");
-  if (strncmp(cmd, "heap_inspection", 11) == 0) {
-    HeapInspectArgs* insp_opts = (HeapInspectArgs*)args;
-    return process_heap_inspect_options(argline, out, insp_opts);
-  }
-  // Command not match
-  return JNI_ERR;
-}
-
 // Implementation of "inspectheap" command
 // See also: ClassHistogramDCmd class
 //
 // Input arguments :-
-//   all arguments in op->arg(0);
+//   arg0: "-live" or "-all"
+//   arg1: Name of the dump file or NULL
 static jint heap_inspection(AttachOperation* op, outputStream* out) {
   bool live_objects_only = true;   // default is true to retain the behavior before this change is made
   outputStream* os = out;   // if path not specified or path is NULL, use out
+  fileStream* fs = NULL;
   const char* arg0 = op->arg(0);
-  size_t parallel_thread_num = MAX(1, os::active_processor_count() * 3 / 8); // default is less than half of processors.
-  HeapInspectArgs args;
-  // Parse arguments
-  if (arg0 != NULL) {
-    if (JNI_ERR == parse_cmd_options("heap_inspection", arg0, out, (void*)(&args))) {
+  if (arg0 != NULL && (strlen(arg0) > 0)) {
+    if (strcmp(arg0, "-all") != 0 && strcmp(arg0, "-live") != 0) {
+      out->print_cr("Invalid argument to inspectheap operation: %s", arg0);
       return JNI_ERR;
     }
-    live_objects_only = args._live_object_only;
-    os = args._fs == NULL ? out : args._fs;
-    parallel_thread_num = args._parallel_thread_num == 0 ? parallel_thread_num : args._parallel_thread_num;
+    live_objects_only = strcmp(arg0, "-live") == 0;
   }
 
-  VM_GC_HeapInspection heapop(os, live_objects_only /* request full gc */, parallel_thread_num);
+  const char* path = op->arg(1);
+  if (path != NULL) {
+    if (path[0] == '\0') {
+      out->print_cr("No dump file specified");
+    } else {
+      // create file
+      fs = new (ResourceObj::C_HEAP, mtInternal) fileStream(path);
+      if (fs == NULL) {
+        out->print_cr("Failed to allocate space for file: %s", path);
+        return JNI_ERR;
+      }
+      os = fs;
+    }
+  }
+
+  VM_GC_HeapInspection heapop(os, live_objects_only /* request full gc */);
   VMThread::execute(&heapop);
-  if (args._path != NULL) {
-    out->print_cr("Heap inspection file created: %s", args._path);
+  if (os != NULL && os != out) {
+    out->print_cr("Heap inspection file created: %s", path);
+    delete fs;
   }
   return JNI_OK;
 }

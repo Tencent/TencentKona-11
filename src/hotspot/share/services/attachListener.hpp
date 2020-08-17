@@ -158,35 +158,6 @@ class AttachOperation: public CHeapObj<mtInternal> {
   // complete operation by sending result code and any result data to the client
   virtual void complete(jint result, bufferedStream* result_stream) = 0;
 };
-
-// Base Class for arguments parsing.
-class CommandArgs : public CHeapObj<mtInternal> {
-};
-
-// Arguments of HeapInspect.
-struct HeapInspectArgs : public CommandArgs {
-  bool _live_object_only;
-  size_t _parallel_thread_num;
-  fileStream* _fs;
-  char* _path;
-
-  HeapInspectArgs() : _live_object_only(false),
-                      _parallel_thread_num(0),
-                      _fs(NULL),
-                      _path(NULL) { }
-  ~HeapInspectArgs() {
-    if (_path != NULL) {
-      FREE_C_HEAP_ARRAY(char, _path);
-      _path = NULL;
-    }
-
-    if (_fs != NULL) {
-      delete _fs;
-      _fs = NULL;
-    }
-  }
-};
-
 #endif // INCLUDE_SERVICES
 
 #endif // SHARE_VM_SERVICES_ATTACHLISTENER_HPP

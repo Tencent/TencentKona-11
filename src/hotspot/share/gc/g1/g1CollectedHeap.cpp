@@ -79,7 +79,6 @@
 #include "memory/allocation.hpp"
 #include "memory/iterator.hpp"
 #include "memory/metaspaceShared.hpp"
-#include "memory/heapInspection.hpp"
 #include "memory/resourceArea.hpp"
 #include "oops/access.inline.hpp"
 #include "oops/compressedOops.inline.hpp"
@@ -106,10 +105,6 @@ size_t G1CollectedHeap::_humongous_object_threshold_in_words = 0;
 // allocation code from the rest of the JVM.  (Note that this does not
 // apply to TLAB allocation, which is not part of this interface: it
 // is done by clients of this interface.)
-
-void G1CollectedHeap::run_task(AbstractGangTask* task) {
-  workers()->run_task(task, workers()->active_workers());
-}
 
 class RedirtyLoggedCardTableEntryClosure : public CardTableEntryClosure {
  private:
@@ -5151,28 +5146,4 @@ GrowableArray<MemoryPool*> G1CollectedHeap::memory_pools() {
   memory_pools.append(_survivor_pool);
   memory_pools.append(_old_pool);
   return memory_pools;
-}
-
-class G1ParallelObjectIterator : public ParallelObjectIterator {
-private:
-  G1CollectedHeap*  _heap;
-  HeapRegionClaimer _claimer;
-
-public:
-  G1ParallelObjectIterator(uint thread_num) :
-      _heap(G1CollectedHeap::heap()),
-      _claimer(thread_num == 0 ? G1CollectedHeap::heap()->workers()->active_workers() : thread_num) {}
-
-  virtual void object_iterate(ObjectClosure* cl, uint worker_id) {
-    _heap->object_iterate_parallel(cl, worker_id, &_claimer);
-  }
-};
-
-ParallelObjectIterator* G1CollectedHeap::parallel_object_iterator(uint thread_num) {
-  return new G1ParallelObjectIterator(thread_num);
-}
-
-void G1CollectedHeap::object_iterate_parallel(ObjectClosure* cl, uint worker_id, HeapRegionClaimer* claimer) {
-  IterateObjectClosureRegionClosure blk(cl);
-  heap_region_par_iterate_from_worker_offset(&blk, claimer, worker_id);
 }

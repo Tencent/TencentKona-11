@@ -523,11 +523,6 @@ void ParallelScavengeHeap::object_iterate(ObjectClosure* cl) {
   old_gen()->object_iterate(cl);
 }
 
-void ParallelScavengeHeap::run_task(AbstractGangTask* task) {
-  WorkGang workers("GC Threads", ParallelGCThreads, true, false);
-  workers.initialize_workers();
-  workers.run_task(task);
-}
 
 HeapWord* ParallelScavengeHeap::block_start(const void* addr) const {
   if (young_gen()->is_in_reserved(addr)) {

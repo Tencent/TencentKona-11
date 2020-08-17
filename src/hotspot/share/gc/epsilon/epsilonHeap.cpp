@@ -290,11 +290,6 @@ void EpsilonHeap::safe_object_iterate(ObjectClosure *cl) {
   _space->safe_object_iterate(cl);
 }
 
-// No workGang for EpsilonHeap, work serially with thread 0
-void EpsilonHeap::run_task(AbstractGangTask* task) {
-  task->work(0);
-}
-
 void EpsilonHeap::print_on(outputStream *st) const {
   st->print_cr("Epsilon Heap");
 

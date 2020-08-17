@@ -30,9 +30,6 @@
 #include "oops/oop.hpp"
 #include "oops/annotations.hpp"
 #include "utilities/macros.hpp"
-#include "gc/shared/workgroup.hpp"
-
-class ParallelObjectIterator;
 
 #if INCLUDE_SERVICES
 
@@ -263,8 +260,6 @@ class KlassInfoTable: public StackObj {
   void iterate(KlassInfoClosure* cic);
   bool allocation_failed() { return _buckets == NULL; }
   size_t size_of_instances_in_words() const;
-  bool merge(KlassInfoTable* table);
-  bool merge_entry(const KlassInfoEntry* cie);
 
   friend class KlassInfoHisto;
   friend class KlassHierarchy;
@@ -368,48 +363,11 @@ class HeapInspection : public StackObj {
                  bool print_class_stats, const char *columns) :
       _csv_format(csv_format), _print_help(print_help),
       _print_class_stats(print_class_stats), _columns(columns) {}
-  void heap_inspection(outputStream* st, size_t parallel_thread_num = 1) NOT_SERVICES_RETURN;
-  size_t populate_table(KlassInfoTable* cit, BoolObjectClosure* filter = NULL, size_t parallel_thread_num = 1) NOT_SERVICES_RETURN_(0);
+  void heap_inspection(outputStream* st) NOT_SERVICES_RETURN;
+  size_t populate_table(KlassInfoTable* cit, BoolObjectClosure* filter = NULL) NOT_SERVICES_RETURN_(0);
   static void find_instances_at_safepoint(Klass* k, GrowableArray<oop>* result) NOT_SERVICES_RETURN;
  private:
   void iterate_over_heap(KlassInfoTable* cit, BoolObjectClosure* filter = NULL);
-};
-
- 
-// Task for parallel heap inspection. The parallel inspection can be fail
-// because of native OOM when allocation memory for TL-KlassInfoTable, it
-// will set success to false when OOM so serial inspection can be tried.
-// see work() implementation at heapInspection.cpp for more info.
-class ParHeapInspectTask : public AbstractGangTask {
- private:
-  ParallelObjectIterator* _poi;
-  KlassInfoTable* _shared_cit;
-  BoolObjectClosure* _filter;
-  size_t _shared_missed_count;
-  bool _success;
-  Mutex _mutex;
-
- public:
-  ParHeapInspectTask(ParallelObjectIterator* poi,
-                     KlassInfoTable* shared_cit,
-                     BoolObjectClosure* filter) :
-      AbstractGangTask("Iterating heap"),
-      _poi(poi),
-      _shared_cit(shared_cit),
-      _filter(filter),
-      _shared_missed_count(0),
-      _success(true),
-      _mutex(Mutex::leaf, "Parallel heap iteration data merge lock") {}
-
-  uint missed_count() const {
-    return _shared_missed_count;
-  }
-
-  bool success() {
-    return _success;
-  }
-
-  virtual void work(uint worker_id);
 };
 
 #endif // SHARE_VM_MEMORY_HEAPINSPECTION_HPP

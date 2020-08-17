@@ -263,8 +263,6 @@ public:
   void safe_object_iterate(ObjectClosure* cl);
   Space* space_containing(const void* addr) const;
 
-  virtual void run_task(AbstractGangTask* task);
-
   // A CollectedHeap is divided into a dense sequence of "blocks"; that is,
   // each address in the (reserved) heap is a member of exactly
   // one block.  The defining characteristic of a block is that it is

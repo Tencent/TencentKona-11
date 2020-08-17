@@ -164,58 +164,32 @@ public class JMap {
         return null;
     }
 
-    private static String add_option(String cmd, String opt) {
-       if (cmd.isEmpty()) {
-           return opt;
-       }
-       return cmd + "," + opt;
-    }
-
     private static void histo(String pid, String options)
         throws AttachNotSupportedException, IOException,
                UnsupportedEncodingException {
         String liveopt = "-all";
         String filename = null;
-        String parallel = null;
         String subopts[] = options.split(",");
-        boolean set_all = false;
-        boolean set_live = false;
-        String cmdline = "";
- 
+
         for (int i = 0; i < subopts.length; i++) {
             String subopt = subopts[i];
             if (subopt.equals("") || subopt.equals("all")) {
-                cmdline = add_option(cmdline, "-all");
-                set_all = true;
+                // pass
             } else if (subopt.equals("live")) {
-                // Add '-' for compatibility.
-                cmdline = add_option(cmdline, "-live");
-                set_live = true;
+                liveopt = "-live";
             } else if (subopt.startsWith("file=")) {
                 filename = parseFileName(subopt);
                 if (filename == null) {
                     usage(1); // invalid options or no filename
                 }
-                cmdline = add_option(cmdline, filename);
-            } else if (subopt.startsWith("parallel=")) {
-               parallel = subopt.substring("parallel=".length());
-               if (parallel == null) {
-                    usage(1);
-               }
-               // Add "parallelThreadsNum=<>" for later check
-               cmdline = add_option(cmdline, subopt);
             } else {
                 usage(1);
             }
         }
-        if (set_live && set_all) {
-            usage(1);
-        }
-
         System.out.flush();
         
         // inspectHeap is not the same as jcmd GC.class_histogram
-        executeCommandForPid(pid, "inspectheap", cmdline);
+        executeCommandForPid(pid, "inspectheap", liveopt, filename);
     }
 
     private static void dump(String pid, String options)
@@ -312,10 +286,6 @@ public class JMap {
         System.err.println("      live         count only live objects");
         System.err.println("      all          count all objects in the heap (default if one of \"live\" or \"all\" is not specified)");
         System.err.println("      file=<file>  dump data to <file>");
-        System.err.println("      parallel=<number>  parallel threads number for heap iteration:");
-        System.err.println("                                  By default uses predefined number of threads");
-        System.err.println("                                  parallel=<0,1> disable parallel heap iteration");
-        System.err.println("                                  parallel=<N> use N threads for parallel heap iteration");
         System.err.println("");
         System.err.println("    Example: jmap -histo:live,file=/tmp/histo.data <pid>");
         System.exit(exit);

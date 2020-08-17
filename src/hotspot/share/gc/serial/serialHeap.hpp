@@ -81,9 +81,6 @@ public:
   template <typename OopClosureType1, typename OopClosureType2>
   void oop_since_save_marks_iterate(OopClosureType1* cur,
                                     OopClosureType2* older);
-
-  // Runs the given AbstractGangTask with the current active workers.
-  virtual void run_task(AbstractGangTask* task);
 };
 
 #endif // SHARE_VM_GC_CMS_CMSHEAP_HPP

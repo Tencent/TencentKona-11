@@ -147,9 +147,6 @@ public:
   virtual void print_on(outputStream* st) const;
   virtual void print_tracing_info() const;
 
-  // Runs the given AbstractGangTask with the current active workers.
-  virtual void run_task(AbstractGangTask* task);
-
 private:
   void print_heap_info(size_t used) const;
   void print_metaspace_info() const;

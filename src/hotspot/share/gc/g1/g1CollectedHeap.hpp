@@ -379,8 +379,6 @@ private:
   G1HeapSizingPolicy* _heap_sizing_policy;
 
   G1CollectionSet _collection_set;
-  // Runs the given AbstractGangTask with the current active workers.
-  virtual void run_task(AbstractGangTask* task);
 
   // Try to allocate a single non-humongous HeapRegion sufficient for
   // an allocation of the given word_size. If do_expand is true,
@@ -1130,9 +1128,6 @@ public:
     object_iterate(cl);
   }
 
-  void object_iterate_parallel(ObjectClosure* cl, uint worker_id, HeapRegionClaimer* claimer);
-
-  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num);
   // Iterate over heap regions, in address order, terminating the
   // iteration early if the "do_heap_region" method returns "true".
   void heap_region_iterate(HeapRegionClosure* blk) const;
