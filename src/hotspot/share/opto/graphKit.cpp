@@ -3812,7 +3812,7 @@ InitializeNode* AllocateNode::initialization() {
 //----------------------------- loop predicates ---------------------------
 
 //------------------------------add_predicate_impl----------------------------
-void GraphKit::add_empty_predicate_impl(Deoptimization::DeoptReason reason, int nargs) {
+void GraphKit::add_predicate_impl(Deoptimization::DeoptReason reason, int nargs) {
   // Too many traps seen?
   if (too_many_traps(reason)) {
 #ifdef ASSERT
@@ -3846,18 +3846,15 @@ void GraphKit::add_empty_predicate_impl(Deoptimization::DeoptReason reason, int 
 }
 
 //------------------------------add_predicate---------------------------------
-void GraphKit::add_empty_predicates(int nargs) {
-  // These loop predicates remain empty. All concrete loop predicates are inserted above the corresponding
-  // empty loop predicate later by 'PhaseIdealLoop::create_new_if_for_predicate'. All concrete loop predicates of
-  // a specific kind (normal, profile or limit check) share the same uncommon trap as the empty loop predicate.
+void GraphKit::add_predicate(int nargs) {
   if (UseLoopPredicate) {
-    add_empty_predicate_impl(Deoptimization::Reason_predicate, nargs);
+    add_predicate_impl(Deoptimization::Reason_predicate, nargs);
   }
   if (UseProfiledLoopPredicate) {
-    add_empty_predicate_impl(Deoptimization::Reason_profile_predicate, nargs);
+    add_predicate_impl(Deoptimization::Reason_profile_predicate, nargs);
   }
   // loop's limit check predicate should be near the loop.
-  add_empty_predicate_impl(Deoptimization::Reason_loop_limit_check, nargs);
+  add_predicate_impl(Deoptimization::Reason_loop_limit_check, nargs);
 }
 
 void GraphKit::sync_kit(IdealKit& ideal) {
@@ -3982,7 +3979,7 @@ void GraphKit::inflate_string_slow(Node* src, Node* dst, Node* start, Node* coun
    *   dst[i_char++] = (char)(src[i_byte] & 0xff);
    * }
    */
-  add_empty_predicates();
+  add_predicate();
   RegionNode* head = new RegionNode(3);
   head->init_req(1, control());
   gvn().set_type(head, Type::CONTROL);
