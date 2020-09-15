@@ -153,6 +153,12 @@ grant codeBase "jrt:/jdk.httpserver" {
     permission java.security.AllPermission;
 };
 
+grant codeBase "jrt:/jdk.incubator.vector" {
+    permission java.lang.RuntimePermission "accessClassInPackage.jdk.internal";
+    permission java.lang.RuntimePermission "accessClassInPackage.jdk.internal.vm.annotation";
+    permission java.lang.RuntimePermission "accessClassInPackage.jdk.internal.misc";
+};
+
 grant codeBase "jrt:/jdk.internal.le" {
     permission java.security.AllPermission;
 };
