@@ -142,10 +142,11 @@ DEPS += $(call FindFiles, $(LEGAL_NOTICES))
 
 JMOD_FLAGS += --legal-notices $(LEGAL_NOTICES_PATH)
 
-ifeq ($(filter-out jdk.incubator.%, $(MODULE)), )
-  JMOD_FLAGS += --do-not-resolve-by-default
-  JMOD_FLAGS += --warn-if-resolved=incubating
-endif
+# Disable the filter to avoid --add-modules=jdk.incubator.vector
+#ifeq ($(filter-out jdk.incubator.%, $(MODULE)), )
+#  JMOD_FLAGS += --do-not-resolve-by-default
+#  JMOD_FLAGS += --warn-if-resolved=incubating
+#endif
 
 # Add dependencies on other jmod files. Only java.base needs access to other
 # jmods.
