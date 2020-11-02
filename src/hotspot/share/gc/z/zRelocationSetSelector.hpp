@@ -67,13 +67,24 @@ private:
   size_t                      _live;
   size_t                      _garbage;
   size_t                      _fragmentation;
+  ZArray<ZPage*>              _garbage_pages;
 
 public:
   ZRelocationSetSelector();
 
   void register_live_page(const ZPage* page);
-  void register_garbage_page(const ZPage* page);
+  void register_garbage_page(ZPage* page);
   void select(ZRelocationSet* relocation_set);
+
+  bool should_free_garbage_pages(int bulk) const {
+    return (int)_garbage_pages.size() >= bulk;
+  }
+  const ZArray<ZPage*>* garbage_pages() const {
+    return &_garbage_pages;
+  }
+  void clear_garbage_pages() {
+    return _garbage_pages.clear();
+  }
 
   size_t live() const;
   size_t garbage() const;
