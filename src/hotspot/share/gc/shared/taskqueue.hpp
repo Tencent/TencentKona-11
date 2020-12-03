@@ -437,6 +437,17 @@ uint GenericTaskQueueSet<T, F>::tasks() const {
   return n;
 }
 
+#if INCLUDE_SHENANDOAHGC
+template<class T, MEMFLAGS F>
+size_t GenericTaskQueueSet<T, F>::tasks() {
+  size_t n = 0;
+  for (uint j = 0; j < _n; j++) {
+    n += _queues[j]->size();
+  }
+  return n;
+}
+#endif
+
 // When to terminate from the termination protocol.
 class TerminatorTerminator: public CHeapObj<mtInternal> {
 public:
