@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -107,9 +107,6 @@ protected:
   // Internal type for indexing the queue; also used for the tag.
   typedef NOT_LP64(uint16_t) LP64_ONLY(uint32_t) idx_t;
 
-  // The first free element after the last one pushed (mod N).
-  volatile uint _bottom;
-
   enum { MOD_N_MASK = N - 1 };
 
   class Age {
@@ -145,6 +142,10 @@ protected:
     };
   };
 
+  // The first free element after the last one pushed (mod N).
+  volatile uint _bottom;
+  // Add paddings to reduce false-sharing cache contention between _bottom and _age
+  DEFINE_PAD_MINUS_SIZE(0, DEFAULT_CACHE_LINE_SIZE, sizeof(uint));
   volatile Age _age;
 
   // These both operate mod N.
@@ -435,6 +436,17 @@ uint GenericTaskQueueSet<T, F>::tasks() const {
   }
   return n;
 }
+
+#if INCLUDE_SHENANDOAHGC
+template<class T, MEMFLAGS F>
+size_t GenericTaskQueueSet<T, F>::tasks() {
+  size_t n = 0;
+  for (uint j = 0; j < _n; j++) {
+    n += _queues[j]->size();
+  }
+  return n;
+}
+#endif
 
 // When to terminate from the termination protocol.
 class TerminatorTerminator: public CHeapObj<mtInternal> {
