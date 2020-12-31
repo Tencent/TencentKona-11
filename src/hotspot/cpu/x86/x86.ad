@@ -14262,7 +14262,7 @@ instruct min8F_reg_avx(legVecY dst, legVecY a, legVecY b, legVecY tmp, legVecY a
 instruct min16F_reg_evex(vecZ dst, vecZ a, vecZ b, vecZ atmp, vecZ btmp) %{
   predicate(UseAVX > 2 && VM_Version::supports_avx512dq() &&  n->as_Vector()->length() == 16 && n->bottom_type()->is_vect()->element_basic_type() == T_FLOAT);
   match(Set dst (MinV a b));
-  effect(USE a, USE b, TEMP atmp, TEMP btmp);
+  effect(USE a, USE b, TEMP dst, TEMP atmp, TEMP btmp);
   format %{ 
      "vpmovd2m         k1,$a                    \n\t"
      "vblendmps        $atmp,k1,$a,$b           \n\t"
@@ -14355,7 +14355,7 @@ instruct min4D_reg_avx(legVecY dst, legVecY a, legVecY b, legVecY tmp, legVecY a
 instruct min8D_reg_evex(vecZ dst, vecZ a, vecZ b, vecZ atmp, vecZ btmp) %{
   predicate(UseAVX > 2 && VM_Version::supports_avx512dq() && n->as_Vector()->length() == 8 && n->bottom_type()->is_vect()->element_basic_type() == T_DOUBLE);
   match(Set dst (MinV a b));
-  effect(USE a, USE b, TEMP atmp, TEMP btmp);
+  effect(USE a, USE b, TEMP dst, TEMP atmp, TEMP btmp);
   format %{ 
      "vpmovq2m         k1,$a                    \n\t"
      "vblendmpd        $atmp,k1,$a,$b           \n\t"
@@ -14791,7 +14791,7 @@ instruct max8F_reg_avx(legVecY dst, legVecY a, legVecY b, legVecY tmp, legVecY a
 instruct max16F_reg_evex(vecZ dst, vecZ a, vecZ b, vecZ atmp, vecZ btmp) %{
   predicate(UseAVX > 2 && VM_Version::supports_avx512dq() && n->as_Vector()->length() == 16 && n->bottom_type()->is_vect()->element_basic_type() == T_FLOAT);
   match(Set dst (MaxV a b));
-  effect(USE a, USE b, TEMP atmp, TEMP btmp);
+  effect(USE a, USE b, TEMP dst, TEMP atmp, TEMP btmp);
   format %{ 
      "vpmovd2m         k1,$b              \n\t"
      "vblendmps        $atmp,k1,$a,$b     \n\t"
@@ -14885,7 +14885,7 @@ instruct max4D_reg_avx(legVecY dst, legVecY a, legVecY b, legVecY tmp, legVecY a
 instruct max8D_reg_evex(vecZ dst, vecZ a, vecZ b, vecZ atmp, vecZ btmp) %{
   predicate(UseAVX > 2 && VM_Version::supports_avx512dq() && n->as_Vector()->length() == 8 && n->bottom_type()->is_vect()->element_basic_type() == T_DOUBLE);
   match(Set dst (MaxV a b));
-  effect(USE a, USE b, TEMP atmp, TEMP btmp);
+  effect(USE a, USE b, TEMP dst, TEMP atmp, TEMP btmp);
   format %{ 
      "vpmovq2m         k1,$b              \n\t"
      "vblendmpd        $atmp,k1,$a,$b     \n\t"
