@@ -6963,6 +6963,9 @@ static int get_sopc(int opc, BasicType elem_bt) {
 Node* LibraryCallKit::box_vector(Node* vector, const TypeInstPtr* vbox_type,
                                  BasicType elem_bt, int num_elem) {
 
+  PreserveReexecuteState preexecs(this);
+  jvms()->set_should_reexecute(true);
+
   const TypeVect* vec_type = TypeVect::make(elem_bt, num_elem);
 
   VectorBoxAllocateNode* alloc = new VectorBoxAllocateNode(C, vbox_type);
