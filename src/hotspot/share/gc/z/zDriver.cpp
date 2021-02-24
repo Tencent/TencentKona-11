@@ -32,6 +32,7 @@
 #include "gc/z/zMessagePort.inline.hpp"
 #include "gc/z/zServiceability.hpp"
 #include "gc/z/zStat.hpp"
+#include "gc/z/zVerify.hpp"
 #include "logging/log.hpp"
 #include "memory/universe.hpp"
 #include "runtime/vmOperations.hpp"
@@ -111,6 +112,10 @@ public:
     } else {
       // Execute operation
       IsGCActiveMark mark;
+
+      // Verify roots
+      ZVerify::roots_strong();
+
       _success = _cl->do_operation();
     }
   }
@@ -386,6 +391,10 @@ void ZDriver::run_gc_cycle(GCCause::Cause cause) {
   if (VerifyBeforeGC || VerifyDuringGC || VerifyAfterGC) {
     ZVerifyClosure cl;
     vm_operation(&cl);
+  } else if (ZVerifyRoots || ZVerifyObjects) {
+    //Limited verification
+    VM_ZVerifyOperation op;
+    VMThread::execute(&op);
   }
 
   // Phase 8: Concurrent Select Relocation Set

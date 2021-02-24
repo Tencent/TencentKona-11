@@ -47,11 +47,13 @@ private:
   ZHeapIteratorBitMap* object_map(oop obj);
   void push(oop obj);
 
+  template <bool VisitWeaks> void objects_do(ObjectClosure* cl);
+
 public:
   ZHeapIterator(bool visit_referents);
   ~ZHeapIterator();
 
-  void objects_do(ObjectClosure* cl);
+  void objects_do(ObjectClosure* cl, bool visit_weaks);
 };
 
 #endif // SHARE_GC_Z_ZHEAPITERATOR_HPP

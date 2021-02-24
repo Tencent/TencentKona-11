@@ -73,6 +73,12 @@
   diagnostic(bool, ZUnmapBadViews, false,                                   \
           "Unmap bad (inactive) heap views")                                \
                                                                             \
+  diagnostic(bool, ZVerifyRoots, trueInDebug,                               \
+          "Verify roots")                                                   \
+                                                                            \
+  diagnostic(bool, ZVerifyObjects, false,                                   \
+          "Verify objects")                                                 \
+                                                                            \
   diagnostic(bool, ZVerifyMarking, false,                                   \
           "Verify marking stacks")                                          \
                                                                             \

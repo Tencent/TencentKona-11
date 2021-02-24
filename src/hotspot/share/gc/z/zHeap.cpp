@@ -40,6 +40,7 @@
 #include "gc/z/zTask.hpp"
 #include "gc/z/zThread.hpp"
 #include "gc/z/zTracer.inline.hpp"
+#include "gc/z/zVerify.hpp"
 #include "gc/z/zVirtualMemory.inline.hpp"
 #include "gc/z/zWorkers.inline.hpp"
 #include "logging/log.hpp"
@@ -317,6 +318,9 @@ bool ZHeap::mark_end() {
   // Enter mark completed phase
   ZGlobalPhase = ZPhaseMarkCompleted;
 
+  // Verify after mark
+  ZVerify::after_mark();
+
   // Update statistics
   ZStatSample(ZSamplerHeapUsedAfterMark, used());
   ZStatHeap::set_at_mark_end(capacity(), allocated(), used());
@@ -478,11 +482,11 @@ void ZHeap::relocate() {
                                  used(), used_high(), used_low());
 }
 
-void ZHeap::object_iterate(ObjectClosure* cl, bool visit_referents) {
+void ZHeap::object_iterate(ObjectClosure* cl, bool visit_weaks) {
   assert(SafepointSynchronize::is_at_safepoint(), "Should be at safepoint");
 
-  ZHeapIterator iter(visit_referents);
-  iter.objects_do(cl);
+  ZHeapIterator iter(visit_weaks);
+  iter.objects_do(cl, visit_weaks);
 }
 
 void ZHeap::serviceability_initialize() {
@@ -521,37 +525,11 @@ void ZHeap::print_extended_on(outputStream* st) const {
   st->cr();
 }
 
-class ZVerifyRootsTask : public ZTask {
-private:
-  ZRootsIterator     _strong_roots;
-  ZWeakRootsIterator _weak_roots;
-
-public:
-  ZVerifyRootsTask() :
-      ZTask("ZVerifyRootsTask"),
-      _strong_roots(),
-      _weak_roots() {}
-
-  virtual void work() {
-    ZVerifyOopClosure cl;
-    _strong_roots.oops_do(&cl);
-    _weak_roots.oops_do(&cl);
-  }
-};
-
 void ZHeap::verify() {
   // Heap verification can only be done between mark end and
   // relocate start. This is the only window where all oop are
   // good and the whole heap is in a consistent state.
   guarantee(ZGlobalPhase == ZPhaseMarkCompleted, "Invalid phase");
 
-  {
-    ZVerifyRootsTask task;
-    _workers.run_parallel(&task);
-  }
-
-  {
-    ZVerifyObjectClosure cl;
-    object_iterate(&cl, false /* visit_referents */);
-  }
+  ZVerify::after_weak_processing();
 }

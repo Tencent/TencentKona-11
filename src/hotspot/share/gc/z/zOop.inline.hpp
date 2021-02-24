@@ -32,6 +32,10 @@ inline oop ZOop::to_oop(uintptr_t value) {
   return cast_to_oop(value);
 }
 
+inline oop ZOop::from_address(uintptr_t addr) {
+  return cast_to_oop(addr);
+}
+
 inline uintptr_t ZOop::to_address(oop o) {
   return cast_from_oop<uintptr_t>(o);
 }
