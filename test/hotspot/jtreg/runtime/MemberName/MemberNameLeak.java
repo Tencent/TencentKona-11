@@ -93,13 +93,15 @@ public class MemberNameLeak {
     }
 
     public static void main(java.lang.String[] unused) throws Throwable {
-        test("-XX:+UseG1GC");
-        test("-XX:+UseParallelGC");
-        test("-XX:+UseSerialGC");
+        test("-XX:+UseG1GC", false);
+        test("-XX:+UseG1GC", true);
+        test("-XX:+UseParallelGC", false);
+        test("-XX:+UseSerialGC", false);
         if (!Compiler.isGraalEnabled()) { // Graal does not support CMS and Shenandoah
-            test("-XX:+UseConcMarkSweepGC");
+            test("-XX:+UseConcMarkSweepGC", false);
+            test("-XX:+UseConcMarkSweepGC", true);
             if (GC.Shenandoah.isSupported()) {
-                test("-XX:+UseShenandoahGC");
+                test("-XX:+UseShenandoahGC", false);
             }
         }
     }
