@@ -1,11 +1,26 @@
-# Welcome to the JDK!
+![Tencent Kona](https://user-images.githubusercontent.com/56812395/68106974-413b0700-ff1e-11e9-9128-ab1ad57283d1.png)
+## Tencent Kona JDK11
+Tencent Kona JDK11 is a no-cost, production-ready distribution of the Open Java Development Kit (OpenJDK), Long-Term Support(LTS) with quarterly updates. 
 
-For build instructions please see the
-[online documentation](https://openjdk.java.net/groups/build/doc/building.html),
-or either of these files:
+Kona serves as the default JDK at Tencent internally, optimized for extreme-scale of Big Data, Machine Learning and Cloud Computing workload. It is also used to build and maintain a Tencent supported version of OpenJDK for Tencent customers and partners who wish to use OpenJDK to run their applications.
 
-- [doc/building.html](doc/building.html) (html version)
-- [doc/building.md](doc/building.md) (markdown version)
+## Using Tencent Kona JDK11
 
-See <https://openjdk.java.net/> for more information about
-the OpenJDK Community and the JDK.
+Tencent Kona JDK11 currently supports Linux/x86_64 platform only.
+
+## License
+
+Tencent Kona is under the same licensing terms as the upstream OpenJDK project. It is clearly a "friendly fork". Tencent intends to contribute on the continuous success of Java and upstream as many enhancements as possible. Please read the file: "LICENSE".
+
+## Introduction, Installation Guide and User Guide
+
+Please read [https://github.com/Tencent/TencentKona-11/wiki](https://github.com/Tencent/TencentKona-11/wiki) 
+
+### The binary for Installation
+
+Please access [https://github.com/Tencent/TencentKona-11/releases](https://github.com/Tencent/TencentKona-11/releases)
+
+## Issues Report and Discussion
+
+Please use [https://github.com/tencent/TencentKona-11/issues](https://github.com/tencent/TencentKona-11/issues)
+
