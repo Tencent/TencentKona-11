@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -53,7 +53,6 @@
 
 static const ZStatSubPhase ZSubPhaseConcurrentMark("Concurrent Mark");
 static const ZStatSubPhase ZSubPhaseConcurrentMarkTryFlush("Concurrent Mark Try Flush");
-static const ZStatSubPhase ZSubPhaseConcurrentMarkIdle("Concurrent Mark Idle");
 static const ZStatSubPhase ZSubPhaseConcurrentMarkTryTerminate("Concurrent Mark Try Terminate");
 static const ZStatSubPhase ZSubPhaseMarkTryComplete("Pause Mark Try Complete");
 
@@ -408,7 +407,6 @@ bool ZMark::try_steal(ZMarkStripe* stripe, ZMarkThreadLocalStacks* stacks) {
 }
 
 void ZMark::idle() const {
-  ZStatTimer timer(ZSubPhaseConcurrentMarkIdle);
   os::naked_short_sleep(1);
 }
 
