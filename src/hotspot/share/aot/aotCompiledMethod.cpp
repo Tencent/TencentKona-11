@@ -275,7 +275,7 @@ void AOTCompiledMethod::metadata_do(void f(Metadata*)) {
           }
         }
       } else if (iter.type() == relocInfo::static_call_type ||
-                 iter.type() == relocInfo::opt_virtual_call_type){
+                 iter.type() == relocInfo::opt_virtual_call_type) {
         // Check Method* in AOT c2i stub for other calls.
         Metadata* meta = (Metadata*)nativeLoadGot_at(nativePltCall_at(iter.addr())->plt_c2i_stub())->data();
         if (meta != NULL) {
