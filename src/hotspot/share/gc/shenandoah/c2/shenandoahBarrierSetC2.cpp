@@ -944,7 +944,6 @@ void ShenandoahBarrierSetC2::eliminate_useless_gc_barriers(Unique_Node_List &use
   }
 }
 
-void ShenandoahBarrierSetC2::add_users_to_worklist(Unique_Node_List* worklist) const {}
 
 void* ShenandoahBarrierSetC2::create_barrier_state(Arena* comp_arena) const {
   return new(comp_arena) ShenandoahBarrierSetC2State(comp_arena);

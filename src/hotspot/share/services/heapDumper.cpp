@@ -24,6 +24,8 @@
 
 #include "precompiled.hpp"
 #include "jvm.h"
+#include "classfile/classLoaderData.inline.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/symbolTable.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "classfile/vmSymbols.hpp"
@@ -1469,6 +1471,7 @@ class VM_HeapDumper : public VM_GC_Operation {
   bool skip_operation() const;
 
   // writes a HPROF_LOAD_CLASS record
+  class ClassesDo;
   static void do_load_class(Klass* k);
 
   // writes a HPROF_GC_CLASS_DUMP record for the given class
@@ -1826,7 +1829,10 @@ void VM_HeapDumper::doit() {
   SymbolTable::symbols_do(&sym_dumper);
 
   // write HPROF_LOAD_CLASS records
-  ClassLoaderDataGraph::classes_do(&do_load_class);
+  {
+    LockedClassesDo locked_load_classes(&do_load_class);
+    ClassLoaderDataGraph::classes_do(&locked_load_classes);
+  }
   Universe::basic_type_classes_do(&do_load_class);
 
   // write HPROF_FRAME and HPROF_TRACE records
@@ -1837,7 +1843,10 @@ void VM_HeapDumper::doit() {
   DumperSupport::write_dump_header(writer());
 
   // Writes HPROF_GC_CLASS_DUMP records
-  ClassLoaderDataGraph::classes_do(&do_class_dump);
+  {
+    LockedClassesDo locked_dump_class(&do_class_dump);
+    ClassLoaderDataGraph::classes_do(&locked_dump_class);
+  }
   Universe::basic_type_classes_do(&do_basic_type_array_class_dump);
   check_segment_length();
 

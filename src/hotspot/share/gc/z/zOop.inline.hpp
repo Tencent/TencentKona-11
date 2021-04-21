@@ -32,6 +32,10 @@ inline oop ZOop::to_oop(uintptr_t value) {
   return cast_to_oop(value);
 }
 
+inline oop ZOop::from_address(uintptr_t addr) {
+  return cast_to_oop(addr);
+}
+
 inline uintptr_t ZOop::to_address(oop o) {
   return cast_from_oop<uintptr_t>(o);
 }
@@ -40,8 +44,8 @@ inline bool ZOop::is_good(oop o) {
   return ZAddress::is_good(to_address(o));
 }
 
-inline bool ZOop::is_good_or_null(oop o) {
-  return ZAddress::is_good_or_null(to_address(o));
+inline bool ZOop::is_finalizable_good(oop o) {
+  return ZAddress::is_finalizable_good(to_address(o));
 }
 
 inline oop ZOop::good(oop o) {

@@ -23,7 +23,7 @@
  */
 
 #include "precompiled.hpp"
-#include "classfile/classLoaderData.hpp"
+#include "classfile/classLoaderDataGraph.inline.hpp"
 #include "classfile/stringTable.hpp"
 #include "classfile/symbolTable.hpp"
 #include "classfile/systemDictionary.hpp"
@@ -141,7 +141,7 @@ static void post_safepoint_end_event(EventSafepointEnd* event) {
 
 SafepointSynchronize::SynchronizeState volatile SafepointSynchronize::_state = SafepointSynchronize::_not_synchronized;
 volatile int  SafepointSynchronize::_waiting_to_block = 0;
-volatile int SafepointSynchronize::_safepoint_counter = 0;
+volatile uint64_t SafepointSynchronize::_safepoint_counter = 0;
 int SafepointSynchronize::_current_jni_active_count = 0;
 long  SafepointSynchronize::_end_of_last_safepoint = 0;
 int SafepointSynchronize::_defer_thr_suspend_loop_count = 4000;
@@ -616,8 +616,8 @@ private:
 
 public:
   ParallelSPCleanupThreadClosure(DeflateMonitorCounters* counters) :
-    _counters(counters),
-    _nmethod_cl(NMethodSweeper::prepare_mark_active_nmethods()) {}
+    _nmethod_cl(UseCodeAging ? NMethodSweeper::prepare_reset_hotness_counters() : NULL),
+    _counters(counters) {}
 
   void do_thread(Thread* thread) {
     ObjectSynchronizer::deflate_thread_local_monitors(thread, _counters);
@@ -722,6 +722,7 @@ public:
         post_safepoint_cleanup_task_event(&event, name);
       }
     }
+
     _subtasks.all_tasks_completed(_num_workers);
   }
 };
@@ -751,8 +752,19 @@ void SafepointSynchronize::do_cleanup_tasks() {
     cleanup.work(0);
   }
 
+  // Needs to be done single threaded by the VMThread.  This walks
+  // the thread stacks looking for references to metadata before
+  // deciding to remove it from the metaspaces.
+  if (ClassLoaderDataGraph::should_clean_metaspaces_and_reset()) {
+    const char* name = "cleanup live ClassLoaderData metaspaces";
+    TraceTime timer(name, TRACETIME_LOG(Info, safepoint, cleanup));
+    ClassLoaderDataGraph::walk_metadata_and_clean_metaspaces();
+  }
+
   // Finish monitor deflation.
   ObjectSynchronizer::finish_deflate_idle_monitors(&deflate_counters);
+
+  assert(InlineCacheBuffer::is_empty(), "should have cleaned up ICBuffer");
 }
 
 

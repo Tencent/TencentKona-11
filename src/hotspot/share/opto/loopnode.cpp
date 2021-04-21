@@ -1004,6 +1004,7 @@ void LoopNode::verify_strip_mined(int expect_skeleton) const {
         assert(found_sfpt, "no node in loop that's not input to safepoint");
       }
     }
+
     CountedLoopEndNode* cle = inner_out->in(0)->as_CountedLoopEnd();
     assert(cle == inner->loopexit_or_null(), "mismatch");
     bool has_skeleton = outer_le->in(1)->bottom_type()->singleton() && outer_le->in(1)->bottom_type()->is_int()->get_con() == 0;
@@ -2730,7 +2731,7 @@ bool PhaseIdealLoop::process_expensive_nodes() {
 // Create a PhaseLoop.  Build the ideal Loop tree.  Map each Ideal Node to
 // its corresponding LoopNode.  If 'optimize' is true, do some loop cleanups.
 void PhaseIdealLoop::build_and_optimize(LoopOptsMode mode) {
-  bool do_split_ifs = (mode == LoopOptsDefault || mode == LoopOptsLastRound);
+  bool do_split_ifs = (mode == LoopOptsDefault);
   bool skip_loop_opts = (mode == LoopOptsNone);
 #if INCLUDE_SHENANDOAHGC
   bool shenandoah_opts = (mode == LoopOptsShenandoahExpand ||
@@ -2892,9 +2893,7 @@ void PhaseIdealLoop::build_and_optimize(LoopOptsMode mode) {
   build_loop_late( visited, worklist, nstack );
 
   if (_verify_only) {
-    // restore major progress flag
-    for (int i = 0; i < old_progress; i++)
-      C->set_major_progress();
+    C->restore_major_progress(old_progress);
     assert(C->unique() == unique, "verification mode made Nodes? ? ?");
     assert(_igvn._worklist.size() == orig_worklist_size, "shouldn't push anything");
     return;
@@ -2937,10 +2936,7 @@ void PhaseIdealLoop::build_and_optimize(LoopOptsMode mode) {
 #endif
 
   if (skip_loop_opts) {
-    // restore major progress flag
-    for (int i = 0; i < old_progress; i++) {
-      C->set_major_progress();
-    }
+    C->restore_major_progress(old_progress);
 
     // Cleanup any modified bits
     _igvn.optimize();
@@ -2988,11 +2984,8 @@ void PhaseIdealLoop::build_and_optimize(LoopOptsMode mode) {
   // that require basic-block info (like cloning through Phi's)
   if( SplitIfBlocks && do_split_ifs ) {
     visited.Clear();
-    split_if_with_blocks( visited, nstack, mode == LoopOptsLastRound );
+    split_if_with_blocks( visited, nstack, mode);
     NOT_PRODUCT( if( VerifyLoopOptimizations ) verify(); );
-    if (mode == LoopOptsLastRound) {
-      C->set_major_progress();
-    }
   }
 
   if (!C->major_progress() && do_expensive_nodes && process_expensive_nodes()) {
@@ -3127,8 +3120,7 @@ void PhaseIdealLoop::verify() const {
   _ltree_root->verify_tree(loop_verify._ltree_root, NULL);
   // Reset major-progress.  It was cleared by creating a verify version of
   // PhaseIdealLoop.
-  for( int i=0; i<old_progress; i++ )
-    C->set_major_progress();
+  C->restore_major_progress(old_progress);
 }
 
 //------------------------------verify_compare---------------------------------
@@ -4255,8 +4247,6 @@ void PhaseIdealLoop::build_loop_late_post( Node *n ) {
     case Op_LoadL:
     case Op_LoadS:
     case Op_LoadP:
-    case Op_LoadBarrierSlowReg:
-    case Op_LoadBarrierWeakSlowReg:
     case Op_LoadN:
     case Op_LoadRange:
     case Op_LoadD_unaligned:
@@ -4456,16 +4446,81 @@ void PhaseIdealLoop::dump_bad_graph(const char* msg, Node* n, Node* early, Node*
     }
   }
   tty->cr();
-  int ct = 0;
-  Node *dbg_legal = LCA;
-  while(!dbg_legal->is_Start() && ct < 100) {
-    tty->print("idom[%d] ",ct); dbg_legal->dump();
-    ct++;
-    dbg_legal = idom(dbg_legal);
-  }
+  tty->print_cr("idoms of early %d:", early->_idx);
+  dump_idom(early);
+  tty->cr();
+  tty->print_cr("idoms of (wrong) LCA %d:", LCA->_idx);
+  dump_idom(LCA);
+  tty->cr();
+  dump_real_LCA(early, LCA);
   tty->cr();
 }
-#endif
+
+// Find the real LCA of early and the wrongly assumed LCA.
+void PhaseIdealLoop::dump_real_LCA(Node* early, Node* wrong_lca) {
+  assert(!is_dominator(early, wrong_lca) && !is_dominator(early, wrong_lca),
+         "sanity check that one node does not dominate the other");
+  assert(!has_ctrl(early) && !has_ctrl(wrong_lca), "sanity check, no data nodes");
+
+  ResourceMark rm;
+  Node_List nodes_seen;
+  Node* real_LCA = NULL;
+  Node* n1 = wrong_lca;
+  Node* n2 = early;
+  uint count_1 = 0;
+  uint count_2 = 0;
+  // Add early and wrong_lca to simplify calculation of idom indices
+  nodes_seen.push(n1);
+  nodes_seen.push(n2);
+
+  // Walk the idom chain up from early and wrong_lca and stop when they intersect.
+  while (!n1->is_Start() && !n2->is_Start()) {
+    n1 = idom(n1);
+    n2 = idom(n2);
+    if (n1 == n2) {
+      // Both idom chains intersect at the same index
+      real_LCA = n1;
+      count_1 = nodes_seen.size() / 2;
+      count_2 = count_1;
+      break;
+    }
+    if (check_idom_chains_intersection(n1, count_1, count_2, &nodes_seen)) {
+      real_LCA = n1;
+      break;
+    }
+    if (check_idom_chains_intersection(n2, count_2, count_1, &nodes_seen)) {
+      real_LCA = n2;
+      break;
+    }
+    nodes_seen.push(n1);
+    nodes_seen.push(n2);
+  }
+
+  assert(real_LCA != NULL, "must always find an LCA");
+  tty->print_cr("Real LCA of early %d (idom[%d]) and (wrong) LCA %d (idom[%d]):", early->_idx, count_2, wrong_lca->_idx, count_1);
+  real_LCA->dump();
+}
+
+// Check if n is already on nodes_seen (i.e. idom chains of early and wrong_lca intersect at n). Determine the idom index of n
+// on both idom chains and return them in idom_idx_new and idom_idx_other, respectively.
+bool PhaseIdealLoop::check_idom_chains_intersection(const Node* n, uint& idom_idx_new, uint& idom_idx_other, const Node_List* nodes_seen) const {
+  if (nodes_seen->contains(n)) {
+    // The idom chain has just discovered n.
+    // Divide by 2 because nodes_seen contains the same amount of nodes from both chains.
+    idom_idx_new = nodes_seen->size() / 2;
+
+    // The other chain already contained n. Search the index.
+    for (uint i = 0; i < nodes_seen->size(); i++) {
+      if (nodes_seen->at(i) == n) {
+        // Divide by 2 because nodes_seen contains the same amount of nodes from both chains.
+        idom_idx_other = i / 2;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+#endif // ASSERT
 
 #ifndef PRODUCT
 //------------------------------dump-------------------------------------------
@@ -4538,7 +4593,19 @@ void PhaseIdealLoop::dump( IdealLoopTree *loop, uint idx, Node_List &rpo_list ) 
     }
   }
 }
-#endif
+
+void PhaseIdealLoop::dump_idom(Node* n) const {
+  if (has_ctrl(n)) {
+    tty->print_cr("No idom for data nodes");
+  } else {
+    for (int i = 0; i < 100 && !n->is_Start(); i++) {
+      tty->print("idom[%d] ", i);
+      n->dump();
+      n = idom(n);
+    }
+  }
+}
+#endif // NOT PRODUCT
 
 #if !defined(PRODUCT) || INCLUDE_SHENANDOAHGC
 // Collect a R-P-O for the whole CFG.

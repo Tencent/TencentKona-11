@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,6 +22,7 @@
  */
 
 #include "precompiled.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "gc/z/zBarrier.inline.hpp"
 #include "gc/z/zMark.inline.hpp"
 #include "gc/z/zMarkCache.inline.hpp"
@@ -32,6 +33,7 @@
 #include "gc/z/zPageTable.inline.hpp"
 #include "gc/z/zRootsIterator.hpp"
 #include "gc/z/zStat.hpp"
+#include "gc/z/zStatTLAB.hpp"
 #include "gc/z/zTask.hpp"
 #include "gc/z/zThread.hpp"
 #include "gc/z/zUtils.inline.hpp"
@@ -51,7 +53,6 @@
 
 static const ZStatSubPhase ZSubPhaseConcurrentMark("Concurrent Mark");
 static const ZStatSubPhase ZSubPhaseConcurrentMarkTryFlush("Concurrent Mark Try Flush");
-static const ZStatSubPhase ZSubPhaseConcurrentMarkIdle("Concurrent Mark Idle");
 static const ZStatSubPhase ZSubPhaseConcurrentMarkTryTerminate("Concurrent Mark Try Terminate");
 static const ZStatSubPhase ZSubPhaseMarkTryComplete("Pause Mark Try Complete");
 
@@ -69,6 +70,10 @@ ZMark::ZMark(ZWorkers* workers, ZPageTable* pagetable) :
     _ntrycomplete(0),
     _ncontinue(0),
     _nworkers(0) {}
+
+bool ZMark::is_initialized() const {
+  return _allocator.is_initialized();
+}
 
 size_t ZMark::calculate_nstripes(uint nworkers) const {
   // Calculate the number of stripes from the number of workers we use,
@@ -113,10 +118,45 @@ void ZMark::prepare_mark() {
   }
 }
 
+class ZMarkRootsIteratorClosure : public ZRootsIteratorClosure {
+public:
+  ZMarkRootsIteratorClosure() {
+    ZStatTLAB::reset();
+  }
+
+  ~ZMarkRootsIteratorClosure() {
+    ZStatTLAB::publish();
+  }
+
+  virtual void do_thread(Thread* thread) {
+    ZRootsIteratorClosure::do_thread(thread);
+
+    // Update thread local address bad mask
+    ZThreadLocalData::set_address_bad_mask(thread, ZAddressBadMask);
+
+    // Retire TLAB
+    if (UseTLAB && thread->is_Java_thread()) {
+      thread->tlab().retire(ZStatTLAB::get());
+      if (ResizeTLAB) {
+        thread->tlab().resize();
+      }
+    }
+  }
+
+  virtual void do_oop(oop* p) {
+    ZBarrier::mark_barrier_on_root_oop_field(p);
+  }
+
+  virtual void do_oop(narrowOop* p) {
+    ShouldNotReachHere();
+  }
+};
+
 class ZMarkRootsTask : public ZTask {
 private:
-  ZMark* const   _mark;
-  ZRootsIterator _roots;
+  ZMark* const              _mark;
+  ZRootsIterator            _roots;
+  ZMarkRootsIteratorClosure _cl;
 
 public:
   ZMarkRootsTask(ZMark* mark) :
@@ -125,8 +165,7 @@ public:
       _roots() {}
 
   virtual void work() {
-    ZMarkRootOopClosure cl;
-    _roots.oops_do(&cl);
+    _roots.oops_do(&_cl);
 
     // Flush and free worker stacks. Needed here since
     // the set of workers executing during root scanning
@@ -250,6 +289,14 @@ void ZMark::follow_partial_array(ZMarkStackEntry entry, bool finalizable) {
 }
 
 void ZMark::follow_array_object(objArrayOop obj, bool finalizable) {
+  if (finalizable) {
+    ZMarkBarrierOopClosure<true /* finalizable */> cl;
+    cl.do_klass(obj->klass());
+  } else {
+    ZMarkBarrierOopClosure<false /* finalizable */> cl;
+    cl.do_klass(obj->klass());
+  }
+
   const uintptr_t addr = (uintptr_t)obj->base();
   const size_t size = (size_t)obj->length() * oopSize;
 
@@ -360,7 +407,6 @@ bool ZMark::try_steal(ZMarkStripe* stripe, ZMarkThreadLocalStacks* stacks) {
 }
 
 void ZMark::idle() const {
-  ZStatTimer timer(ZSubPhaseConcurrentMarkIdle);
   os::naked_short_sleep(1);
 }
 
@@ -578,6 +624,51 @@ void ZMark::work(uint64_t timeout_in_millis) {
   stacks->free(&_allocator);
 }
 
+class ZMarkConcurrentRootsIteratorClosure : public ZRootsIteratorClosure {
+public:
+  virtual void do_oop(oop* p) {
+    ZBarrier::mark_barrier_on_oop_field(p, false /* finalizable */);
+  }
+
+  virtual void do_oop(narrowOop* p) {
+    ShouldNotReachHere();
+  }
+};
+
+
+class ZMarkConcurrentRootsTask : public ZTask {
+private:
+  ZMark* const                        _mark;
+  SuspendibleThreadSetJoiner          _sts_joiner;
+  ZConcurrentRootsIterator            _roots;
+  ZMarkConcurrentRootsIteratorClosure _cl;
+
+public:
+  ZMarkConcurrentRootsTask(ZMark* mark) :
+      ZTask("ZMarkConcurrentRootsTask"),
+      _mark(mark),
+      _sts_joiner(true /* active */),
+      _roots(ClassLoaderData::_claim_strong),
+      _cl() {
+    ClassLoaderDataGraph_lock->lock();
+    ClassLoaderDataGraph::clear_claimed_marks();
+  }
+
+  ~ZMarkConcurrentRootsTask() {
+    ClassLoaderDataGraph_lock->unlock();
+  }
+
+  virtual void work() {
+    _roots.oops_do(&_cl);
+
+    // Flush and free worker stacks. Needed here since
+    // the set of workers executing during root scanning
+    // can be different from the set of workers executing
+    // during mark.
+    _mark->flush_and_free();
+  }
+};
+
 class ZMarkTask : public ZTask {
 private:
   ZMark* const   _mark;
@@ -600,7 +691,12 @@ public:
   }
 };
 
-void ZMark::mark() {
+void ZMark::mark(bool initial) {
+  if (initial) {
+    ZMarkConcurrentRootsTask task(this);
+    _workers->run_concurrent(&task);
+  }
+
   ZMarkTask task(this);
   _workers->run_concurrent(&task);
 }

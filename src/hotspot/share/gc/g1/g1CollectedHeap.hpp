@@ -35,6 +35,7 @@
 #include "gc/g1/g1EdenRegions.hpp"
 #include "gc/g1/g1EvacFailure.hpp"
 #include "gc/g1/g1EvacStats.hpp"
+#include "gc/g1/g1GCPhaseTimes.hpp"
 #include "gc/g1/g1HeapTransition.hpp"
 #include "gc/g1/g1HeapVerifier.hpp"
 #include "gc/g1/g1HRPrinter.hpp"
@@ -481,9 +482,6 @@ private:
   // Callback from VM_G1CollectFull operation, or collect_as_vm_thread.
   virtual void do_full_collection(bool clear_all_soft_refs);
 
-  // Resize the heap if necessary after a full collection.
-  void resize_if_necessary_after_full_collection();
-
   // Callback from VM_G1CollectForAllocation operation.
   // This function does everything necessary/possible to satisfy a
   // failed allocation request (including collection, expansion, etc.)
@@ -541,6 +539,8 @@ public:
     return _g1mm;
   }
 
+  void resize_heap_if_necessary();
+
   // Expand the garbage-first heap by at least the given size (in bytes!).
   // Returns true if the heap was expanded by the requested amount;
   // false otherwise.
@@ -581,6 +581,9 @@ public:
   }
   void register_old_region_with_cset(HeapRegion* r) {
     _in_cset_fast_test.set_in_old(r->hrm_index());
+  }
+  void register_optional_region_with_cset(HeapRegion* r) {
+    _in_cset_fast_test.set_optional(r->hrm_index());
   }
   void clear_in_cset(const HeapRegion* hr) {
     _in_cset_fast_test.clear(hr);
@@ -738,6 +741,8 @@ private:
 
   // Actually do the work of evacuating the collection set.
   void evacuate_collection_set(G1ParScanThreadStateSet* per_thread_states);
+  void evacuate_optional_collection_set(G1ParScanThreadStateSet* per_thread_states);
+  void evacuate_optional_regions(G1ParScanThreadStateSet* per_thread_states, G1OptionalCSet* ocset);
 
   void pre_evacuate_collection_set();
   void post_evacuate_collection_set(EvacuationInfo& evacuation_info, G1ParScanThreadStateSet* pss);
@@ -1129,6 +1134,7 @@ public:
 
   // Return the region with the given index. It assumes the index is valid.
   inline HeapRegion* region_at(uint index) const;
+  inline HeapRegion* region_at_or_null(uint index) const;
 
   // Return the next region (by index) that is part of the same
   // humongous object that hr is part of.
@@ -1165,6 +1171,11 @@ public:
   // Returns the HeapRegion that contains addr. addr must not be NULL.
   template <class T>
   inline HeapRegion* heap_region_containing(const T addr) const;
+
+  // Returns the HeapRegion that contains addr, or NULL if that is an uncommitted
+  // region. addr must not be NULL.
+  template <class T>
+  inline HeapRegion* heap_region_containing_or_null(const T addr) const;
 
   // A CollectedHeap is divided into a dense sequence of "blocks"; that is,
   // each address in the (reserved) heap is a member of exactly
@@ -1327,9 +1338,8 @@ public:
   // Partial cleaning used when class unloading is disabled.
   // Let the caller choose what structures to clean out:
   // - StringTable
-  // - SymbolTable
   // - StringDeduplication structures
-  void partial_cleaning(BoolObjectClosure* is_alive, bool unlink_strings, bool unlink_symbols, bool unlink_string_dedup);
+  void partial_cleaning(BoolObjectClosure* is_alive, bool unlink_strings, bool unlink_string_dedup);
 
   // Complete cleaning used when class unloading is enabled.
   // Cleans out all structures handled by partial_cleaning and also the CodeCache.
@@ -1424,6 +1434,7 @@ protected:
   G1ParScanThreadState*         _par_scan_state;
   RefToScanQueueSet*            _queues;
   ParallelTaskTerminator*       _terminator;
+  G1GCPhaseTimes::GCParPhases   _phase;
 
   G1ParScanThreadState*   par_scan_state() { return _par_scan_state; }
   RefToScanQueueSet*      queues()         { return _queues; }
@@ -1433,9 +1444,10 @@ public:
   G1ParEvacuateFollowersClosure(G1CollectedHeap* g1h,
                                 G1ParScanThreadState* par_scan_state,
                                 RefToScanQueueSet* queues,
-                                ParallelTaskTerminator* terminator)
+                                ParallelTaskTerminator* terminator,
+                                G1GCPhaseTimes::GCParPhases phase)
     : _g1h(g1h), _par_scan_state(par_scan_state),
-      _queues(queues), _terminator(terminator),
+      _queues(queues), _terminator(terminator), _phase(phase),
       _start_term(0.0), _term_time(0.0), _term_attempts(0) {}
 
   void do_void();

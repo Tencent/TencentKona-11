@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,6 +29,7 @@
 #include "classfile/classFileStream.hpp"
 #include "classfile/classLoader.hpp"
 #include "classfile/classLoaderData.inline.hpp"
+#include "classfile/classLoaderDataGraph.inline.hpp"
 #include "classfile/classLoaderExt.hpp"
 #include "classfile/dictionary.hpp"
 #include "classfile/javaClasses.inline.hpp"
@@ -88,6 +89,9 @@
 #endif
 #if INCLUDE_JVMCI
 #include "jvmci/jvmciRuntime.hpp"
+#endif
+#if INCLUDE_JFR
+#include "jfr/jfr.hpp"
 #endif
 
 PlaceholderTable*      SystemDictionary::_placeholders        = NULL;
@@ -1806,14 +1810,17 @@ void SystemDictionary::add_to_hierarchy(InstanceKlass* k, TRAPS) {
   assert(k != NULL, "just checking");
   assert_locked_or_safepoint(Compile_lock);
 
-  // Link into hierachy. Make sure the vtables are initialized before linking into
+  k->set_init_state(InstanceKlass::loaded);
+  // make sure init_state store is already done.
+  // The compiler reads the hierarchy outside of the Compile_lock.
+  // Access ordering is used to add to hierarchy.
+
+  // Link into hierachy.
   k->append_to_sibling_list();                    // add to superklass/sibling list
   k->process_interfaces(THREAD);                  // handle all "implements" declarations
-  k->set_init_state(InstanceKlass::loaded);
+
   // Now flush all code that depended on old class hierarchy.
   // Note: must be done *after* linking k into the hierarchy (was bug 12/9/97)
-  // Also, first reinitialize vtable because it may have gotten out of synch
-  // while the new class wasn't connected to the class hierarchy.
   CodeCache::flush_dependents_on(k);
 }
 
@@ -1822,34 +1829,52 @@ void SystemDictionary::add_to_hierarchy(InstanceKlass* k, TRAPS) {
 
 // Assumes classes in the SystemDictionary are only unloaded at a safepoint
 // Note: anonymous classes are not in the SD.
-bool SystemDictionary::do_unloading(GCTimer* gc_timer,
-                                    bool do_cleaning) {
+bool SystemDictionary::do_unloading(GCTimer* gc_timer) {
 
   bool unloading_occurred;
+  bool is_concurrent = !SafepointSynchronize::is_at_safepoint();
   {
     GCTraceTime(Debug, gc, phases) t("ClassLoaderData", gc_timer);
-
+    assert_locked_or_safepoint(ClassLoaderDataGraph_lock);  // caller locks.
     // First, mark for unload all ClassLoaderData referencing a dead class loader.
-    unloading_occurred = ClassLoaderDataGraph::do_unloading(do_cleaning);
+    unloading_occurred = ClassLoaderDataGraph::do_unloading();
+    if (unloading_occurred) {
+      MutexLockerEx ml2(is_concurrent ? Module_lock : NULL);
+      JFR_ONLY(Jfr::on_unloading_classes();)
+      MutexLockerEx ml1(is_concurrent ? SystemDictionary_lock : NULL);
+      ClassLoaderDataGraph::clean_module_and_package_info();
+    }
+  }
+
+  // Cleanup ResolvedMethodTable even if no unloading occurred.
+  {
+    GCTraceTime(Debug, gc, phases) t("ResolvedMethodTable", gc_timer);
+    ResolvedMethodTable::trigger_cleanup();
   }
 
   if (unloading_occurred) {
-    GCTraceTime(Debug, gc, phases) t("Dictionary", gc_timer);
-    constraints()->purge_loader_constraints();
-    resolution_errors()->purge_resolution_errors();
-  }
+    {
+      GCTraceTime(Debug, gc, phases) t("SymbolTable", gc_timer);
+      // Check if there's work to do in the SymbolTable
+      SymbolTable::do_check_concurrent_work();
+    }
 
-  {
-    GCTraceTime(Debug, gc, phases) t("ProtectionDomainCacheTable", gc_timer);
-    // Oops referenced by the protection domain cache table may get unreachable independently
-    // of the class loader (eg. cached protection domain oops). So we need to
-    // explicitly unlink them here.
-    _pd_cache_table->unlink();
-  }
+    {
+      MutexLockerEx ml(is_concurrent ? SystemDictionary_lock : NULL);
+      GCTraceTime(Debug, gc, phases) t("Dictionary", gc_timer);
+      constraints()->purge_loader_constraints();
+      resolution_errors()->purge_resolution_errors();
+    }
 
-  if (do_cleaning) {
-    GCTraceTime(Debug, gc, phases) t("ResolvedMethodTable", gc_timer);
-    ResolvedMethodTable::unlink();
+    {
+      GCTraceTime(Debug, gc, phases) t("ResolvedMethodTable", gc_timer);
+      // Oops referenced by the protection domain cache table may get unreachable independently
+      // of the class loader (eg. cached protection domain oops). So we need to
+      // explicitly unlink them here.
+      // All protection domain oops are linked to the caller class, so if nothing
+      // unloads, this is not needed.
+      _pd_cache_table->trigger_cleanup();
+    }
   }
 
   return unloading_occurred;
@@ -1879,6 +1904,7 @@ void SystemDictionary::well_known_klasses_do(MetaspaceClosure* it) {
 
 void SystemDictionary::methods_do(void f(Method*)) {
   // Walk methods in loaded classes
+  MutexLocker ml(ClassLoaderDataGraph_lock);
   ClassLoaderDataGraph::methods_do(f);
   // Walk method handle intrinsics
   invoke_method_table()->methods_do(f);
@@ -1896,6 +1922,7 @@ class RemoveClassesClosure : public CLDClosure {
 void SystemDictionary::remove_classes_in_error_state() {
   ClassLoaderData::the_null_class_loader_data()->dictionary()->remove_classes_in_error_state();
   RemoveClassesClosure rcc;
+  MutexLocker ml(ClassLoaderDataGraph_lock);
   ClassLoaderDataGraph::cld_do(&rcc);
 }
 
@@ -2135,7 +2162,7 @@ void SystemDictionary::check_constraints(unsigned int d_hash,
         ss.print(" wants to load %s %s.",
                  k->external_kind(), k->external_name());
         Klass *existing_klass = constraints()->find_constrained_klass(name, class_loader);
-        if (existing_klass->class_loader() != class_loader()) {
+        if (existing_klass != NULL && existing_klass->class_loader() != class_loader()) {
           ss.print(" A different %s with the same name was previously loaded by %s. (%s)",
                    existing_klass->external_kind(),
                    existing_klass->class_loader_data()->loader_name_and_id(),
@@ -2258,12 +2285,14 @@ bool SystemDictionary::add_loader_constraint(Symbol* class_name,
   ClassLoaderData* loader_data2 = class_loader_data(class_loader2);
 
   Symbol* constraint_name = NULL;
+  // Needs to be in same scope as constraint_name in case a Symbol is created and
+  // assigned to constraint_name.
+  FieldArrayInfo fd;
   if (!FieldType::is_array(class_name)) {
     constraint_name = class_name;
   } else {
     // For array classes, their Klass*s are not kept in the
     // constraint table. The element classes are.
-    FieldArrayInfo fd;
     BasicType t = FieldType::get_array_info(class_name, fd, CHECK_(false));
     // primitive types always pass
     if (t != T_OBJECT) {

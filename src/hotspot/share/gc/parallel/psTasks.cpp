@@ -24,6 +24,7 @@
 
 #include "precompiled.hpp"
 #include "aot/aotLoader.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "code/codeCache.hpp"
 #include "gc/parallel/gcTaskManager.hpp"
@@ -141,10 +142,9 @@ void StealTask::do_it(GCTaskManager* manager, uint which) {
   guarantee(pm->stacks_empty(),
             "stacks should be empty at this point");
 
-  int random_seed = 17;
   while(true) {
     StarTask p;
-    if (PSPromotionManager::steal_depth(which, &random_seed, p)) {
+    if (PSPromotionManager::steal_depth(which, p)) {
       TASKQUEUE_STATS_ONLY(pm->record_steal(p));
       pm->process_popped_location_depth(p);
       pm->drain_stacks_depth(true);

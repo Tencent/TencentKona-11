@@ -33,6 +33,7 @@
 
 extern Mutex*   Patching_lock;                   // a lock used to guard code patching of compiled code
 extern Monitor* SystemDictionary_lock;           // a lock on the system dictionary
+extern Mutex*   ProtectionDomainSet_lock;        // a lock on the pd_set list in the system dictionary
 extern Mutex*   SharedDictionary_lock;           // a lock on the CDS shared dictionary
 extern Mutex*   Module_lock;                     // a lock on module and package related data structures
 extern Mutex*   CompiledIC_lock;                 // a lock used to guard compiled IC patching and access
@@ -57,7 +58,7 @@ extern Mutex*   ExpandHeap_lock;                 // a lock on expanding the heap
 extern Mutex*   AdapterHandlerLibrary_lock;      // a lock on the AdapterHandlerLibrary
 extern Mutex*   SignatureHandlerLibrary_lock;    // a lock on the SignatureHandlerLibrary
 extern Mutex*   VtableStubs_lock;                // a lock on the VtableStubs
-extern Mutex*   SymbolTable_lock;                // a lock on the symbol table
+extern Mutex*   SymbolArena_lock;                // a lock on the symbol table arena
 extern Mutex*   StringTable_lock;                // a lock on the interned string table
 extern Monitor* StringDedupQueue_lock;           // a lock on the string deduplication queue
 extern Mutex*   StringDedupTable_lock;           // a lock on the string deduplication table
@@ -146,6 +147,7 @@ extern Mutex*   UnsafeJlong_lock;                // provides Unsafe atomic updat
 #endif
 
 extern Mutex*   MetaspaceExpand_lock;            // protects Metaspace virtualspace and chunk expansions
+extern Mutex*   ClassLoaderDataGraph_lock;       // protects CLDG list, needed for concurrent unloading
 
 
 extern Monitor* CodeHeapStateAnalytics_lock;     // lock print functions against concurrent analyze functions.
@@ -199,9 +201,11 @@ class MutexLocker: StackObj {
 // for debugging: check that we're already owning this lock (or are at a safepoint)
 #ifdef ASSERT
 void assert_locked_or_safepoint(const Monitor * lock);
+void assert_locked_or_safepoint_weak(const Monitor * lock);
 void assert_lock_strong(const Monitor * lock);
 #else
 #define assert_locked_or_safepoint(lock)
+#define assert_locked_or_safepoint_weak(lock)
 #define assert_lock_strong(lock)
 #endif
 
@@ -343,39 +347,5 @@ class MutexUnlockerEx: StackObj {
     }
   }
 };
-
-#ifndef PRODUCT
-//
-// A special MutexLocker that allows:
-//   - reentrant locking
-//   - locking out of order
-//
-// Only to be used for verify code, where we can relax out dead-lock
-// detection code a bit (unsafe, but probably ok). This code is NEVER to
-// be included in a product version.
-//
-class VerifyMutexLocker: StackObj {
- private:
-  Monitor * _mutex;
-  bool   _reentrant;
- public:
-  VerifyMutexLocker(Monitor * mutex) {
-    _mutex     = mutex;
-    _reentrant = mutex->owned_by_self();
-    if (!_reentrant) {
-      // We temp. disable strict safepoint checking, while we require the lock
-      FlagSetting fs(StrictSafepointChecks, false);
-      _mutex->lock();
-    }
-  }
-
-  ~VerifyMutexLocker() {
-    if (!_reentrant) {
-      _mutex->unlock();
-    }
-  }
-};
-
-#endif
 
 #endif // SHARE_VM_RUNTIME_MUTEXLOCKER_HPP

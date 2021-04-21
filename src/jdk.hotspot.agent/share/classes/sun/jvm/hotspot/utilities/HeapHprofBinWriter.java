@@ -32,6 +32,7 @@ import sun.jvm.hotspot.memory.*;
 import sun.jvm.hotspot.oops.*;
 import sun.jvm.hotspot.runtime.*;
 import sun.jvm.hotspot.classfile.*;
+import sun.jvm.hotspot.gc.z.ZCollectedHeap;
 
 /*
  * This class writes Java heap in hprof binary format. This format is
@@ -388,11 +389,15 @@ public class HeapHprofBinWriter extends AbstractHeapGraphWriter {
     }
 
     public synchronized void write(String fileName) throws IOException {
+        VM vm = VM.getVM();
+        if (vm.getUniverse().heap() instanceof ZCollectedHeap) {
+            throw new RuntimeException("This operation is not supported with ZGC.");
+        }
+
         // open file stream and create buffered data output stream
         fos = new FileOutputStream(fileName);
         out = new DataOutputStream(new BufferedOutputStream(fos));
 
-        VM vm = VM.getVM();
         dbg = vm.getDebugger();
         objectHeap = vm.getObjectHeap();
 
@@ -1088,9 +1093,9 @@ public class HeapHprofBinWriter extends AbstractHeapGraphWriter {
     }
 
     private void writeSymbol(Symbol sym) throws IOException {
-        if(sym != null) {
-            // If name is already written don't write it again.
-            if (names.add(sym)) {
+        // If name is already written don't write it again.
+        if (names.add(sym)) {
+            if(sym != null) {
                 byte[] buf = sym.asString().getBytes("UTF-8");
                 writeHeader(HPROF_UTF8, buf.length + OBJ_ID_SIZE);
                 writeSymbolID(sym);

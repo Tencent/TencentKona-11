@@ -29,6 +29,7 @@
 #include "code/codeCache.hpp"
 #include "compiler/compileBroker.hpp"
 #include "compiler/disassembler.hpp"
+#include "gc/shared/barrierSetNMethod.hpp"
 #include "gc/shared/collectedHeap.hpp"
 #include "interpreter/interpreter.hpp"
 #include "interpreter/interpreterRuntime.hpp"
@@ -71,21 +72,6 @@
 #ifdef COMPILER2
 #include "opto/runtime.hpp"
 #endif
-
-class UnlockFlagSaver {
-  private:
-    JavaThread* _thread;
-    bool _do_not_unlock;
-  public:
-    UnlockFlagSaver(JavaThread* t) {
-      _thread = t;
-      _do_not_unlock = t->do_not_unlock_if_synchronized();
-      t->set_do_not_unlock_if_synchronized(false);
-    }
-    ~UnlockFlagSaver() {
-      _thread->set_do_not_unlock_if_synchronized(_do_not_unlock);
-    }
-};
 
 // Helper class to access current interpreter state
 class LastFrameAccessor : public StackObj {
@@ -1042,6 +1028,13 @@ nmethod* InterpreterRuntime::frequency_counter_overflow(JavaThread* thread, addr
     Method* method =  last_frame.method();
     int bci = method->bci_from(last_frame.bcp());
     nm = method->lookup_osr_nmethod_for(bci, CompLevel_none, false);
+    BarrierSetNMethod* bs_nm = BarrierSet::barrier_set()->barrier_set_nmethod();
+    if (nm != NULL && bs_nm != NULL) {
+      // in case the transition passed a safepoint we need to barrier this again
+      if (!bs_nm->nmethod_osr_entry_barrier(nm)) {
+        nm = NULL;
+      }
+    }
   }
   if (nm != NULL && thread->is_interp_only_mode()) {
     // Normally we never get an nm if is_interp_only_mode() is true, because
@@ -1064,6 +1057,9 @@ nmethod* InterpreterRuntime::frequency_counter_overflow(JavaThread* thread, addr
 
 IRT_ENTRY(nmethod*,
           InterpreterRuntime::frequency_counter_overflow_inner(JavaThread* thread, address branch_bcp))
+  if (HAS_PENDING_EXCEPTION) {
+    return NULL;
+  }
   // use UnlockFlagSaver to clear and restore the _do_not_unlock_if_synchronized
   // flag, in case this method triggers classloading which will call into Java.
   UnlockFlagSaver fs(thread);
@@ -1074,9 +1070,15 @@ IRT_ENTRY(nmethod*,
   const int branch_bci = branch_bcp != NULL ? method->bci_from(branch_bcp) : InvocationEntryBci;
   const int bci = branch_bcp != NULL ? method->bci_from(last_frame.bcp()) : InvocationEntryBci;
 
-  assert(!HAS_PENDING_EXCEPTION, "Should not have any exceptions pending");
   nmethod* osr_nm = CompilationPolicy::policy()->event(method, method, branch_bci, bci, CompLevel_none, NULL, thread);
   assert(!HAS_PENDING_EXCEPTION, "Event handler should not throw any exceptions");
+
+  BarrierSetNMethod* bs_nm = BarrierSet::barrier_set()->barrier_set_nmethod();
+  if (osr_nm != NULL && bs_nm != NULL) {
+    if (!bs_nm->nmethod_osr_entry_barrier(osr_nm)) {
+      osr_nm = NULL;
+    }
+  }
 
   if (osr_nm != NULL) {
     // We may need to do on-stack replacement which requires that no
@@ -1110,6 +1112,9 @@ IRT_LEAF(jint, InterpreterRuntime::bcp_to_di(Method* method, address cur_bcp))
 IRT_END
 
 IRT_ENTRY(void, InterpreterRuntime::profile_method(JavaThread* thread))
+  if (HAS_PENDING_EXCEPTION) {
+    return;
+  }
   // use UnlockFlagSaver to clear and restore the _do_not_unlock_if_synchronized
   // flag, in case this method triggers classloading which will call into Java.
   UnlockFlagSaver fs(thread);

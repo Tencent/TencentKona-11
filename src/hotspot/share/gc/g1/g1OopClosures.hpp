@@ -88,6 +88,17 @@ public:
   virtual void do_oop(narrowOop* p)    { do_oop_work(p); }
 };
 
+// Used during Optional RS scanning to make sure we trim the queues in a timely manner.
+class G1ScanRSForOptionalClosure : public OopClosure {
+  G1ScanObjsDuringScanRSClosure* _scan_cl;
+public:
+  G1ScanRSForOptionalClosure(G1ScanObjsDuringScanRSClosure* cl) : _scan_cl(cl) { }
+
+  template <class T> void do_oop_work(T* p);
+  virtual void do_oop(oop* p)          { do_oop_work(p); }
+  virtual void do_oop(narrowOop* p)    { do_oop_work(p); }
+};
+
 // This closure is applied to the fields of the objects that have just been copied during evacuation.
 class G1ScanEvacuatedObjClosure : public G1ScanClosureBase {
 public:
@@ -157,12 +168,12 @@ public:
 class G1CLDScanClosure : public CLDClosure {
   G1ParCopyHelper* _closure;
   bool             _process_only_dirty;
-  bool             _must_claim;
+  int              _claim;
   int              _count;
 public:
   G1CLDScanClosure(G1ParCopyHelper* closure,
-                   bool process_only_dirty, bool must_claim)
-      : _process_only_dirty(process_only_dirty), _must_claim(must_claim), _closure(closure), _count(0) {}
+                   bool process_only_dirty, bool claim_value)
+      : _process_only_dirty(process_only_dirty), _claim(claim_value), _closure(closure), _count(0) {}
   void do_cld(ClassLoaderData* cld);
 };
 

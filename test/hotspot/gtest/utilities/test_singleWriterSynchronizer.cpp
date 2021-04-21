@@ -32,7 +32,7 @@
 #include "utilities/globalDefinitions.hpp"
 #include "utilities/ostream.hpp"
 #include "utilities/singleWriterSynchronizer.hpp"
-#include "utilitiesHelper.inline.hpp"
+#include "threadHelper.inline.hpp"
 #include "unittest.hpp"
 
 class SingleWriterSynchronizerTestReader : public JavaTestThread {

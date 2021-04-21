@@ -40,6 +40,7 @@
 #include "gc/z/zTask.hpp"
 #include "gc/z/zThread.hpp"
 #include "gc/z/zTracer.inline.hpp"
+#include "gc/z/zVerify.hpp"
 #include "gc/z/zVirtualMemory.inline.hpp"
 #include "gc/z/zWorkers.inline.hpp"
 #include "logging/log.hpp"
@@ -69,6 +70,7 @@ ZHeap::ZHeap() :
     _weak_roots_processor(&_workers),
     _relocate(&_workers),
     _relocation_set(),
+    _unload(&_workers),
     _serviceability(heap_min_size(), heap_max_size()) {
   // Install global heap instance
   assert(_heap == NULL, "Already initialized");
@@ -96,7 +98,7 @@ size_t ZHeap::heap_max_reserve_size() const {
 }
 
 bool ZHeap::is_initialized() const {
-  return _page_allocator.is_initialized();
+  return _page_allocator.is_initialized() && _mark.is_initialized();
 }
 
 size_t ZHeap::min_capacity() const {
@@ -273,12 +275,12 @@ void ZHeap::mark_start() {
   // Update statistics
   ZStatSample(ZSamplerHeapUsedBeforeMark, used());
 
-  // Retire TLABs
-  _object_allocator.retire_tlabs();
-
   // Flip address view
   ZAddressMasks::flip_to_marked();
   flip_views();
+
+  // Retire allocating pages
+  _object_allocator.retire_pages();
 
   // Reset allocated/reclaimed/used statistics
   _page_allocator.reset_statistics();
@@ -296,42 +298,16 @@ void ZHeap::mark_start() {
   ZStatHeap::set_at_mark_start(capacity(), used());
 }
 
-void ZHeap::mark() {
-  _mark.mark();
+void ZHeap::mark(bool initial) {
+  _mark.mark(initial);
 }
 
 void ZHeap::mark_flush_and_free(Thread* thread) {
   _mark.flush_and_free(thread);
 }
 
-class ZFixupPartialLoadsTask : public ZTask {
-private:
-  ZThreadRootsIterator _thread_roots;
-
-public:
-  ZFixupPartialLoadsTask() :
-      ZTask("ZFixupPartialLoadsTask"),
-      _thread_roots() {}
-
-  virtual void work() {
-    ZMarkRootOopClosure cl;
-    _thread_roots.oops_do(&cl);
-  }
-};
-
-void ZHeap::fixup_partial_loads() {
-  ZFixupPartialLoadsTask task;
-  _workers.run_parallel(&task);
-}
-
 bool ZHeap::mark_end() {
   assert(SafepointSynchronize::is_at_safepoint(), "Should be at safepoint");
-
-  // C2 can generate code where a safepoint poll is inserted
-  // between a load and the associated load barrier. To handle
-  // this case we need to rescan the thread stack here to make
-  // sure such oops are marked.
-  fixup_partial_loads();
 
   // Try end marking
   if (!_mark.end()) {
@@ -342,8 +318,8 @@ bool ZHeap::mark_end() {
   // Enter mark completed phase
   ZGlobalPhase = ZPhaseMarkCompleted;
 
-  // Resize metaspace
-  MetaspaceGC::compute_new_size();
+  // Verify after mark
+  ZVerify::after_mark();
 
   // Update statistics
   ZStatSample(ZSamplerHeapUsedAfterMark, used());
@@ -355,10 +331,8 @@ bool ZHeap::mark_end() {
   // Process weak roots
   _weak_roots_processor.process_weak_roots();
 
-  // Verification
-  if (VerifyBeforeGC || VerifyDuringGC || VerifyAfterGC) {
-    Universe::verify();
-  }
+  // Prepare to unload unused classes and code
+  _unload.prepare();
 
   return true;
 }
@@ -373,6 +347,9 @@ void ZHeap::process_non_strong_references() {
 
   // Process concurrent weak roots
   _weak_roots_processor.process_concurrent_weak_roots();
+
+  // Unload unused classes and code
+  _unload.unload();
 
   // Unblock resurrection of weak/phantom references
   ZResurrection::unblock();
@@ -457,20 +434,18 @@ void ZHeap::reset_relocation_set() {
 void ZHeap::relocate_start() {
   assert(SafepointSynchronize::is_at_safepoint(), "Should be at safepoint");
 
-  // Update statistics
-  ZStatSample(ZSamplerHeapUsedBeforeRelocation, used());
+  // Finish unloading of classes and code
+  _unload.finish();
 
   // Flip address view
   ZAddressMasks::flip_to_remapped();
   flip_views();
 
-  // Remap TLABs
-  _object_allocator.remap_tlabs();
-
   // Enter relocate phase
   ZGlobalPhase = ZPhaseRelocate;
 
   // Update statistics
+  ZStatSample(ZSamplerHeapUsedBeforeRelocation, used());
   ZStatHeap::set_at_relocate_start(capacity(), allocated(), used());
 
   // Remap/Relocate roots
@@ -507,11 +482,11 @@ void ZHeap::relocate() {
                                  used(), used_high(), used_low());
 }
 
-void ZHeap::object_iterate(ObjectClosure* cl, bool visit_referents) {
+void ZHeap::object_iterate(ObjectClosure* cl, bool visit_weaks) {
   assert(SafepointSynchronize::is_at_safepoint(), "Should be at safepoint");
 
-  ZHeapIterator iter(visit_referents);
-  iter.objects_do(cl);
+  ZHeapIterator iter(visit_weaks);
+  iter.objects_do(cl, visit_weaks);
 }
 
 void ZHeap::serviceability_initialize() {
@@ -550,37 +525,11 @@ void ZHeap::print_extended_on(outputStream* st) const {
   st->cr();
 }
 
-class ZVerifyRootsTask : public ZTask {
-private:
-  ZRootsIterator     _strong_roots;
-  ZWeakRootsIterator _weak_roots;
-
-public:
-  ZVerifyRootsTask() :
-      ZTask("ZVerifyRootsTask"),
-      _strong_roots(),
-      _weak_roots() {}
-
-  virtual void work() {
-    ZVerifyRootOopClosure cl;
-    _strong_roots.oops_do(&cl);
-    _weak_roots.oops_do(&cl);
-  }
-};
-
 void ZHeap::verify() {
   // Heap verification can only be done between mark end and
   // relocate start. This is the only window where all oop are
   // good and the whole heap is in a consistent state.
   guarantee(ZGlobalPhase == ZPhaseMarkCompleted, "Invalid phase");
 
-  {
-    ZVerifyRootsTask task;
-    _workers.run_parallel(&task);
-  }
-
-  {
-    ZVerifyObjectClosure cl;
-    object_iterate(&cl, false /* visit_referents */);
-  }
+  ZVerify::after_weak_processing();
 }

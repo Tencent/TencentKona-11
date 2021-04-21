@@ -62,10 +62,11 @@ public:
 public:
   inline TaskQueueStats()       { reset(); }
 
-  inline void record_push()     { ++_stats[push]; }
-  inline void record_pop()      { ++_stats[pop]; }
-  inline void record_pop_slow() { record_pop(); ++_stats[pop_slow]; }
-  inline void record_steal(bool success);
+  inline void record_push()          { ++_stats[push]; }
+  inline void record_pop()           { ++_stats[pop]; }
+  inline void record_pop_slow()      { record_pop(); ++_stats[pop_slow]; }
+  inline void record_steal_attempt() { ++_stats[steal_attempt]; }
+  inline void record_steal()         { ++_stats[steal]; }
   inline void record_overflow(size_t new_length);
 
   TaskQueueStats & operator +=(const TaskQueueStats & addend);
@@ -87,11 +88,6 @@ private:
   size_t                    _stats[last_stat_id];
   static const char * const _names[last_stat_id];
 };
-
-void TaskQueueStats::record_steal(bool success) {
-  ++_stats[steal_attempt];
-  if (success) ++_stats[steal];
-}
 
 void TaskQueueStats::record_overflow(size_t new_len) {
   ++_stats[overflow];
@@ -304,12 +300,30 @@ public:
   template<typename Fn> void iterate(Fn fn);
 
 private:
+  DEFINE_PAD_MINUS_SIZE(0, DEFAULT_CACHE_LINE_SIZE, 0);
   // Element array.
   volatile E* _elems;
+
+  DEFINE_PAD_MINUS_SIZE(1, DEFAULT_CACHE_LINE_SIZE, sizeof(E*));
+  // Queue owner local variables. Not to be accessed by other threads.
+
+  static const uint InvalidQueueId = uint(-1);
+  uint _last_stolen_queue_id; // The id of the queue we last stole from
+
+  int _seed; // Current random seed used for selecting a random queue during stealing.
+
+  DEFINE_PAD_MINUS_SIZE(2, DEFAULT_CACHE_LINE_SIZE, sizeof(uint) + sizeof(int));
+public:
+  int next_random_queue_id();
+
+  void set_last_stolen_queue_id(uint id)     { _last_stolen_queue_id = id; }
+  uint last_stolen_queue_id() const          { return _last_stolen_queue_id; }
+  bool is_last_stolen_queue_id_valid() const { return _last_stolen_queue_id != InvalidQueueId; }
+  void invalidate_last_stolen_queue_id()     { _last_stolen_queue_id = InvalidQueueId; }
 };
 
 template<class E, MEMFLAGS F, unsigned int N>
-GenericTaskQueue<E, F, N>::GenericTaskQueue() {
+GenericTaskQueue<E, F, N>::GenericTaskQueue() : _last_stolen_queue_id(InvalidQueueId), _seed(17 /* random number */) {
   assert(sizeof(Age) == sizeof(size_t), "Depends on this.");
 }
 
@@ -354,14 +368,11 @@ private:
 };
 
 class TaskQueueSetSuper {
-protected:
-  static int randomParkAndMiller(int* seed0);
 public:
   // Returns "true" if some TaskQueue in the set contains a task.
   virtual bool peek() = 0;
-#if INCLUDE_SHENANDOAHGC
-  virtual size_t tasks() = 0;
-#endif
+  // Tasks in queue
+  virtual uint tasks() const = 0;
 };
 
 template <MEMFLAGS F> class TaskQueueSetSuperImpl: public CHeapObj<F>, public TaskQueueSetSuper {
@@ -369,33 +380,29 @@ template <MEMFLAGS F> class TaskQueueSetSuperImpl: public CHeapObj<F>, public Ta
 
 template<class T, MEMFLAGS F>
 class GenericTaskQueueSet: public TaskQueueSetSuperImpl<F> {
+public:
+  typedef typename T::element_type E;
+
 private:
   uint _n;
   T** _queues;
 
+  bool steal_best_of_2(uint queue_num, E& t);
+
 public:
-  typedef typename T::element_type E;
-
-  GenericTaskQueueSet(int n);
+  GenericTaskQueueSet(uint n);
   ~GenericTaskQueueSet();
-
-  bool steal_best_of_2(uint queue_num, int* seed, E& t);
 
   void register_queue(uint i, T* q);
 
   T* queue(uint n);
 
-  // The thread with queue number "queue_num" (and whose random number seed is
-  // at "seed") is trying to steal a task from some other queue.  (It may try
-  // several queues, according to some configuration parameter.)  If some steal
-  // succeeds, returns "true" and sets "t" to the stolen task, otherwise returns
-  // false.
-  bool steal(uint queue_num, int* seed, E& t);
+  // Try to steal a task from some other queue than queue_num. It may perform several attempts at doing so.
+  // Returns if stealing succeeds, and sets "t" to the stolen task.
+  bool steal(uint queue_num, E& t);
 
   bool peek();
-#if INCLUDE_SHENANDOAHGC
-  size_t tasks();
-#endif
+  uint tasks() const;
 
   uint size() const { return _n; }
 };
@@ -421,6 +428,15 @@ bool GenericTaskQueueSet<T, F>::peek() {
   return false;
 }
 
+template<class T, MEMFLAGS F>
+uint GenericTaskQueueSet<T, F>::tasks() const {
+  uint n = 0;
+  for (uint j = 0; j < _n; j++) {
+    n += _queues[j]->size();
+  }
+  return n;
+}
+
 #if INCLUDE_SHENANDOAHGC
 template<class T, MEMFLAGS F>
 size_t GenericTaskQueueSet<T, F>::tasks() {
@@ -443,11 +459,8 @@ public:
 
 #undef TRACESPINNING
 
-class ParallelTaskTerminator: public StackObj {
-private:
-#if INCLUDE_SHENANDOAHGC
+class ParallelTaskTerminator: public CHeapObj<mtGC> {
 protected:
-#endif
   uint _n_threads;
   TaskQueueSetSuper* _queue_set;
 
@@ -466,11 +479,18 @@ protected:
   virtual void yield();
   void sleep(uint millis);
 
+  // Called when exiting termination is requested.
+  // When the request is made, terminator may have already terminated
+  // (e.g. all threads are arrived and offered termination). In this case,
+  // it should ignore the request and complete the termination.
+  // Return true if termination is completed. Otherwise, return false.
+  bool complete_or_exit_termination();
 public:
 
   // "n_threads" is the number of threads to be terminated.  "queue_set" is a
   // queue sets of work queues of other threads.
   ParallelTaskTerminator(uint n_threads, TaskQueueSetSuper* queue_set);
+  virtual ~ParallelTaskTerminator();
 
   // The current thread has no work, and is ready to terminate if everyone
   // else is.  If returns "true", all threads are terminated.  If returns
@@ -483,7 +503,7 @@ public:
   // As above, but it also terminates if the should_exit_termination()
   // method of the terminator parameter returns true. If terminator is
   // NULL, then it is ignored.
-  SHENANDOAHGC_ONLY(virtual) bool offer_termination(TerminatorTerminator* terminator);
+  virtual bool offer_termination(TerminatorTerminator* terminator);
 
   // Reset the terminator, so that it may be reused again.
   // The caller is responsible for ensuring that this is done
@@ -500,6 +520,22 @@ public:
   static uint total_peeks() { return _total_peeks; }
   static void print_termination_counts();
 #endif
+};
+
+class TaskTerminator : public StackObj {
+private:
+  ParallelTaskTerminator*  _terminator;
+
+  // Noncopyable.
+  TaskTerminator(const TaskTerminator&);
+  TaskTerminator& operator=(const TaskTerminator&);
+public:
+  TaskTerminator(uint n_threads, TaskQueueSetSuper* queue_set);
+  ~TaskTerminator();
+
+  ParallelTaskTerminator* terminator() const {
+    return _terminator;
+  }
 };
 
 typedef GenericTaskQueue<oop, mtGC>             OopTaskQueue;

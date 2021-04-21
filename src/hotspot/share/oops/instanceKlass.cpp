@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -80,6 +80,10 @@
 #ifdef COMPILER1
 #include "c1/c1_Compiler.hpp"
 #endif
+#if INCLUDE_JFR
+#include "jfr/jfrEvents.hpp"
+#endif
+
 
 #ifdef DTRACE_ENABLED
 
@@ -1054,27 +1058,32 @@ void InstanceKlass::set_initialization_state_and_notify(ClassState state, TRAPS)
 }
 
 Klass* InstanceKlass::implementor() const {
-  assert_locked_or_safepoint(Compile_lock);
-  Klass** k = adr_implementor();
+  Klass* volatile* k = adr_implementor();
   if (k == NULL) {
     return NULL;
   } else {
-    return *k;
+    // This load races with inserts, and therefore needs acquire.
+    Klass* kls = OrderAccess::load_acquire(k);
+    if (kls != NULL && !kls->is_loader_alive()) {
+      return NULL;  // don't return unloaded class
+    } else {
+      return kls;
+    }
   }
 }
+
 
 void InstanceKlass::set_implementor(Klass* k) {
   assert_lock_strong(Compile_lock);
   assert(is_interface(), "not interface");
-  Klass** addr = adr_implementor();
+  Klass* volatile* addr = adr_implementor();
   assert(addr != NULL, "null addr");
   if (addr != NULL) {
-    *addr = k;
+    OrderAccess::release_store(addr, k);
   }
 }
 
 int  InstanceKlass::nof_implementors() const {
-  assert_lock_strong(Compile_lock);
   Klass* k = implementor();
   if (k == NULL) {
     return 0;
@@ -1931,7 +1940,7 @@ jmethodID InstanceKlass::get_jmethod_id(const methodHandle& method_h) {
         // we're single threaded or at a safepoint - no locking needed
         get_jmethod_id_length_value(jmeths, idnum, &length, &id);
       } else {
-        MutexLocker ml(JmethodIdCreation_lock);
+        MutexLockerEx ml(JmethodIdCreation_lock, Mutex::_no_safepoint_check_flag);
         get_jmethod_id_length_value(jmeths, idnum, &length, &id);
       }
     }
@@ -1981,7 +1990,7 @@ jmethodID InstanceKlass::get_jmethod_id(const methodHandle& method_h) {
       id = get_jmethod_id_fetch_or_update(idnum, new_id, new_jmeths,
                                           &to_dealloc_id, &to_dealloc_jmeths);
     } else {
-      MutexLocker ml(JmethodIdCreation_lock);
+      MutexLockerEx ml(JmethodIdCreation_lock, Mutex::_no_safepoint_check_flag);
       id = get_jmethod_id_fetch_or_update(idnum, new_id, new_jmeths,
                                           &to_dealloc_id, &to_dealloc_jmeths);
     }
@@ -2106,7 +2115,7 @@ jmethodID InstanceKlass::jmethod_id_or_null(Method* method) {
 }
 
 inline DependencyContext InstanceKlass::dependencies() {
-  DependencyContext dep_context(&_dep_context);
+  DependencyContext dep_context(&_dep_context, &_dep_context_last_cleaned);
   return dep_context;
 }
 
@@ -2118,8 +2127,12 @@ void InstanceKlass::add_dependent_nmethod(nmethod* nm) {
   dependencies().add_dependent_nmethod(nm);
 }
 
-void InstanceKlass::remove_dependent_nmethod(nmethod* nm, bool delete_immediately) {
-  dependencies().remove_dependent_nmethod(nm, delete_immediately);
+void InstanceKlass::remove_dependent_nmethod(nmethod* nm) {
+  dependencies().remove_dependent_nmethod(nm);
+}
+
+void InstanceKlass::clean_dependency_context() {
+  dependencies().clean_unloading_dependents();
 }
 
 #ifndef PRODUCT
@@ -2135,26 +2148,28 @@ bool InstanceKlass::is_dependent_nmethod(nmethod* nm) {
 void InstanceKlass::clean_weak_instanceklass_links() {
   clean_implementors_list();
   clean_method_data();
-
-  // Since GC iterates InstanceKlasses sequentially, it is safe to remove stale entries here.
-  DependencyContext dep_context(&_dep_context);
-  dep_context.expunge_stale_entries();
 }
 
 void InstanceKlass::clean_implementors_list() {
   assert(is_loader_alive(), "this klass should be live");
   if (is_interface()) {
-    if (ClassUnloading) {
-      Klass* impl = implementor();
-      if (impl != NULL) {
-        if (!impl->is_loader_alive()) {
-          // remove this guy
-          Klass** klass = adr_implementor();
-          assert(klass != NULL, "null klass");
-          if (klass != NULL) {
-            *klass = NULL;
+    assert (ClassUnloading, "only called for ClassUnloading");
+    for (;;) {
+      // Use load_acquire due to competing with inserts
+      Klass* impl = OrderAccess::load_acquire(adr_implementor());
+      if (impl != NULL && !impl->is_loader_alive()) {
+        // NULL this field, might be an unloaded klass or NULL
+        Klass* volatile* klass = adr_implementor();
+        if (Atomic::cmpxchg((Klass*)NULL, klass, impl) == impl) {
+          // Successfully unlinking implementor.
+          if (log_is_enabled(Trace, class, unload)) {
+            ResourceMark rm;
+            log_trace(class, unload)("unlinking class (implementor): %s", impl->external_name());
           }
+          return;
         }
+      } else {
+        return;
       }
     }
   }
@@ -2164,6 +2179,7 @@ void InstanceKlass::clean_method_data() {
   for (int m = 0; m < methods()->length(); m++) {
     MethodData* mdo = methods()->at(m)->method_data();
     if (mdo != NULL) {
+      MutexLockerEx ml(SafepointSynchronize::is_at_safepoint() ? NULL : mdo->extra_data_lock());
       mdo->clean_method_data(/*always_clean*/false);
     }
   }
@@ -2323,7 +2339,7 @@ void InstanceKlass::remove_unshareable_info() {
   // These are not allocated from metaspace, but they should should all be empty
   // during dump time, so we don't need to worry about them in InstanceKlass::iterate().
   guarantee(_source_debug_extension == NULL, "must be");
-  guarantee(_dep_context == DependencyContext::EMPTY, "must be");
+  guarantee(_dep_context == NULL, "must be");
   guarantee(_osr_nmethods_head == NULL, "must be");
 
 #if INCLUDE_JVMTI
@@ -2421,7 +2437,10 @@ static void clear_all_breakpoints(Method* m) {
 }
 #endif
 
-void InstanceKlass::notify_unload_class(InstanceKlass* ik) {
+void InstanceKlass::unload_class(InstanceKlass* ik) {
+  // Release dependencies.
+  ik->dependencies().remove_all_dependents();
+
   // notify the debugger
   if (JvmtiExport::should_post_class_unload()) {
     JvmtiExport::post_class_unload(ik);
@@ -2429,6 +2448,14 @@ void InstanceKlass::notify_unload_class(InstanceKlass* ik) {
 
   // notify ClassLoadingService of class unload
   ClassLoadingService::notify_class_unloaded(ik);
+
+#if INCLUDE_JFR
+  assert(ik != NULL, "invariant");
+  EventClassUnload event;
+  event.set_unloadedClass(ik);
+  event.set_definingClassLoader(ik->class_loader_data());
+  event.commit();
+#endif
 }
 
 void InstanceKlass::release_C_heap_structures(InstanceKlass* ik) {
@@ -2458,16 +2485,8 @@ void InstanceKlass::release_C_heap_structures() {
     FreeHeap(jmeths);
   }
 
-  // Release dependencies.
-  // It is desirable to use DC::remove_all_dependents() here, but, unfortunately,
-  // it is not safe (see JDK-8143408). The problem is that the klass dependency
-  // context can contain live dependencies, since there's a race between nmethod &
-  // klass unloading. If the klass is dead when nmethod unloading happens, relevant
-  // dependencies aren't removed from the context associated with the class (see
-  // nmethod::flush_dependencies). It ends up during klass unloading as seemingly
-  // live dependencies pointing to unloaded nmethods and causes a crash in
-  // DC::remove_all_dependents() when it touches unloaded nmethod.
-  dependencies().wipe();
+  assert(_dep_context == NULL,
+         "dependencies should already be cleaned");
 
 #if INCLUDE_JVMTI
   // Deallocate breakpoint records
@@ -3159,7 +3178,6 @@ void InstanceKlass::print_on(outputStream* st) const {
   st->cr();
 
   if (is_interface()) {
-    MutexLocker ml(Compile_lock);
     st->print_cr(BULLET"nof implementors:  %d", nof_implementors());
     if (nof_implementors() == 1) {
       st->print_cr(BULLET"implementor:    ");
@@ -3555,9 +3573,6 @@ void InstanceKlass::verify_on(outputStream* st) {
     guarantee(sib->super() == super, "siblings should have same superklass");
   }
 
-  // Verify implementor fields requires the Compile_lock, but this is sometimes
-  // called inside a safepoint, so don't verify.
-
   // Verify local interfaces
   if (local_interfaces()) {
     Array<Klass*>* local_interfaces = this->local_interfaces();
@@ -3696,15 +3711,15 @@ void JNIid::verify(Klass* holder) {
   }
 }
 
-#ifdef ASSERT
 void InstanceKlass::set_init_state(ClassState state) {
+#ifdef ASSERT
   bool good_state = is_shared() ? (_init_state <= state)
                                                : (_init_state < state);
   assert(good_state || state == allocated, "illegal state transition");
+#endif
   assert(_init_thread == NULL, "should be cleared before state change");
   _init_state = (u1)state;
 }
-#endif
 
 #if INCLUDE_JVMTI
 
@@ -3719,7 +3734,7 @@ bool InstanceKlass::_has_previous_versions = false;
 // unloading only. Also resets the flag to false. purge_previous_version
 // will set the flag to true if there are any left, i.e., if there's any
 // work to do for next time. This is to avoid the expensive code cache
-// walk in CLDG::do_unloading().
+// walk in CLDG::clean_deallocate_lists().
 bool InstanceKlass::has_previous_versions_and_reset() {
   bool ret = _has_previous_versions;
   log_trace(redefine, class, iklass, purge)("Class unloading: has_previous_versions = %s",

@@ -365,8 +365,7 @@ public:
 
   // Unload (that is, break root links to) all unmarked classes and
   // loaders.  Returns "true" iff something was unloaded.
-  static bool do_unloading(GCTimer* gc_timer,
-                           bool do_cleaning = true);
+  static bool do_unloading(GCTimer* gc_timer);
 
   // Used by DumpSharedSpaces only to remove classes that failed verification
   static void remove_classes_in_error_state();
@@ -378,6 +377,9 @@ public:
 
   // System loader lock
   static oop system_loader_lock()           { return _system_loader_lock_obj; }
+
+  // Protection Domain Table
+  static ProtectionDomainCacheTable* pd_cache_table() { return _pd_cache_table; }
 
 public:
   // Sharing support.

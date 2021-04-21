@@ -269,6 +269,27 @@ public:
 //
 // Stat timer
 //
+class ZStatTimerDisable : public StackObj {
+private:
+  static __thread uint32_t _active;
+
+public:
+  ZStatTimerDisable() {
+    _active++;
+  }
+
+  ~ZStatTimerDisable() {
+    _active--;
+  }
+
+  static bool is_active() {
+    return _active > 0;
+  }
+};
+
+//
+// Stat timer
+//
 class ZStatTimer : public StackObj {
 private:
   const ZStatPhase& _phase;

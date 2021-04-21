@@ -26,6 +26,7 @@
 #include "jvm.h"
 #include "aot/aotLoader.hpp"
 #include "classfile/classLoader.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/stringTable.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "code/codeCache.hpp"
@@ -346,6 +347,7 @@ void print_statistics() {
 
   if (PrintSystemDictionaryAtExit) {
     ResourceMark rm;
+    MutexLocker mcld(ClassLoaderDataGraph_lock);
     SystemDictionary::print();
     ClassLoaderDataGraph::print();
   }
@@ -494,6 +496,7 @@ void before_exit(JavaThread* thread) {
     Universe::print_on(&ls_info);
     if (log.is_trace()) {
       LogStream ls_trace(log.trace());
+      MutexLocker mcld(ClassLoaderDataGraph_lock);
       ClassLoaderDataGraph::print_on(&ls_trace);
     }
   }

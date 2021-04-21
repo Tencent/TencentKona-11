@@ -27,6 +27,7 @@
 #include "classfile/classListParser.hpp"
 #include "classfile/classLoader.hpp"
 #include "classfile/classLoaderData.inline.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/classLoaderExt.hpp"
 #include "classfile/compactHashtable.inline.hpp"
 #include "classfile/dictionary.hpp"
@@ -799,6 +800,7 @@ void SystemDictionaryShared::finalize_verification_constraints_for(InstanceKlass
 }
 
 void SystemDictionaryShared::finalize_verification_constraints() {
+  MutexLocker mcld(ClassLoaderDataGraph_lock);
   ClassLoaderDataGraph::dictionary_classes_do(finalize_verification_constraints_for);
 }
 

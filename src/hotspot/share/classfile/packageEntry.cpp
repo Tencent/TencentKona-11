@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -125,7 +125,7 @@ void PackageEntry::set_is_exported_allUnnamed() {
 // get deleted.  This prevents the package from illegally transitioning from
 // exported to non-exported.
 void PackageEntry::purge_qualified_exports() {
-  assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint");
+  assert_locked_or_safepoint(Module_lock);
   if (_must_walk_exports &&
       _qualified_exports != NULL &&
       !_qualified_exports->is_empty()) {
@@ -160,7 +160,6 @@ void PackageEntry::purge_qualified_exports() {
 }
 
 void PackageEntry::delete_qualified_exports() {
-  assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint");
   if (_qualified_exports != NULL) {
     delete _qualified_exports;
   }
@@ -228,29 +227,20 @@ PackageEntry* PackageEntryTable::locked_create_entry_or_null(Symbol* name, Modul
 }
 
 PackageEntry* PackageEntryTable::lookup(Symbol* name, ModuleEntry* module) {
+  MutexLocker ml(Module_lock);
   PackageEntry* p = lookup_only(name);
   if (p != NULL) {
     return p;
   } else {
-    // If not found, add to table. Grab the PackageEntryTable lock first.
-    MutexLocker ml(Module_lock);
-
-    // Since look-up was done lock-free, we need to check if another thread beat
-    // us in the race to insert the package.
-    PackageEntry* test = lookup_only(name);
-    if (test != NULL) {
-      // A race occurred and another thread introduced the package.
-      return test;
-    } else {
-      assert(module != NULL, "module should never be null");
-      PackageEntry* entry = new_entry(compute_hash(name), name, module);
-      add_entry(index_for(name), entry);
-      return entry;
-    }
+    assert(module != NULL, "module should never be null");
+    PackageEntry* entry = new_entry(compute_hash(name), name, module);
+    add_entry(index_for(name), entry);
+    return entry;
   }
 }
 
 PackageEntry* PackageEntryTable::lookup_only(Symbol* name) {
+  MutexLockerEx ml(Module_lock->owned_by_self() ? NULL : Module_lock);
   int index = index_for(name);
   for (PackageEntry* p = bucket(index); p != NULL; p = p->next()) {
     if (p->name()->fast_compare(name) == 0) {
@@ -296,13 +286,13 @@ void PackageEntry::package_exports_do(ModuleClosure* f) {
 }
 
 bool PackageEntry::exported_pending_delete() const {
-  assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint");
+  assert_locked_or_safepoint(Module_lock);
   return (is_unqual_exported() && _qualified_exports != NULL);
 }
 
 // Remove dead entries from all packages' exported list
 void PackageEntryTable::purge_all_package_exports() {
-  assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint");
+  assert_locked_or_safepoint(Module_lock);
   for (int i = 0; i < table_size(); i++) {
     for (PackageEntry* entry = bucket(i);
                        entry != NULL;

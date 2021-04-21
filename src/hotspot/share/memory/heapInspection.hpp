@@ -234,7 +234,6 @@ class KlassInfoBucket: public CHeapObj<mtInternal> {
 
 class KlassInfoTable: public StackObj {
  private:
-  int _size;
   static const int _num_buckets = 20011;
   size_t _size_of_instances_in_words;
 
@@ -247,12 +246,7 @@ class KlassInfoTable: public StackObj {
   uint hash(const Klass* p);
   KlassInfoEntry* lookup(Klass* k); // allocates if not found!
 
-  class AllClassesFinder : public KlassClosure {
-    KlassInfoTable *_table;
-   public:
-    AllClassesFinder(KlassInfoTable* table) : _table(table) {}
-    virtual void do_klass(Klass* k);
-  };
+  class AllClassesFinder;
 
  public:
   KlassInfoTable(bool add_all_classes);

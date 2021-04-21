@@ -774,10 +774,6 @@ bool InstructForm::captures_bottom_type(FormDict &globals) const {
        !strcmp(_matrule->_rChild->_opType,"CheckCastPP")  ||
        !strcmp(_matrule->_rChild->_opType,"GetAndSetP")   ||
        !strcmp(_matrule->_rChild->_opType,"GetAndSetN")   ||
-#if INCLUDE_ZGC
-       !strcmp(_matrule->_rChild->_opType,"LoadBarrierSlowReg") ||
-       !strcmp(_matrule->_rChild->_opType,"LoadBarrierWeakSlowReg") ||
-#endif
 #if INCLUDE_SHENANDOAHGC
        !strcmp(_matrule->_rChild->_opType,"ShenandoahCompareAndExchangeP") ||
        !strcmp(_matrule->_rChild->_opType,"ShenandoahCompareAndExchangeN") ||
@@ -3513,7 +3509,6 @@ int MatchNode::needs_ideal_memory_edge(FormDict &globals) const {
     "ClearArray",
     "GetAndSetB", "GetAndSetS", "GetAndAddI", "GetAndSetI", "GetAndSetP",
     "GetAndAddB", "GetAndAddS", "GetAndAddL", "GetAndSetL", "GetAndSetN",
-    "LoadBarrierSlowReg", "LoadBarrierWeakSlowReg"
   };
   int cnt = sizeof(needs_ideal_memory_list)/sizeof(char*);
   if( strcmp(_opType,"PrefetchAllocation")==0 )

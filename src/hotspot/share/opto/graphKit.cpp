@@ -1497,18 +1497,19 @@ Node* GraphKit::make_load(Node* ctl, Node* adr, const Type* t, BasicType bt,
                           bool require_atomic_access,
                           bool unaligned,
                           bool mismatched,
-                          bool unsafe) {
+                          bool unsafe,
+                          uint8_t barrier_data) {
   assert(adr_idx != Compile::AliasIdxTop, "use other make_load factory" );
   const TypePtr* adr_type = NULL; // debug-mode-only argument
   debug_only(adr_type = C->get_adr_type(adr_idx));
   Node* mem = memory(adr_idx);
   Node* ld;
   if (require_atomic_access && bt == T_LONG) {
-    ld = LoadLNode::make_atomic(ctl, mem, adr, adr_type, t, mo, control_dependency, unaligned, mismatched, unsafe);
+    ld = LoadLNode::make_atomic(ctl, mem, adr, adr_type, t, mo, control_dependency, unaligned, mismatched, unsafe, barrier_data);
   } else if (require_atomic_access && bt == T_DOUBLE) {
-    ld = LoadDNode::make_atomic(ctl, mem, adr, adr_type, t, mo, control_dependency, unaligned, mismatched, unsafe);
+    ld = LoadDNode::make_atomic(ctl, mem, adr, adr_type, t, mo, control_dependency, unaligned, mismatched, unsafe, barrier_data);
   } else {
-    ld = LoadNode::make(_gvn, ctl, mem, adr, adr_type, t, bt, mo, control_dependency, unaligned, mismatched, unsafe);
+    ld = LoadNode::make(_gvn, ctl, mem, adr, adr_type, t, bt, mo, control_dependency, unaligned, mismatched, unsafe, barrier_data);
   }
   ld = _gvn.transform(ld);
   if (((bt == T_OBJECT) && C->do_escape_analysis()) || C->eliminate_boxing()) {
@@ -1580,7 +1581,7 @@ Node* GraphKit::access_store_at(Node* ctl,
 
   C2AccessValuePtr addr(adr, adr_type);
   C2AccessValue value(val, val_type);
-  C2Access access(this, decorators | C2_WRITE_ACCESS, bt, obj, addr);
+  C2ParseAccess access(this, decorators | C2_WRITE_ACCESS, bt, obj, addr);
   if (access.is_raw()) {
     return _barrier_set->BarrierSetC2::store_at(access, value);
   } else {
@@ -1599,7 +1600,7 @@ Node* GraphKit::access_load_at(Node* obj,   // containing obj
   }
 
   C2AccessValuePtr addr(adr, adr_type);
-  C2Access access(this, decorators | C2_READ_ACCESS, bt, obj, addr);
+  C2ParseAccess access(this, decorators | C2_READ_ACCESS, bt, obj, addr);
   if (access.is_raw()) {
     return _barrier_set->BarrierSetC2::load_at(access, val_type);
   } else {
@@ -1616,7 +1617,7 @@ Node* GraphKit::access_load(Node* adr,   // actual adress to load val at
   }
 
   C2AccessValuePtr addr(adr, NULL);
-  C2Access access(this, decorators | C2_READ_ACCESS, bt, NULL, addr);
+  C2ParseAccess access(this, decorators | C2_READ_ACCESS, bt, NULL, addr);
   if (access.is_raw()) {
     return _barrier_set->BarrierSetC2::load_at(access, val_type);
   } else {
@@ -1636,7 +1637,7 @@ Node* GraphKit::access_atomic_cmpxchg_val_at(Node* ctl,
                                              DecoratorSet decorators) {
   set_control(ctl);
   C2AccessValuePtr addr(adr, adr_type);
-  C2AtomicAccess access(this, decorators | C2_READ_ACCESS | C2_WRITE_ACCESS,
+  C2AtomicParseAccess access(this, decorators | C2_READ_ACCESS | C2_WRITE_ACCESS,
                         bt, obj, addr, alias_idx);
   if (access.is_raw()) {
     return _barrier_set->BarrierSetC2::atomic_cmpxchg_val_at(access, expected_val, new_val, value_type);
@@ -1657,7 +1658,7 @@ Node* GraphKit::access_atomic_cmpxchg_bool_at(Node* ctl,
                                               DecoratorSet decorators) {
   set_control(ctl);
   C2AccessValuePtr addr(adr, adr_type);
-  C2AtomicAccess access(this, decorators | C2_READ_ACCESS | C2_WRITE_ACCESS,
+  C2AtomicParseAccess access(this, decorators | C2_READ_ACCESS | C2_WRITE_ACCESS,
                         bt, obj, addr, alias_idx);
   if (access.is_raw()) {
     return _barrier_set->BarrierSetC2::atomic_cmpxchg_bool_at(access, expected_val, new_val, value_type);
@@ -1677,7 +1678,7 @@ Node* GraphKit::access_atomic_xchg_at(Node* ctl,
                                       DecoratorSet decorators) {
   set_control(ctl);
   C2AccessValuePtr addr(adr, adr_type);
-  C2AtomicAccess access(this, decorators | C2_READ_ACCESS | C2_WRITE_ACCESS,
+  C2AtomicParseAccess access(this, decorators | C2_READ_ACCESS | C2_WRITE_ACCESS,
                         bt, obj, addr, alias_idx);
   if (access.is_raw()) {
     return _barrier_set->BarrierSetC2::atomic_xchg_at(access, new_val, value_type);
@@ -1697,7 +1698,7 @@ Node* GraphKit::access_atomic_add_at(Node* ctl,
                                      DecoratorSet decorators) {
   set_control(ctl);
   C2AccessValuePtr addr(adr, adr_type);
-  C2AtomicAccess access(this, decorators | C2_READ_ACCESS | C2_WRITE_ACCESS, bt, obj, addr, alias_idx);
+  C2AtomicParseAccess access(this, decorators | C2_READ_ACCESS | C2_WRITE_ACCESS, bt, obj, addr, alias_idx);
   if (access.is_raw()) {
     return _barrier_set->BarrierSetC2::atomic_add_at(access, new_val, value_type);
   } else {
@@ -1708,6 +1709,14 @@ Node* GraphKit::access_atomic_add_at(Node* ctl,
 void GraphKit::access_clone(Node* ctl, Node* src, Node* dst, Node* size, bool is_array) {
   set_control(ctl);
   return _barrier_set->clone(this, src, dst, size, is_array);
+}
+
+Node* GraphKit::access_resolve(Node* n, DecoratorSet decorators) {
+  // Use stronger ACCESS_WRITE|ACCESS_READ by default.
+  if ((decorators & (ACCESS_READ | ACCESS_WRITE)) == 0) {
+    decorators |= ACCESS_READ | ACCESS_WRITE;
+  }
+  return _barrier_set->resolve(this, n, decorators);
 }
 
 //-------------------------array_element_address-------------------------
@@ -3245,6 +3254,8 @@ FastLockNode* GraphKit::shared_lock(Node* obj) {
 
   assert(dead_locals_are_killed(), "should kill locals before sync. point");
 
+  obj = access_resolve(obj, ACCESS_READ | ACCESS_WRITE);
+
   // Box the stack location
   Node* box = _gvn.transform(new BoxLockNode(next_monitor()));
   Node* mem = reset_memory();
@@ -3977,6 +3988,8 @@ void GraphKit::inflate_string_slow(Node* src, Node* dst, Node* start, Node* coun
    *   dst[i_char++] = (char)(src[i_byte] & 0xff);
    * }
    */
+  src = access_resolve(src, ACCESS_READ);
+  dst = access_resolve(dst, ACCESS_WRITE);
   add_empty_predicates();
   RegionNode* head = new RegionNode(3);
   head->init_req(1, control());
