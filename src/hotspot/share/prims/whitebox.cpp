@@ -26,8 +26,9 @@
 
 #include <new>
 
-#include "classfile/classLoaderData.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/modules.hpp"
+#include "classfile/protectionDomainCache.hpp"
 #include "classfile/stringTable.hpp"
 #include "code/codeCache.hpp"
 #include "compiler/methodMatcher.hpp"
@@ -48,6 +49,7 @@
 #include "oops/objArrayOop.inline.hpp"
 #include "oops/oop.inline.hpp"
 #include "oops/typeArrayOop.inline.hpp"
+#include "prims/resolvedMethodTable.hpp"
 #include "prims/wbtestmethods/parserTests.hpp"
 #include "prims/whitebox.inline.hpp"
 #include "runtime/arguments.hpp"
@@ -148,7 +150,7 @@ WB_ENTRY(jlong, WB_GetVMLargePageSize(JNIEnv* env, jobject o))
   return os::large_page_size();
 WB_END
 
-class WBIsKlassAliveClosure : public KlassClosure {
+class WBIsKlassAliveClosure : public LockedClassesDo {
     Symbol* _name;
     bool _found;
 public:
@@ -1550,7 +1552,7 @@ WB_ENTRY(jlong, WB_AllocateMetaspace(JNIEnv* env, jobject wb, jobject class_load
 
   oop class_loader_oop = JNIHandles::resolve(class_loader);
   ClassLoaderData* cld = class_loader_oop != NULL
-      ? java_lang_ClassLoader::loader_data(class_loader_oop)
+      ? java_lang_ClassLoader::loader_data_acquire(class_loader_oop)
       : ClassLoaderData::the_null_class_loader_data();
 
   void* metadata = MetadataFactory::new_array<u1>(cld, WhiteBox::array_bytes_to_length((size_t)size), thread);
@@ -1561,7 +1563,7 @@ WB_END
 WB_ENTRY(void, WB_FreeMetaspace(JNIEnv* env, jobject wb, jobject class_loader, jlong addr, jlong size))
   oop class_loader_oop = JNIHandles::resolve(class_loader);
   ClassLoaderData* cld = class_loader_oop != NULL
-      ? java_lang_ClassLoader::loader_data(class_loader_oop)
+      ? java_lang_ClassLoader::loader_data_acquire(class_loader_oop)
       : ClassLoaderData::the_null_class_loader_data();
 
   MetadataFactory::free_array(cld, (Array<u1>*)(uintptr_t)addr);
@@ -2020,6 +2022,14 @@ WB_ENTRY(void, WB_DisableElfSectionCache(JNIEnv* env))
 #endif
 WB_END
 
+WB_ENTRY(jint, WB_ResolvedMethodRemovedCount(JNIEnv* env, jobject o))
+  return (jint) ResolvedMethodTable::removed_entries_count();
+WB_END
+
+WB_ENTRY(jint, WB_ProtectionDomainRemovedCount(JNIEnv* env, jobject o))
+  return (jint) SystemDictionary::pd_cache_table()->removed_entries_count();
+WB_END
+
 WB_ENTRY(jint, WB_AotLibrariesCount(JNIEnv* env, jobject o))
   jint result = 0;
 #if INCLUDE_AOT
@@ -2255,6 +2265,8 @@ static JNINativeMethod methods[] = {
   {CC"isContainerized",           CC"()Z",            (void*)&WB_IsContainerized },
   {CC"printOsInfo",               CC"()V",            (void*)&WB_PrintOsInfo },
   {CC"disableElfSectionCache",    CC"()V",            (void*)&WB_DisableElfSectionCache },
+  {CC"resolvedMethodRemovedCount",     CC"()I",       (void*)&WB_ResolvedMethodRemovedCount },
+  {CC"protectionDomainRemovedCount",   CC"()I",       (void*)&WB_ProtectionDomainRemovedCount },
   {CC"aotLibrariesCount", CC"()I",                    (void*)&WB_AotLibrariesCount },
 };
 

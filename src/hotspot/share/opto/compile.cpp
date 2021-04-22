@@ -962,6 +962,7 @@ Compile::Compile( ciEnv* ci_env,
                   bool return_pc,
                   DirectiveSet* directive)
   : Phase(Compiler),
+    _barrier_set_state(BarrierSet::barrier_set()->barrier_set_c2()->create_barrier_state(comp_arena())),
     _env(ci_env),
     _directive(directive),
     _log(ci_env->log()),
@@ -1989,7 +1990,17 @@ void Compile::remove_opaque4_nodes(PhaseIterGVN &igvn) {
   for (int i = opaque4_count(); i > 0; i--) {
     Node* opaq = opaque4_node(i-1);
     assert(opaq->Opcode() == Op_Opaque4, "Opaque4 only");
+    // With Opaque4 nodes, the expectation is that the test of input 1
+    // is always equal to the constant value of input 2. So we can
+    // remove the Opaque4 and replace it by input 2. In debug builds,
+    // leave the non constant test in instead to sanity check that it
+    // never fails (if it does, that subgraph was constructed so, at
+    // runtime, a Halt node is executed).
+#ifdef ASSERT
+    igvn.replace_node(opaq, opaq->in(1));
+#else
     igvn.replace_node(opaq, opaq->in(2));
+#endif
   }
   assert(opaque4_count() == 0, "should be empty");
 }
@@ -2213,8 +2224,8 @@ void Compile::Optimize() {
 
 #endif
 
-#ifdef ASSERT
   BarrierSetC2* bs = BarrierSet::barrier_set()->barrier_set_c2();
+#ifdef ASSERT
   bs->verify_gc_barriers(true);
 #endif
 
@@ -2386,12 +2397,6 @@ void Compile::Optimize() {
     return;
   }
 
-#if INCLUDE_ZGC
-  if (UseZGC) {
-    ZBarrierSetC2::find_dominating_barriers(igvn);
-  }
-#endif
-
   if (failing())  return;
 
   // Ensure that major progress is now clear
@@ -2411,7 +2416,6 @@ void Compile::Optimize() {
   }
 
 #ifdef ASSERT
-  BarrierSetC2* bs = BarrierSet::barrier_set()->barrier_set_c2();
   bs->verify_gc_barriers(false);
 #endif
 
@@ -2425,15 +2429,13 @@ void Compile::Optimize() {
     }
   }
 
-#if INCLUDE_SHENANDOAHGC
-  if (UseShenandoahGC) {
-    print_method(PHASE_BEFORE_BARRIER_EXPAND, 2);
-    if (((ShenandoahBarrierSetC2*)BarrierSet::barrier_set()->barrier_set_c2())->expand_barriers(this, igvn)) {
+  {
+    if (bs->expand_barriers(this, igvn)) {
       assert(failing(), "must bail out w/ explicit message");
       return;
     }
+    print_method(PHASE_BARRIER_EXPANSION, 2);
   }
-#endif
 
   if (opaque4_count() > 0) {
     C->remove_opaque4_nodes(igvn);
@@ -2980,10 +2982,6 @@ void Compile::final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc) {
   case Op_LoadL_unaligned:
   case Op_LoadPLocked:
   case Op_LoadP:
-#if INCLUDE_ZGC
-  case Op_LoadBarrierSlowReg:
-  case Op_LoadBarrierWeakSlowReg:
-#endif
   case Op_LoadN:
   case Op_LoadRange:
   case Op_LoadS: {

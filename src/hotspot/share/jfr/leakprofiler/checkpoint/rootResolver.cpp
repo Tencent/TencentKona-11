@@ -24,6 +24,7 @@
 
 #include "precompiled.hpp"
 #include "aot/aotLoader.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/stringTable.hpp"
 #include "gc/shared/strongRootsScope.hpp"
 #include "jfr/leakprofiler/utilities/unifiedOop.hpp"
@@ -126,7 +127,7 @@ class ReferenceToRootClosure : public StackObj {
 bool ReferenceToRootClosure::do_cldg_roots() {
   assert(!complete(), "invariant");
   ReferenceLocateClosure rlc(_callback, OldObjectRoot::_class_loader_data, OldObjectRoot::_type_undetermined, NULL);
-  CLDToOopClosure cldt_closure(&rlc);
+  CLDToOopClosure cldt_closure(&rlc, ClassLoaderData::_claim_strong);
   ClassLoaderDataGraph::always_strong_cld_do(&cldt_closure);
   return rlc.complete();
 }
@@ -376,7 +377,7 @@ bool ReferenceToThreadRootClosure::do_thread_stack_detailed(JavaThread* jt) {
 
   JvmtiThreadState* const jvmti_thread_state = jt->jvmti_thread_state();
   if (jvmti_thread_state != NULL) {
-    jvmti_thread_state->oops_do(&rcl);
+    jvmti_thread_state->oops_do(&rcl, NULL);
   }
 
   return rcl.complete();

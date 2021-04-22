@@ -82,10 +82,8 @@ class JVMState;
 class JumpNode;
 class JumpProjNode;
 class LoadNode;
-class LoadBarrierNode;
-class LoadBarrierSlowRegNode;
-class LoadBarrierWeakSlowRegNode;
 class LoadStoreNode;
+class LoadStoreConditionalNode;
 class LockNode;
 class LoopNode;
 class MachBranchNode;
@@ -118,6 +116,7 @@ class MulNode;
 class MultiNode;
 class MultiBranchNode;
 class NeverBranchNode;
+class Opaque1Node;
 class OuterStripMinedLoopNode;
 class OuterStripMinedLoopEndNode;
 class Node;
@@ -613,9 +612,9 @@ public:
   // This enum is used only for C2 ideal and mach nodes with is_<node>() methods
   // so that it's values fits into 16 bits.
   enum NodeClasses {
-    Bit_Node   = 0x0000,
-    Class_Node = 0x0000,
-    ClassMask_Node = 0xFFFF,
+    Bit_Node   = 0x00000000,
+    Class_Node = 0x00000000,
+    ClassMask_Node = 0xFFFFFFFF,
 
     DEFINE_CLASS_ID(Multi, Node, 0)
       DEFINE_CLASS_ID(SafePoint, Multi, 0)
@@ -644,7 +643,6 @@ public:
       DEFINE_CLASS_ID(MemBar,      Multi, 3)
         DEFINE_CLASS_ID(Initialize,       MemBar, 0)
         DEFINE_CLASS_ID(MemBarStoreStore, MemBar, 1)
-      DEFINE_CLASS_ID(LoadBarrier, Multi, 4)
 
     DEFINE_CLASS_ID(Mach,  Node, 1)
       DEFINE_CLASS_ID(MachReturn, Mach, 0)
@@ -696,8 +694,6 @@ public:
     DEFINE_CLASS_ID(Mem,   Node, 4)
       DEFINE_CLASS_ID(Load,  Mem, 0)
         DEFINE_CLASS_ID(LoadVector,  Load, 0)
-          DEFINE_CLASS_ID(LoadBarrierSlowReg, Load, 1)
-          DEFINE_CLASS_ID(LoadBarrierWeakSlowReg, Load, 2)
       DEFINE_CLASS_ID(Store, Mem, 1)
         DEFINE_CLASS_ID(StoreVector, Store, 0)
       DEFINE_CLASS_ID(LoadStore, Mem, 2)
@@ -725,6 +721,7 @@ public:
     DEFINE_CLASS_ID(Vector,   Node, 13)
     DEFINE_CLASS_ID(ClearArray, Node, 14)
     DEFINE_CLASS_ID(Halt, Node, 15)
+    DEFINE_CLASS_ID(Opaque1, Node, 16)
 
     _max_classes  = ClassMask_Halt
   };
@@ -751,12 +748,12 @@ public:
   };
 
 private:
-  jushort _class_id;
+  juint _class_id;
   jushort _flags;
 
 protected:
   // These methods should be called from constructors only.
-  void init_class_id(jushort c) {
+  void init_class_id(juint c) {
     _class_id = c; // cast out const
   }
   void init_flags(jushort fl) {
@@ -769,7 +766,7 @@ protected:
   }
 
 public:
-  const jushort class_id() const { return _class_id; }
+  const juint class_id() const { return _class_id; }
 
   const jushort flags() const { return _flags; }
 
@@ -839,9 +836,7 @@ public:
   DEFINE_CLASS_QUERY(JumpProj)
   DEFINE_CLASS_QUERY(Load)
   DEFINE_CLASS_QUERY(LoadStore)
-  DEFINE_CLASS_QUERY(LoadBarrier)
-  DEFINE_CLASS_QUERY(LoadBarrierSlowReg)
-  DEFINE_CLASS_QUERY(LoadBarrierWeakSlowReg)
+  DEFINE_CLASS_QUERY(LoadStoreConditional)
   DEFINE_CLASS_QUERY(Lock)
   DEFINE_CLASS_QUERY(Loop)
   DEFINE_CLASS_QUERY(Mach)
@@ -872,6 +867,7 @@ public:
   DEFINE_CLASS_QUERY(Mul)
   DEFINE_CLASS_QUERY(Multi)
   DEFINE_CLASS_QUERY(MultiBranch)
+  DEFINE_CLASS_QUERY(Opaque1)
   DEFINE_CLASS_QUERY(OuterStripMinedLoop)
   DEFINE_CLASS_QUERY(OuterStripMinedLoopEnd)
   DEFINE_CLASS_QUERY(Parm)

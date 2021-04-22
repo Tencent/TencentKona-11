@@ -54,7 +54,6 @@ class CloneMap;
 class ConnectionGraph;
 class InlineTree;
 class Int_Array;
-class LoadBarrierNode;
 class Matcher;
 class MachConstantNode;
 class MachConstantBaseNode;
@@ -95,7 +94,6 @@ enum LoopOptsMode {
   LoopOptsNone,
   LoopOptsSkipSplitIf,
   LoopOptsVerify,
-  LoopOptsLastRound
 #if INCLUDE_SHENANDOAHGC
   ,LoopOptsShenandoahExpand,
    LoopOptsShenandoahPostExpand
@@ -659,6 +657,7 @@ class Compile : public Phase {
   void          set_inlining_incrementally(bool z) { _inlining_incrementally = z; }
   int               inlining_incrementally() const { return _inlining_incrementally; }
   void          set_major_progress()            { _major_progress++; }
+  void          restore_major_progress(int progress) { _major_progress += progress; }
   void        clear_major_progress()            { _major_progress = 0; }
   int               num_loop_opts() const       { return _num_loop_opts; }
   void          set_num_loop_opts(int n)        { _num_loop_opts = n; }
@@ -1170,11 +1169,7 @@ class Compile : public Phase {
   bool           in_scratch_emit_size() const   { return _in_scratch_emit_size;     }
 
   enum ScratchBufferBlob {
-#if defined(PPC64)
     MAX_inst_size       = 2048,
-#else
-    MAX_inst_size       = 1024,
-#endif
     MAX_locs_size       = 128, // number of relocInfo elements
     MAX_const_size      = 128,
     MAX_stubs_size      = 128
@@ -1249,14 +1244,30 @@ class Compile : public Phase {
   // Process an OopMap Element while emitting nodes
   void Process_OopMap_Node(MachNode *mach, int code_offset);
 
+  class BufferSizingData {
+  public:
+    int _stub;
+    int _code;
+    int _const;
+    int _reloc;
+
+      BufferSizingData() :
+      _stub(0),
+      _code(0),
+      _const(0),
+      _reloc(0)
+      { };
+  };
+
   // Initialize code buffer
-  CodeBuffer* init_buffer(uint* blk_starts);
+  void        estimate_buffer_size(int& const_req);
+  CodeBuffer* init_buffer(BufferSizingData& buf_sizes);
 
   // Write out basic block data to code buffer
   void fill_buffer(CodeBuffer* cb, uint* blk_starts);
 
   // Determine which variable sized branches can be shortened
-  void shorten_branches(uint* blk_starts, int& code_size, int& reloc_size, int& stub_size);
+  void shorten_branches(uint* blk_starts, BufferSizingData& buf_sizes);
 
   // Compute the size of first NumberOfLoopInstrToAlign instructions
   // at the head of a loop.

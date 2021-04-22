@@ -32,7 +32,9 @@
 #include "gc/z/zMessagePort.inline.hpp"
 #include "gc/z/zServiceability.hpp"
 #include "gc/z/zStat.hpp"
+#include "gc/z/zVerify.hpp"
 #include "logging/log.hpp"
+#include "memory/universe.hpp"
 #include "runtime/vmOperations.hpp"
 #include "runtime/vmThread.hpp"
 
@@ -44,6 +46,7 @@ static const ZStatPhasePause      ZPhasePauseMarkEnd("Pause Mark End");
 static const ZStatPhaseConcurrent ZPhaseConcurrentProcessNonStrongReferences("Concurrent Process Non-Strong References");
 static const ZStatPhaseConcurrent ZPhaseConcurrentResetRelocationSet("Concurrent Reset Relocation Set");
 static const ZStatPhaseConcurrent ZPhaseConcurrentDestroyDetachedPages("Concurrent Destroy Detached Pages");
+static const ZStatPhasePause      ZPhasePauseVerify("Pause Verify");
 static const ZStatPhaseConcurrent ZPhaseConcurrentSelectRelocationSet("Concurrent Select Relocation Set");
 static const ZStatPhaseConcurrent ZPhaseConcurrentPrepareRelocationSet("Concurrent Prepare Relocation Set");
 static const ZStatPhasePause      ZPhasePauseRelocateStart("Pause Relocate Start");
@@ -98,7 +101,7 @@ public:
     ZStatSample(ZSamplerJavaThreads, Threads::number_of_threads());
 
     // JVMTI support
-    SvcGCMarker sgcm(SvcGCMarker::OTHER);
+    SvcGCMarker sgcm(SvcGCMarker::CONCURRENT);
 
     // Setup GC id
     GCIdMark gcid(_gc_id);
@@ -109,6 +112,10 @@ public:
     } else {
       // Execute operation
       IsGCActiveMark mark;
+
+      // Verify roots
+      ZVerify::roots_strong();
+
       _success = _cl->do_operation();
     }
   }
@@ -207,6 +214,19 @@ public:
     ZServiceabilityMarkEndTracer tracer;
 
     return ZHeap::heap()->mark_end();
+  }
+};
+
+class ZVerifyClosure : public ZOperationClosure {
+public:
+  virtual const char* name() const {
+    return "ZVerify";
+  }
+
+  virtual bool do_operation() {
+    ZStatTimer timer(ZPhasePauseVerify);
+    Universe::verify();
+    return true;
   }
 };
 
@@ -336,7 +356,7 @@ void ZDriver::run_gc_cycle(GCCause::Cause cause) {
   // Phase 2: Concurrent Mark
   {
     ZStatTimer timer(ZPhaseConcurrentMark);
-    ZHeap::heap()->mark();
+    ZHeap::heap()->mark(true /* initial */);
   }
 
   // Phase 3: Pause Mark End
@@ -345,7 +365,7 @@ void ZDriver::run_gc_cycle(GCCause::Cause cause) {
     while (!vm_operation(&cl)) {
       // Phase 3.5: Concurrent Mark Continue
       ZStatTimer timer(ZPhaseConcurrentMarkContinue);
-      ZHeap::heap()->mark();
+      ZHeap::heap()->mark(false /* initial */);
     }
   }
 
@@ -367,25 +387,35 @@ void ZDriver::run_gc_cycle(GCCause::Cause cause) {
     ZHeap::heap()->destroy_detached_pages();
   }
 
-  // Phase 7: Concurrent Select Relocation Set
+  // Phase 7: Pause Verify
+  if (VerifyBeforeGC || VerifyDuringGC || VerifyAfterGC) {
+    ZVerifyClosure cl;
+    vm_operation(&cl);
+  } else if (ZVerifyRoots || ZVerifyObjects) {
+    //Limited verification
+    VM_ZVerifyOperation op;
+    VMThread::execute(&op);
+  }
+
+  // Phase 8: Concurrent Select Relocation Set
   {
     ZStatTimer timer(ZPhaseConcurrentSelectRelocationSet);
     ZHeap::heap()->select_relocation_set();
   }
 
-  // Phase 8: Concurrent Prepare Relocation Set
+  // Phase 9: Concurrent Prepare Relocation Set
   {
     ZStatTimer timer(ZPhaseConcurrentPrepareRelocationSet);
     ZHeap::heap()->prepare_relocation_set();
   }
 
-  // Phase 9: Pause Relocate Start
+  // Phase 10: Pause Relocate Start
   {
     ZRelocateStartClosure cl;
     vm_operation(&cl);
   }
 
-  // Phase 10: Concurrent Relocate
+  // Phase 11: Concurrent Relocate
   {
     ZStatTimer timer(ZPhaseConcurrentRelocated);
     ZHeap::heap()->relocate();

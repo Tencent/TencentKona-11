@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,8 +23,9 @@
  */
 
 #include "precompiled.hpp"
-#include "classfile/dictionary.hpp"
 #include "classfile/classLoaderData.inline.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
+#include "classfile/dictionary.hpp"
 #include "classfile/loaderConstraints.hpp"
 #include "logging/log.hpp"
 #include "memory/resourceArea.hpp"
@@ -65,7 +66,7 @@ void LoaderConstraintTable::free_entry(LoaderConstraintEntry *entry) {
 
 LoaderConstraintEntry** LoaderConstraintTable::find_loader_constraint(
                                     Symbol* name, Handle loader) {
-
+  assert_lock_strong(SystemDictionary_lock);
   unsigned int hash = compute_hash(name);
   int index = hash_to_index(hash);
   LoaderConstraintEntry** pp = bucket_addr(index);
@@ -76,7 +77,10 @@ LoaderConstraintEntry** LoaderConstraintTable::find_loader_constraint(
     if (p->hash() == hash) {
       if (p->name() == name) {
         for (int i = p->num_loaders() - 1; i >= 0; i--) {
-          if (p->loader_data(i) == loader_data) {
+          if (p->loader_data(i) == loader_data &&
+              // skip unloaded klasses
+              (p->klass() == NULL ||
+               p->klass()->is_loader_alive())) {
             return pp;
           }
         }
@@ -89,7 +93,7 @@ LoaderConstraintEntry** LoaderConstraintTable::find_loader_constraint(
 
 
 void LoaderConstraintTable::purge_loader_constraints() {
-  assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint");
+  assert_locked_or_safepoint(SystemDictionary_lock);
   LogTarget(Info, class, loader, constraints) lt;
   // Remove unloaded entries from constraint table
   for (int index = 0; index < table_size(); index++) {

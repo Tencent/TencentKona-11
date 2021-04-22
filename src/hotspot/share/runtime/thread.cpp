@@ -86,6 +86,7 @@
 #include "runtime/safepoint.hpp"
 #include "runtime/safepointMechanism.inline.hpp"
 #include "runtime/safepointVerifiers.hpp"
+#include "runtime/serviceThread.hpp"
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/statSampler.hpp"
 #include "runtime/stubRoutines.hpp"
@@ -232,6 +233,7 @@ Thread::Thread() {
   set_active_handles(NULL);
   set_free_handle_block(NULL);
   set_last_handle_mark(NULL);
+  DEBUG_ONLY(_missed_ic_stub_refill_verifier = NULL);
 
   // This initial value ==> never claimed.
   _oops_do_parity = 0;
@@ -1604,7 +1606,7 @@ void JavaThread::initialize() {
   set_monitor_chunks(NULL);
   set_next(NULL);
   _on_thread_list = false;
-  set_thread_state(_thread_new);
+  _thread_state = _thread_new;
   _terminated = _not_terminated;
   _privileged_stack_top = NULL;
   _array_for_gc = NULL;
@@ -1634,7 +1636,6 @@ void JavaThread::initialize() {
   _is_method_handle_return = 0;
   _jvmti_thread_state= NULL;
   _should_post_on_exceptions_flag = JNI_FALSE;
-  _jvmti_get_loaded_classes_closure = NULL;
   _interp_only_mode    = 0;
   _special_runtime_exit_condition = _no_async_condition;
   _pending_async_exception = NULL;
@@ -2046,7 +2047,7 @@ void JavaThread::exit(bool destroy_vm, ExitType exit_type) {
   remove_stack_guard_pages();
 
   if (UseTLAB) {
-    tlab().make_parsable(true);  // retire TLAB
+    tlab().retire();
   }
 
   if (JvmtiEnv::environments_might_exist()) {
@@ -2102,7 +2103,7 @@ void JavaThread::cleanup_failed_attach_current_thread() {
   remove_stack_guard_pages();
 
   if (UseTLAB) {
-    tlab().make_parsable(true);  // retire TLAB, if any
+    tlab().retire();
   }
 
   BarrierSet::barrier_set()->on_thread_detach(this);
@@ -2157,7 +2158,8 @@ void JavaThread::remove_monitor_chunk(MonitorChunk* chunk) {
 // _thread_in_native_trans state (such as from
 // check_special_condition_for_native_trans()).
 void JavaThread::check_and_handle_async_exceptions(bool check_unsafe_error) {
-
+  // May be we are at method entry and requires to save do not unlock flag.
+  UnlockFlagSaver fs(this);
   if (has_last_Java_frame() && has_async_condition()) {
     // If we are at a polling page safepoint (not a poll return)
     // then we must defer async exception because live registers
@@ -2922,7 +2924,7 @@ void JavaThread::oops_do(OopClosure* f, CodeBlobClosure* cf) {
   f->do_oop((oop*) &_pending_async_exception);
 
   if (jvmti_thread_state() != NULL) {
-    jvmti_thread_state()->oops_do(f);
+    jvmti_thread_state()->oops_do(f, cf);
   }
 }
 
@@ -2935,6 +2937,10 @@ void JavaThread::nmethods_do(CodeBlobClosure* cf) {
     for (StackFrameStream fst(this); !fst.is_done(); fst.next()) {
       fst.current()->nmethods_do(cf);
     }
+  }
+
+  if (jvmti_thread_state() != NULL) {
+    jvmti_thread_state()->nmethods_do(cf);
   }
 }
 
@@ -3896,6 +3902,11 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
     Chunk::start_chunk_pool_cleaner_task();
   }
 
+  // Start the service thread
+  // The service thread enqueues JVMTI deferred events and does various hashtable
+  // and other cleanups.  Needs to start before the compilers start posting events.
+  ServiceThread::initialize();
+
   // initialize compiler(s)
 #if defined(COMPILER1) || COMPILER2_OR_JVMCI
 #if INCLUDE_JVMCI
@@ -4216,7 +4227,6 @@ void Threads::create_vm_init_libraries() {
     }
   }
 }
-
 
 // Last thread running calls java.lang.Shutdown.shutdown()
 void JavaThread::invoke_shutdown_hooks() {
@@ -4726,8 +4736,10 @@ void Threads::print_on_error(outputStream* st, Thread* current, char* buf,
   print_on_error(VMThread::vm_thread(), st, current, buf, buflen, &found_current);
   print_on_error(WatcherThread::watcher_thread(), st, current, buf, buflen, &found_current);
 
-  PrintOnErrorClosure print_closure(st, current, buf, buflen, &found_current);
-  Universe::heap()->gc_threads_do(&print_closure);
+  if (Universe::heap() != NULL) {
+    PrintOnErrorClosure print_closure(st, current, buf, buflen, &found_current);
+    Universe::heap()->gc_threads_do(&print_closure);
+  }
 
   if (!found_current) {
     st->cr();

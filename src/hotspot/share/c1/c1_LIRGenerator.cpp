@@ -1690,6 +1690,15 @@ LIR_Opr LIRGenerator::access_atomic_add_at(DecoratorSet decorators, BasicType ty
   }
 }
 
+LIR_Opr LIRGenerator::access_resolve(DecoratorSet decorators, LIR_Opr obj) {
+  // Use stronger ACCESS_WRITE|ACCESS_READ by default.
+  if ((decorators & (ACCESS_READ | ACCESS_WRITE)) == 0) {
+    decorators |= ACCESS_READ | ACCESS_WRITE;
+  }
+
+  return _barrier_set->resolve(this, decorators, obj);
+}
+
 void LIRGenerator::do_LoadField(LoadField* x) {
   bool needs_patching = x->needs_patching();
   bool is_volatile = x->field()->is_volatile();
@@ -1767,11 +1776,12 @@ void LIRGenerator::do_NIOCheckIndex(Intrinsic* x) {
   if (GenerateRangeChecks) {
     CodeEmitInfo* info = state_for(x);
     CodeStub* stub = new RangeCheckStub(info, index.result());
+    LIR_Opr buf_obj = access_resolve(IS_NOT_NULL | ACCESS_READ, buf.result());
     if (index.result()->is_constant()) {
-      cmp_mem_int(lir_cond_belowEqual, buf.result(), java_nio_Buffer::limit_offset(), index.result()->as_jint(), info);
+      cmp_mem_int(lir_cond_belowEqual, buf_obj, java_nio_Buffer::limit_offset(), index.result()->as_jint(), info);
       __ branch(lir_cond_belowEqual, T_INT, stub);
     } else {
-      cmp_reg_mem(lir_cond_aboveEqual, index.result(), buf.result(),
+      cmp_reg_mem(lir_cond_aboveEqual, index.result(), buf_obj,
                   java_nio_Buffer::limit_offset(), T_INT, info);
       __ branch(lir_cond_aboveEqual, T_INT, stub);
     }
@@ -2962,16 +2972,18 @@ void LIRGenerator::do_ClassIDIntrinsic(Intrinsic* x) {
 void LIRGenerator::do_getEventWriter(Intrinsic* x) {
   LabelObj* L_end = new LabelObj();
 
+  // FIXME T_ADDRESS should actually be T_METADATA but it can't because the
+  // meaning of these two is mixed up (see JDK-8026837).
   LIR_Address* jobj_addr = new LIR_Address(getThreadPointer(),
                                            in_bytes(THREAD_LOCAL_WRITER_OFFSET_JFR),
-                                           T_OBJECT);
+                                           T_ADDRESS);
   LIR_Opr result = rlock_result(x);
-  __ move_wide(jobj_addr, result);
-  __ cmp(lir_cond_equal, result, LIR_OprFact::oopConst(NULL));
+  __ move(LIR_OprFact::oopConst(NULL), result);
+  LIR_Opr jobj = new_register(T_METADATA);
+  __ move_wide(jobj_addr, jobj);
+  __ cmp(lir_cond_equal, jobj, LIR_OprFact::metadataConst(0));
   __ branch(lir_cond_equal, T_OBJECT, L_end->label());
 
-  LIR_Opr jobj = new_register(T_OBJECT);
-  __ move(result, jobj);
   access_load(IN_NATIVE, T_OBJECT, LIR_OprFact::address(new LIR_Address(jobj, T_OBJECT)), result);
 
   __ branch_destination(L_end->label());

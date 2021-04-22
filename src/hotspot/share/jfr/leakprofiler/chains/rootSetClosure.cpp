@@ -24,7 +24,7 @@
 
 #include "precompiled.hpp"
 #include "aot/aotLoader.hpp"
-#include "classfile/classLoaderData.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/stringTable.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "gc/shared/strongRootsScope.hpp"
@@ -82,7 +82,7 @@ class RootSetClosureMarkScope : public MarkScope {};
 template <typename Delegate>
 void RootSetClosure<Delegate>::process() {
   RootSetClosureMarkScope mark_scope;
-  CLDToOopClosure cldt_closure(this);
+  CLDToOopClosure cldt_closure(this, ClassLoaderData::_claim_strong);
   ClassLoaderDataGraph::always_strong_cld_do(&cldt_closure);
   CodeBlobToOopClosure blobs(this, false);
   Threads::oops_do(this, &blobs);

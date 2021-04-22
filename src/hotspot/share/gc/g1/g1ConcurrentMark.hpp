@@ -322,8 +322,8 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
   uint                    _num_active_tasks; // Number of tasks currently active
   G1CMTask**              _tasks;            // Task queue array (max_worker_id length)
 
-  G1CMTaskQueueSet*       _task_queues;      // Task queue set
-  ParallelTaskTerminator  _terminator;       // For termination
+  G1CMTaskQueueSet*       _task_queues; // Task queue set
+  TaskTerminator          _terminator;  // For termination
 
   // Two sync barriers that are used to synchronize tasks when an
   // overflow occurs. The algorithm is the following. All tasks enter
@@ -409,10 +409,10 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
   // Prints all gathered CM-related statistics
   void print_stats();
 
-  HeapWord*               finger()          { return _finger;   }
-  bool                    concurrent()      { return _concurrent; }
-  uint                    active_tasks()    { return _num_active_tasks; }
-  ParallelTaskTerminator* terminator()      { return &_terminator; }
+  HeapWord*               finger()           { return _finger;   }
+  bool                    concurrent()       { return _concurrent; }
+  uint                    active_tasks()     { return _num_active_tasks; }
+  ParallelTaskTerminator* terminator() const { return _terminator.terminator(); }
 
   // Claims the next available region to be scanned by a marking
   // task/thread. It might return NULL if the next region is empty or
@@ -519,7 +519,7 @@ public:
   }
 
   // Attempts to steal an object from the task queues of other tasks
-  bool try_stealing(uint worker_id, int* hash_seed, G1TaskQueueEntry& task_entry);
+  bool try_stealing(uint worker_id, G1TaskQueueEntry& task_entry);
 
   G1ConcurrentMark(G1CollectedHeap* g1h,
                    G1RegionToSpaceMapper* prev_bitmap_storage,
@@ -685,8 +685,6 @@ private:
   // it was decreased).
   size_t                      _real_refs_reached_limit;
 
-  // Used by the work stealing
-  int                         _hash_seed;
   // If true, then the task has aborted for some reason
   bool                        _has_aborted;
   // Set when the task aborts because it has met its time quota
@@ -732,7 +730,11 @@ private:
   // Supposed to be called regularly during a marking step as
   // it checks a bunch of conditions that might cause the marking step
   // to abort
-  void regular_clock_call();
+  // Return true if the marking step should continue. Otherwise, return false to abort
+  bool regular_clock_call();
+
+  // Set abort flag if regular_clock_call() check fails
+  inline void abort_marking_if_regular_check_fail();
 
   // Test whether obj might have already been passed over by the
   // mark bitmap scan, and so needs to be pushed onto the mark stack.

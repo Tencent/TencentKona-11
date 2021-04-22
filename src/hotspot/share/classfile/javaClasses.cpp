@@ -3951,16 +3951,17 @@ void java_lang_invoke_CallSite::serialize_offsets(SerializeClosure* f) {
 }
 #endif
 
-oop java_lang_invoke_CallSite::context(oop call_site) {
+oop java_lang_invoke_CallSite::context_no_keepalive(oop call_site) {
   assert(java_lang_invoke_CallSite::is_instance(call_site), "");
 
-  oop dep_oop = call_site->obj_field(_context_offset);
+  oop dep_oop = call_site->obj_field_access<AS_NO_KEEPALIVE>(_context_offset);
   return dep_oop;
 }
 
 // Support for java_lang_invoke_MethodHandleNatives_CallSiteContext
 
 int java_lang_invoke_MethodHandleNatives_CallSiteContext::_vmdependencies_offset;
+int java_lang_invoke_MethodHandleNatives_CallSiteContext::_last_cleanup_offset;
 
 void java_lang_invoke_MethodHandleNatives_CallSiteContext::compute_offsets() {
   InstanceKlass* k = SystemDictionary::Context_klass();
@@ -3975,8 +3976,9 @@ void java_lang_invoke_MethodHandleNatives_CallSiteContext::serialize_offsets(Ser
 
 DependencyContext java_lang_invoke_MethodHandleNatives_CallSiteContext::vmdependencies(oop call_site) {
   assert(java_lang_invoke_MethodHandleNatives_CallSiteContext::is_instance(call_site), "");
-  intptr_t* vmdeps_addr = (intptr_t*)call_site->field_addr(_vmdependencies_offset);
-  DependencyContext dep_ctx(vmdeps_addr);
+  nmethodBucket* volatile* vmdeps_addr = (nmethodBucket* volatile*)call_site->field_addr(_vmdependencies_offset);
+  volatile uint64_t* last_cleanup_addr = (volatile uint64_t*)call_site->field_addr(_last_cleanup_offset);
+  DependencyContext dep_ctx(vmdeps_addr, last_cleanup_addr);
   return dep_ctx;
 }
 
@@ -4038,14 +4040,19 @@ int  java_lang_ClassLoader::name_offset = -1;
 int  java_lang_ClassLoader::nameAndId_offset = -1;
 int  java_lang_ClassLoader::unnamedModule_offset = -1;
 
-ClassLoaderData* java_lang_ClassLoader::loader_data(oop loader) {
+ClassLoaderData* java_lang_ClassLoader::loader_data_acquire(oop loader) {
   assert(loader != NULL && oopDesc::is_oop(loader), "loader must be oop");
-  return HeapAccess<>::load_at(loader, _loader_data_offset);
+  return HeapAccess<MO_ACQUIRE>::load_at(loader, _loader_data_offset);
 }
 
-ClassLoaderData* java_lang_ClassLoader::cmpxchg_loader_data(ClassLoaderData* new_data, oop loader, ClassLoaderData* expected_data) {
+ClassLoaderData* java_lang_ClassLoader::loader_data_raw(oop loader) {
   assert(loader != NULL && oopDesc::is_oop(loader), "loader must be oop");
-  return HeapAccess<>::atomic_cmpxchg_at(new_data, loader, _loader_data_offset, expected_data);
+  return RawAccess<>::load_at(loader, _loader_data_offset);
+}
+
+void java_lang_ClassLoader::release_set_loader_data(oop loader, ClassLoaderData* new_data) {
+  assert(loader != NULL && oopDesc::is_oop(loader), "loader must be oop");
+  HeapAccess<MO_RELEASE>::store_at(loader, _loader_data_offset, new_data);
 }
 
 #define CLASSLOADER_FIELDS_DO(macro) \

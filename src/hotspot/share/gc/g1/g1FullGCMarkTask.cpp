@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,6 +23,7 @@
  */
 
 #include "precompiled.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "gc/g1/g1CollectedHeap.hpp"
 #include "gc/g1/g1FullCollector.hpp"
 #include "gc/g1/g1FullGCMarker.hpp"
@@ -60,7 +61,7 @@ void G1FullGCMarkTask::work(uint worker_id) {
   }
 
   // Mark stack is populated, now process and drain it.
-  marker->complete_marking(collector()->oop_queue_set(), collector()->array_queue_set(), &_terminator);
+  marker->complete_marking(collector()->oop_queue_set(), collector()->array_queue_set(), _terminator.terminator());
 
   // This is the point where the entire marking should have completed.
   assert(marker->oop_stack()->is_empty(), "Marking should have completed");

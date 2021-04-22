@@ -167,7 +167,7 @@ private:
   int state() const { return *_state_adr; }
 
   // Non-virtual for speed
-  bool _is_alive() const { return state() < zombie; }
+  bool _is_alive() const { return state() < unloaded; }
 
   virtual bool is_zombie() const { return state() == zombie; }
   virtual bool is_unloaded() const { return state() == unloaded; }
@@ -175,6 +175,8 @@ private:
                                                  state() == not_used; }
   virtual bool is_alive() const { return _is_alive(); }
   virtual bool is_in_use() const { return state() == in_use; }
+
+  virtual bool is_unloading() { return false; }
 
   address exception_begin() const { return (address) _code + _meta->exception_handler_offset(); }
 
@@ -277,11 +279,6 @@ protected:
   CompiledStaticCall* compiledStaticCall_before(address addr) const;
 private:
   bool is_aot_runtime_stub() const { return _method == NULL; }
-
-protected:
-  virtual bool do_unloading_oops(address low_boundary, BoolObjectClosure* is_alive);
-  virtual bool do_unloading_jvmci() { return false; }
-
 };
 
 class PltNativeCallWrapper: public NativeCallWrapper {

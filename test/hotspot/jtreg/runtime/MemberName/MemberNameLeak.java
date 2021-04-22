@@ -23,8 +23,9 @@
 
 /*
  * @test
- * @bug 8174749
+ * @bug 8174749 8213307
  * @summary MemberNameTable should reuse entries
+ * @requires vm.gc == "null"
  * @library /test/lib
  * @build sun.hotspot.WhiteBox
  * @run driver ClassFileInstaller sun.hotspot.WhiteBox sun.hotspot.WhiteBox$WhiteBoxPermission
@@ -34,7 +35,7 @@
 import java.lang.invoke.*;
 import jdk.test.lib.process.OutputAnalyzer;
 import jdk.test.lib.process.ProcessTools;
-
+import sun.hotspot.WhiteBox;
 import sun.hotspot.code.Compiler;
 import sun.hotspot.gc.GC;
 
@@ -45,6 +46,9 @@ public class MemberNameLeak {
 
       public static void main(String[] args) throws Throwable {
         Leak leak = new Leak();
+        WhiteBox wb = WhiteBox.getWhiteBox();
+        int removedCountOrig =  wb.resolvedMethodRemovedCount();
+        int removedCount;
 
         for (int i = 0; i < 10; i++) {
           MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -54,15 +58,32 @@ public class MemberNameLeak {
           mh.invokeExact(leak);
         }
 
-        System.gc();  // make mh unused
+        // Wait until ServiceThread cleans ResolvedMethod table
+        int cnt = 0;
+        while (true) {
+          if (cnt++ % 30 == 0) {
+            System.gc();  // make mh unused
+          }
+          removedCount = wb.resolvedMethodRemovedCount();
+          if (removedCountOrig != removedCount) {
+            break;
+          }
+          Thread.sleep(100);
+        }
       }
     }
 
-    public static void test(String gc) throws Throwable {
-       // Run this Leak class with logging
+    public static void test(String gc, boolean doConcurrent) throws Throwable {
+        // Run this Leak class with logging
         ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(
                                       "-Xlog:membername+table=trace",
                                       "-XX:+UnlockExperimentalVMOptions",
+                                      "-XX:+UnlockDiagnosticVMOptions",
+                                      "-XX:+WhiteBoxAPI",
+                                      "-Xbootclasspath/a:.",
+                                      doConcurrent ? "-XX:+ExplicitGCInvokesConcurrent" : "-XX:-ExplicitGCInvokesConcurrent",
+                                      "-XX:+ClassUnloading",
+                                      "-XX:+ClassUnloadingWithConcurrentMark",
                                       gc, Leak.class.getName());
         OutputAnalyzer output = new OutputAnalyzer(pb.start());
         output.shouldContain("ResolvedMethod entry added for MemberNameLeak$Leak.callMe()V");
@@ -72,13 +93,15 @@ public class MemberNameLeak {
     }
 
     public static void main(java.lang.String[] unused) throws Throwable {
-        test("-XX:+UseG1GC");
-        test("-XX:+UseParallelGC");
-        test("-XX:+UseSerialGC");
+        test("-XX:+UseG1GC", false);
+        test("-XX:+UseG1GC", true);
+        test("-XX:+UseParallelGC", false);
+        test("-XX:+UseSerialGC", false);
         if (!Compiler.isGraalEnabled()) { // Graal does not support CMS and Shenandoah
-            test("-XX:+UseConcMarkSweepGC");
+            test("-XX:+UseConcMarkSweepGC", false);
+            test("-XX:+UseConcMarkSweepGC", true);
             if (GC.Shenandoah.isSupported()) {
-                test("-XX:+UseShenandoahGC");
+                test("-XX:+UseShenandoahGC", false);
             }
         }
     }

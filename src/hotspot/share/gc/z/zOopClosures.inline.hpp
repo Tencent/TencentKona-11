@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,6 +24,7 @@
 #ifndef SHARE_GC_Z_ZOOPCLOSURES_INLINE_HPP
 #define SHARE_GC_Z_ZOOPCLOSURES_INLINE_HPP
 
+#include "classfile/classLoaderData.hpp"
 #include "gc/z/zBarrier.inline.hpp"
 #include "gc/z/zHeap.inline.hpp"
 #include "gc/z/zOop.inline.hpp"
@@ -40,25 +41,26 @@ inline void ZLoadBarrierOopClosure::do_oop(narrowOop* p) {
   ShouldNotReachHere();
 }
 
-inline void ZMarkRootOopClosure::do_oop(oop* p) {
-  ZBarrier::mark_barrier_on_root_oop_field(p);
+inline void ZNMethodOopClosure::do_oop(oop* p) {
+  if (ZResurrection::is_blocked()) {
+    ZBarrier::keep_alive_barrier_on_phantom_root_oop_field(p);
+  } else {
+    ZBarrier::load_barrier_on_root_oop_field(p);
+  }
 }
 
-inline void ZMarkRootOopClosure::do_oop(narrowOop* p) {
-  ShouldNotReachHere();
-}
-
-inline void ZRelocateRootOopClosure::do_oop(oop* p) {
-  ZBarrier::relocate_barrier_on_root_oop_field(p);
-}
-
-inline void ZRelocateRootOopClosure::do_oop(narrowOop* p) {
+inline void ZNMethodOopClosure::do_oop(narrowOop* p) {
   ShouldNotReachHere();
 }
 
 template <bool finalizable>
 inline ZMarkBarrierOopClosure<finalizable>::ZMarkBarrierOopClosure() :
-    BasicOopIterateClosure(finalizable ? NULL : ZHeap::heap()->reference_discoverer()) {}
+    ClaimMetadataVisitingOopIterateClosure(finalizable
+                                               ? ClassLoaderData::_claim_finalizable
+                                               : ClassLoaderData::_claim_strong,
+                                           finalizable
+                                               ? NULL
+                                               : ZHeap::heap()->reference_discoverer()) {}
 
 template <bool finalizable>
 inline void ZMarkBarrierOopClosure<finalizable>::do_oop(oop* p) {

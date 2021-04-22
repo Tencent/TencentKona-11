@@ -24,6 +24,7 @@
 
 #include "precompiled.hpp"
 #include "jvm.h"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/classLoaderStats.hpp"
 #include "classfile/javaClasses.hpp"
 #include "code/codeCache.hpp"
@@ -468,9 +469,9 @@ public:
 
   bool do_entry(oop const& key, ClassLoaderStats* const& cls) {
     const ClassLoaderData* this_cld = cls->_class_loader != NULL ?
-      java_lang_ClassLoader::loader_data(cls->_class_loader) : (ClassLoaderData*)NULL;
+      java_lang_ClassLoader::loader_data_acquire(cls->_class_loader) : NULL;
     const ClassLoaderData* parent_cld = cls->_parent != NULL ?
-      java_lang_ClassLoader::loader_data(cls->_parent) : (ClassLoaderData*)NULL;
+      java_lang_ClassLoader::loader_data_acquire(cls->_parent) : NULL;
     EventClassLoaderStatistics event;
     event.set_classLoader(this_cld);
     event.set_parentClassLoader(parent_cld);
@@ -496,7 +497,7 @@ class JfrClassLoaderStatsVMOperation : public ClassLoaderStatsVMOperation {
 
   void doit() {
     JfrClassLoaderStatsClosure clsc;
-    ClassLoaderDataGraph::cld_do(&clsc);
+    ClassLoaderDataGraph::loaded_cld_do(&clsc);
     clsc.createEvents();
   }
 };

@@ -64,7 +64,6 @@ class ThreadsList;
 class ThreadsSMRSupport;
 
 class JvmtiThreadState;
-class JvmtiGetLoadedClassesClosure;
 class ThreadStatistics;
 class ConcurrentLocksDump;
 class ParkEvent;
@@ -83,6 +82,7 @@ class jvmtiDeferredLocalVariableSet;
 
 class GCTaskQueue;
 class ThreadClosure;
+class ICRefillVerifier;
 class IdealGraphPrinter;
 
 class Metadata;
@@ -322,6 +322,21 @@ class Thread: public ThreadShadow {
   HandleMark* last_handle_mark() const          { return _last_handle_mark; }
  private:
 
+#ifdef ASSERT
+  ICRefillVerifier* _missed_ic_stub_refill_verifier;
+
+ public:
+  ICRefillVerifier* missed_ic_stub_refill_verifier() {
+    return _missed_ic_stub_refill_verifier;
+  }
+
+  void set_missed_ic_stub_refill_verifier(ICRefillVerifier* verifier) {
+    _missed_ic_stub_refill_verifier = verifier;
+  }
+#endif
+
+ private:
+
   // debug support for checking if code does allow safepoints or not
   // GC points in the VM can happen because of allocation, invoking a VM operation, or blocking on
   // mutex, or blocking on an object synchronizer (Java locking).
@@ -406,6 +421,7 @@ class Thread: public ThreadShadow {
   virtual bool is_Java_thread()     const            { return false; }
   virtual bool is_Compiler_thread() const            { return false; }
   virtual bool is_Code_cache_sweeper_thread() const  { return false; }
+  virtual bool is_service_thread() const             { return false; }
   virtual bool is_hidden_from_external_view() const  { return false; }
   virtual bool is_jvmti_agent_thread() const         { return false; }
   // True iff the thread can perform GC operations at a safepoint.
@@ -1219,7 +1235,11 @@ class JavaThread: public Thread {
   // Safepoint support
 #if !(defined(PPC64) || defined(AARCH64))
   JavaThreadState thread_state() const           { return _thread_state; }
-  void set_thread_state(JavaThreadState s)       { _thread_state = s;    }
+  void set_thread_state(JavaThreadState s)       {
+    assert(current_or_null() == NULL || current_or_null() == this,
+           "state change should only be called by the current thread");
+    _thread_state = s;
+  }
 #else
   // Use membars when accessing volatile _thread_state. See
   // Threads::create_vm() for size checks.
@@ -1901,8 +1921,6 @@ class JavaThread: public Thread {
   // the specified JavaThread is exiting.
   JvmtiThreadState *jvmti_thread_state() const                                   { return _jvmti_thread_state; }
   static ByteSize jvmti_thread_state_offset()                                    { return byte_offset_of(JavaThread, _jvmti_thread_state); }
-  void set_jvmti_get_loaded_classes_closure(JvmtiGetLoadedClassesClosure* value) { _jvmti_get_loaded_classes_closure = value; }
-  JvmtiGetLoadedClassesClosure* get_jvmti_get_loaded_classes_closure() const     { return _jvmti_get_loaded_classes_closure; }
 
   // JVMTI PopFrame support
   // Setting and clearing popframe_condition
@@ -1954,7 +1972,6 @@ class JavaThread: public Thread {
 
  private:
   JvmtiThreadState *_jvmti_thread_state;
-  JvmtiGetLoadedClassesClosure* _jvmti_get_loaded_classes_closure;
 
   // Used by the interpreter in fullspeed mode for frame pop, method
   // entry, method exit and single stepping support. This field is
@@ -2273,5 +2290,19 @@ class SignalHandlerMark: public StackObj {
   }
 };
 
+class UnlockFlagSaver {
+  private:
+    JavaThread* _thread;
+    bool _do_not_unlock;
+  public:
+    UnlockFlagSaver(JavaThread* t) {
+      _thread = t;
+      _do_not_unlock = t->do_not_unlock_if_synchronized();
+      t->set_do_not_unlock_if_synchronized(false);
+    }
+    ~UnlockFlagSaver() {
+      _thread->set_do_not_unlock_if_synchronized(_do_not_unlock);
+    }
+};
 
 #endif // SHARE_VM_RUNTIME_THREAD_HPP

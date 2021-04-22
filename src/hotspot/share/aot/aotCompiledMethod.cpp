@@ -75,10 +75,6 @@ address* AOTCompiledMethod::orig_pc_addr(const frame* fr) {
   return (address*) ((address)fr->unextended_sp() + _meta->orig_pc_offset());
 }
 
-bool AOTCompiledMethod::do_unloading_oops(address low_boundary, BoolObjectClosure* is_alive) {
-  return false;
-}
-
 oop AOTCompiledMethod::oop_at(int index) const {
   if (index == 0) { // 0 is reserved
     return NULL;

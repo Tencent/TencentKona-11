@@ -24,6 +24,7 @@
 
 #include "precompiled.hpp"
 #include "aot/aotLoader.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/classFileStream.hpp"
 #include "classfile/metadataOnStackMark.hpp"
 #include "classfile/systemDictionary.hpp"
@@ -237,6 +238,9 @@ void VM_RedefineClasses::doit() {
 #ifdef PRODUCT
   }
 #endif
+
+  // Clean up any metadata now unreferenced while MetadataOnStackMark is set.
+  ClassLoaderDataGraph::clean_deallocate_lists(false);
 }
 
 void VM_RedefineClasses::doit_epilogue() {
@@ -1199,10 +1203,20 @@ jvmtiError VM_RedefineClasses::load_new_class_versions(TRAPS) {
       the_class->link_class(THREAD);
       if (HAS_PENDING_EXCEPTION) {
         Symbol* ex_name = PENDING_EXCEPTION->klass()->name();
-        log_info(redefine, class, load, exceptions)("link_class exception: '%s'", ex_name->as_C_string());
+        oop message = java_lang_Throwable::message(PENDING_EXCEPTION);
+        if (message != NULL) {
+          char* ex_msg = java_lang_String::as_utf8_string(message);
+          log_info(redefine, class, load, exceptions)("link_class exception: '%s %s'",
+                   ex_name->as_C_string(), ex_msg);
+        } else {
+          log_info(redefine, class, load, exceptions)("link_class exception: '%s'",
+                   ex_name->as_C_string());
+        }
         CLEAR_PENDING_EXCEPTION;
         if (ex_name == vmSymbols::java_lang_OutOfMemoryError()) {
           return JVMTI_ERROR_OUT_OF_MEMORY;
+        } else if (ex_name == vmSymbols::java_lang_NoClassDefFoundError()) {
+          return JVMTI_ERROR_INVALID_CLASS;
         } else {
           return JVMTI_ERROR_INTERNAL;
         }

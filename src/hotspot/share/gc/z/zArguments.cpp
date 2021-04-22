@@ -19,7 +19,6 @@
  * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
  * or visit www.oracle.com if you need additional information or have any
  * questions.
- *
  */
 
 #include "precompiled.hpp"
@@ -76,16 +75,9 @@ void ZArguments::initialize() {
   }
 #endif
 
-  // To avoid asserts in set_active_workers()
-  FLAG_SET_DEFAULT(UseDynamicNumberOfGCThreads, true);
-
   // CompressedOops/UseCompressedClassPointers not supported
   FLAG_SET_DEFAULT(UseCompressedOops, false);
   FLAG_SET_DEFAULT(UseCompressedClassPointers, false);
-
-  // ClassUnloading not (yet) supported
-  FLAG_SET_DEFAULT(ClassUnloading, false);
-  FLAG_SET_DEFAULT(ClassUnloadingWithConcurrentMark, false);
 
   // Verification before startup and after exit not (yet) supported
   FLAG_SET_DEFAULT(VerifyDuringStartup, false);
@@ -95,9 +87,17 @@ void ZArguments::initialize() {
   // same reason we need fixup_partial_loads
   FLAG_SET_DEFAULT(VerifyBeforeIteration, false);
 
+  if (VerifyBeforeGC || VerifyDuringGC || VerifyAfterGC) {
+    FLAG_SET_DEFAULT(ZVerifyRoots, true);
+    FLAG_SET_DEFAULT(ZVerifyObjects, true);
+  }
+
   // Verification of stacks not (yet) supported, for the same reason
   // we need fixup_partial_loads
   DEBUG_ONLY(FLAG_SET_DEFAULT(VerifyStack, false));
+
+  // Initialize platform specific arguments
+  initialize_platform();
 }
 
 CollectedHeap* ZArguments::create_heap() {

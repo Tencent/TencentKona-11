@@ -76,6 +76,7 @@
   template(G1CollectForAllocation)                \
   template(G1CollectFull)                         \
   template(ZOperation)                            \
+  template(ZVerify)                               \
   template(HandshakeOneThread)                    \
   template(HandshakeAllThreads)                   \
   template(HandshakeFallback)                     \

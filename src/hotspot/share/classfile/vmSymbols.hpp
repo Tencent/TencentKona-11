@@ -427,6 +427,7 @@
   template(source_file_name,                          "source_file")                              \
   template(loader_data_name,                          "loader_data")                              \
   template(vmdependencies_name,                       "vmdependencies")                           \
+  template(last_cleanup_name,                         "last_cleanup")                             \
   template(loader_name,                               "loader")                                   \
   template(getModule_name,                            "getModule")                                \
   template(input_stream_void_signature,               "(Ljava/io/InputStream;)V")                 \

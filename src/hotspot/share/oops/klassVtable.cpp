@@ -24,6 +24,7 @@
 
 #include "precompiled.hpp"
 #include "jvm.h"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/javaClasses.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "classfile/vmSymbols.hpp"
@@ -1617,7 +1618,8 @@ class VtableStats : AllStatic {
   }
 
   static void compute() {
-    ClassLoaderDataGraph::classes_do(do_class);
+    LockedClassesDo locked_do_class(&do_class);
+    ClassLoaderDataGraph::classes_do(&locked_do_class);
     fixed  = no_klasses * oopSize;      // vtable length
     // filler size is a conservative approximation
     filler = oopSize * (no_klasses - no_instance_klasses) * (sizeof(InstanceKlass) - sizeof(ArrayKlass) - 1);

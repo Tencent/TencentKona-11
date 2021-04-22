@@ -41,6 +41,7 @@
 #include "gc/z/zRootsIterator.hpp"
 #include "gc/z/zWeakRootsProcessor.hpp"
 #include "gc/z/zServiceability.hpp"
+#include "gc/z/zUnload.hpp"
 #include "gc/z/zWorkers.hpp"
 #include "memory/allocation.hpp"
 
@@ -59,6 +60,7 @@ private:
   ZWeakRootsProcessor _weak_roots_processor;
   ZRelocate           _relocate;
   ZRelocationSet      _relocation_set;
+  ZUnload             _unload;
   ZServiceability     _serviceability;
 
   size_t heap_min_size() const;
@@ -67,7 +69,6 @@ private:
 
   void out_of_memory();
   void flip_views();
-  void fixup_partial_loads();
 
 public:
   static ZHeap* heap();
@@ -133,7 +134,7 @@ public:
   bool is_object_strongly_live(uintptr_t addr) const;
   template <bool finalizable, bool publish> void mark_object(uintptr_t addr);
   void mark_start();
-  void mark();
+  void mark(bool initial);
   void mark_flush_and_free(Thread* thread);
   bool mark_end();
 
@@ -153,7 +154,7 @@ public:
   void relocate();
 
   // Iteration
-  void object_iterate(ObjectClosure* cl, bool visit_referents);
+  void object_iterate(ObjectClosure* cl, bool visit_weaks);
 
   // Serviceability
   void serviceability_initialize();

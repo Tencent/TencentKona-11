@@ -30,10 +30,11 @@
 class ZOop : public AllStatic {
 public:
   static oop to_oop(uintptr_t value);
+  static oop from_address(uintptr_t addr);
   static uintptr_t to_address(oop o);
 
   static bool is_good(oop o);
-  static bool is_good_or_null(oop o);
+  static bool is_finalizable_good(oop o);
 
   static oop good(oop);
 };

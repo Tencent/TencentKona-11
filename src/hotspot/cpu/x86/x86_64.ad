@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2003, 2017, Oracle and/or its affiliates. All rights reserved.
+// Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 //
 // This code is free software; you can redistribute it and/or modify it
@@ -538,12 +538,6 @@ reg_class int_rdi_reg(RDI);
 
 %}
 
-source_hpp %{
-#if INCLUDE_ZGC
-#include "gc/z/zBarrierSetAssembler.hpp"
-#endif
-%}
-
 //----------SOURCE BLOCK-------------------------------------------------------
 // This is a block of C++ code which provides values, functions, and
 // definitions necessary in the rest of the architecture description
@@ -902,6 +896,15 @@ void MachPrologNode::format(PhaseRegAlloc* ra_, outputStream* st) const {
     st->print("# stack alignment check");
 #endif
   }
+  if (C->stub_function() != NULL && BarrierSet::barrier_set()->barrier_set_nmethod() != NULL) {
+    st->print("\n\t");
+    st->print("cmpl    [r15_thread + #disarmed_offset], #disarmed_value\t");
+    st->print("\n\t");
+    st->print("je      fast_entry\t");
+    st->print("\n\t");
+    st->print("call    #nmethod_entry_barrier_stub\t");
+    st->print("\n\tfast_entry:");
+  }
   st->cr();
 }
 #endif
@@ -913,7 +916,7 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
   int framesize = C->frame_size_in_bytes();
   int bangsize = C->bang_size_in_bytes();
 
-  __ verified_entry(framesize, C->need_stack_bang(bangsize)?bangsize:0, false);
+  __ verified_entry(framesize, C->need_stack_bang(bangsize)?bangsize:0, false, C->stub_function() != NULL);
 
   C->set_frame_complete(cbuf.insts_size());
 
@@ -1082,8 +1085,8 @@ static enum RC rc_class(OptoReg::Name reg)
 static int vec_mov_helper(CodeBuffer *cbuf, bool do_size, int src_lo, int dst_lo,
                           int src_hi, int dst_hi, uint ireg, outputStream* st);
 
-static int vec_spill_helper(CodeBuffer *cbuf, bool do_size, bool is_load,
-                            int stack_offset, int reg, uint ireg, outputStream* st);
+int vec_spill_helper(CodeBuffer *cbuf, bool do_size, bool is_load,
+                     int stack_offset, int reg, uint ireg, outputStream* st);
 
 static void vec_stack_to_stack_helper(CodeBuffer *cbuf, int src_offset,
                                       int dst_offset, uint ireg, outputStream* st) {
@@ -4278,136 +4281,6 @@ operand cmpOpUCF2() %{
   %}
 %}
 
-// Operands for bound floating pointer register arguments
-operand rxmm0() %{
-  constraint(ALLOC_IN_RC(xmm0_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX<= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm1() %{
-  constraint(ALLOC_IN_RC(xmm1_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm2() %{
-  constraint(ALLOC_IN_RC(xmm2_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm3() %{
-  constraint(ALLOC_IN_RC(xmm3_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm4() %{
-  constraint(ALLOC_IN_RC(xmm4_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm5() %{
-  constraint(ALLOC_IN_RC(xmm5_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm6() %{
-  constraint(ALLOC_IN_RC(xmm6_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm7() %{
-  constraint(ALLOC_IN_RC(xmm7_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm8() %{
-  constraint(ALLOC_IN_RC(xmm8_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm9() %{
-  constraint(ALLOC_IN_RC(xmm9_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm10() %{
-  constraint(ALLOC_IN_RC(xmm10_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm11() %{
-  constraint(ALLOC_IN_RC(xmm11_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm12() %{
-  constraint(ALLOC_IN_RC(xmm12_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm13() %{
-  constraint(ALLOC_IN_RC(xmm13_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm14() %{
-  constraint(ALLOC_IN_RC(xmm14_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm15() %{
-  constraint(ALLOC_IN_RC(xmm15_reg));  match(VecX);
-  predicate((UseSSE > 0) && (UseAVX <= 2));  format%{%}  interface(REG_INTER);
-%}
-operand rxmm16() %{
-  constraint(ALLOC_IN_RC(xmm16_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm17() %{
-  constraint(ALLOC_IN_RC(xmm17_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm18() %{
-  constraint(ALLOC_IN_RC(xmm18_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm19() %{
-  constraint(ALLOC_IN_RC(xmm19_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm20() %{
-  constraint(ALLOC_IN_RC(xmm20_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm21() %{
-  constraint(ALLOC_IN_RC(xmm21_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm22() %{
-  constraint(ALLOC_IN_RC(xmm22_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm23() %{
-  constraint(ALLOC_IN_RC(xmm23_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm24() %{
-  constraint(ALLOC_IN_RC(xmm24_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm25() %{
-  constraint(ALLOC_IN_RC(xmm25_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm26() %{
-  constraint(ALLOC_IN_RC(xmm26_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm27() %{
-  constraint(ALLOC_IN_RC(xmm27_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm28() %{
-  constraint(ALLOC_IN_RC(xmm28_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm29() %{
-  constraint(ALLOC_IN_RC(xmm29_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm30() %{
-  constraint(ALLOC_IN_RC(xmm30_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-operand rxmm31() %{
-  constraint(ALLOC_IN_RC(xmm31_reg));  match(VecX);
-  predicate(UseAVX == 3);  format%{%}  interface(REG_INTER);
-%}
-
 //----------OPERAND CLASSES----------------------------------------------------
 // Operand Classes are groups of operands that are used as to simplify
 // instruction definitions by not requiring the AD writer to specify separate
@@ -5300,6 +5173,7 @@ instruct loadRange(rRegI dst, memory mem)
 instruct loadP(rRegP dst, memory mem)
 %{
   match(Set dst (LoadP mem));
+  predicate(n->as_Load()->barrier_data() == 0);
 
   ins_cost(125); // XXX
   format %{ "movq    $dst, $mem\t# ptr" %}
@@ -7509,6 +7383,7 @@ instruct storePConditional(memory heap_top_ptr,
                            rax_RegP oldval, rRegP newval,
                            rFlagsReg cr)
 %{
+  predicate(n->as_LoadStore()->barrier_data() == 0);
   match(Set cr (StorePConditional heap_top_ptr (Binary oldval newval)));
 
   format %{ "cmpxchgq $heap_top_ptr, $newval\t# (ptr) "
@@ -7560,7 +7435,7 @@ instruct compareAndSwapP(rRegI res,
                          rax_RegP oldval, rRegP newval,
                          rFlagsReg cr)
 %{
-  predicate(VM_Version::supports_cx8());
+  predicate(VM_Version::supports_cx8() && n->as_LoadStore()->barrier_data() == 0);
   match(Set res (CompareAndSwapP mem_ptr (Binary oldval newval)));
   match(Set res (WeakCompareAndSwapP mem_ptr (Binary oldval newval)));
   effect(KILL cr, KILL oldval);
@@ -7802,7 +7677,7 @@ instruct compareAndExchangeP(
                          rax_RegP oldval, rRegP newval,
                          rFlagsReg cr)
 %{
-  predicate(VM_Version::supports_cx8());
+  predicate(VM_Version::supports_cx8() && n->as_LoadStore()->barrier_data() == 0);
   match(Set oldval (CompareAndExchangeP mem_ptr (Binary oldval newval)));
   effect(KILL cr);
 
@@ -7947,6 +7822,7 @@ instruct xchgL( memory mem, rRegL newval) %{
 
 instruct xchgP( memory mem, rRegP newval) %{
   match(Set newval (GetAndSetP mem newval));
+  predicate(n->as_LoadStore()->barrier_data() == 0);
   format %{ "XCHGQ  $newval,[$mem]" %}
   ins_encode %{
     __ xchgq($newval$$Register, $mem$$Address);
@@ -11643,6 +11519,7 @@ instruct compP_rReg(rFlagsRegU cr, rRegP op1, rRegP op2)
 instruct compP_rReg_mem(rFlagsRegU cr, rRegP op1, memory op2)
 %{
   match(Set cr (CmpP op1 (LoadP op2)));
+  predicate(n->in(2)->as_Load()->barrier_data() == 0);
 
   ins_cost(500); // XXX
   format %{ "cmpq    $op1, $op2\t# ptr" %}
@@ -11668,7 +11545,8 @@ instruct compP_rReg_mem(rFlagsRegU cr, rRegP op1, memory op2)
 // and raw pointers have no anti-dependencies.
 instruct compP_mem_rReg(rFlagsRegU cr, rRegP op1, memory op2)
 %{
-  predicate(n->in(2)->in(2)->bottom_type()->reloc() == relocInfo::none);
+  predicate(n->in(2)->in(2)->bottom_type()->reloc() == relocInfo::none &&
+            n->in(2)->as_Load()->barrier_data() == 0);
   match(Set cr (CmpP op1 (LoadP op2)));
 
   format %{ "cmpq    $op1, $op2\t# raw ptr" %}
@@ -11693,7 +11571,8 @@ instruct testP_reg(rFlagsReg cr, rRegP src, immP0 zero)
 // any compare to a zero should be eq/neq.
 instruct testP_mem(rFlagsReg cr, memory op, immP0 zero)
 %{
-  predicate(!UseCompressedOops || (Universe::narrow_oop_base() != NULL));
+  predicate((!UseCompressedOops || (Universe::narrow_oop_base() != NULL)) &&
+            n->in(1)->as_Load()->barrier_data() == 0);
   match(Set cr (CmpP (LoadP op) zero));
 
   ins_cost(500); // XXX
@@ -11706,7 +11585,9 @@ instruct testP_mem(rFlagsReg cr, memory op, immP0 zero)
 
 instruct testP_mem_reg0(rFlagsReg cr, memory mem, immP0 zero)
 %{
-  predicate(UseCompressedOops && (Universe::narrow_oop_base() == NULL) && (Universe::narrow_klass_base() == NULL));
+  predicate(UseCompressedOops && (Universe::narrow_oop_base() == NULL) &&
+            (Universe::narrow_klass_base() == NULL) &&
+            n->in(1)->as_Load()->barrier_data() == 0);
   match(Set cr (CmpP (LoadP mem) zero));
 
   format %{ "cmpq    R12, $mem\t# ptr (R12_heapbase==0)" %}
@@ -12655,224 +12536,6 @@ instruct RethrowException()
   format %{ "jmp     rethrow_stub" %}
   ins_encode(enc_rethrow);
   ins_pipe(pipe_jmp);
-%}
-
-//
-// Execute ZGC load barrier (strong) slow path
-//
-
-// When running without XMM regs
-instruct loadBarrierSlowRegNoVec(rRegP dst, memory mem, rFlagsReg cr) %{
-
-  match(Set dst (LoadBarrierSlowReg mem));
-  predicate(MaxVectorSize < 16);
-
-  effect(DEF dst, KILL cr);
-
-  format %{"LoadBarrierSlowRegNoVec $dst, $mem" %}
-  ins_encode %{
-#if INCLUDE_ZGC
-    Register d = $dst$$Register;
-    ZBarrierSetAssembler* bs = (ZBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
-
-    assert(d != r12, "Can't be R12!");
-    assert(d != r15, "Can't be R15!");
-    assert(d != rsp, "Can't be RSP!");
-
-    __ lea(d, $mem$$Address);
-    __ call(RuntimeAddress(bs->load_barrier_slow_stub(d)));
-#else
-    ShouldNotReachHere();
-#endif
-  %}
-  ins_pipe(pipe_slow);
-%}
-
-// For XMM and YMM enabled processors
-instruct loadBarrierSlowRegXmmAndYmm(rRegP dst, memory mem, rFlagsReg cr,
-                                     rxmm0 x0, rxmm1 x1, rxmm2 x2,rxmm3 x3,
-                                     rxmm4 x4, rxmm5 x5, rxmm6 x6, rxmm7 x7,
-                                     rxmm8 x8, rxmm9 x9, rxmm10 x10, rxmm11 x11,
-                                     rxmm12 x12, rxmm13 x13, rxmm14 x14, rxmm15 x15) %{
-
-  match(Set dst (LoadBarrierSlowReg mem));
-  predicate((UseSSE > 0) && (UseAVX <= 2) && (MaxVectorSize >= 16));
-
-  effect(DEF dst, KILL cr,
-         KILL x0, KILL x1, KILL x2, KILL x3,
-         KILL x4, KILL x5, KILL x6, KILL x7,
-         KILL x8, KILL x9, KILL x10, KILL x11,
-         KILL x12, KILL x13, KILL x14, KILL x15);
-
-  format %{"LoadBarrierSlowRegXmm $dst, $mem" %}
-  ins_encode %{
-#if INCLUDE_ZGC
-    Register d = $dst$$Register;
-    ZBarrierSetAssembler* bs = (ZBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
-
-    assert(d != r12, "Can't be R12!");
-    assert(d != r15, "Can't be R15!");
-    assert(d != rsp, "Can't be RSP!");
-
-    __ lea(d, $mem$$Address);
-    __ call(RuntimeAddress(bs->load_barrier_slow_stub(d)));
-#else
-    ShouldNotReachHere();
-#endif
-  %}
-  ins_pipe(pipe_slow);
-%}
-
-// For ZMM enabled processors
-instruct loadBarrierSlowRegZmm(rRegP dst, memory mem, rFlagsReg cr,
-                               rxmm0 x0, rxmm1 x1, rxmm2 x2,rxmm3 x3,
-                               rxmm4 x4, rxmm5 x5, rxmm6 x6, rxmm7 x7,
-                               rxmm8 x8, rxmm9 x9, rxmm10 x10, rxmm11 x11,
-                               rxmm12 x12, rxmm13 x13, rxmm14 x14, rxmm15 x15,
-                               rxmm16 x16, rxmm17 x17, rxmm18 x18, rxmm19 x19,
-                               rxmm20 x20, rxmm21 x21, rxmm22 x22, rxmm23 x23,
-                               rxmm24 x24, rxmm25 x25, rxmm26 x26, rxmm27 x27,
-                               rxmm28 x28, rxmm29 x29, rxmm30 x30, rxmm31 x31) %{
-
-  match(Set dst (LoadBarrierSlowReg mem));
-  predicate((UseAVX == 3) && (MaxVectorSize >= 16));
-
-  effect(DEF dst, KILL cr,
-         KILL x0, KILL x1, KILL x2, KILL x3,
-         KILL x4, KILL x5, KILL x6, KILL x7,
-         KILL x8, KILL x9, KILL x10, KILL x11,
-         KILL x12, KILL x13, KILL x14, KILL x15,
-         KILL x16, KILL x17, KILL x18, KILL x19,
-         KILL x20, KILL x21, KILL x22, KILL x23,
-         KILL x24, KILL x25, KILL x26, KILL x27,
-         KILL x28, KILL x29, KILL x30, KILL x31);
-
-  format %{"LoadBarrierSlowRegZmm $dst, $mem" %}
-  ins_encode %{
-#if INCLUDE_ZGC
-    Register d = $dst$$Register;
-    ZBarrierSetAssembler* bs = (ZBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
-
-    assert(d != r12, "Can't be R12!");
-    assert(d != r15, "Can't be R15!");
-    assert(d != rsp, "Can't be RSP!");
-
-    __ lea(d, $mem$$Address);
-    __ call(RuntimeAddress(bs->load_barrier_slow_stub(d)));
-#else
-    ShouldNotReachHere();
-#endif
-  %}
-  ins_pipe(pipe_slow);
-%}
-
-//
-// Execute ZGC load barrier (weak) slow path
-//
-
-// When running without XMM regs
-instruct loadBarrierWeakSlowRegNoVec(rRegP dst, memory mem, rFlagsReg cr) %{
-
-  match(Set dst (LoadBarrierSlowReg mem));
-  predicate(MaxVectorSize < 16);
-
-  effect(DEF dst, KILL cr);
-
-  format %{"LoadBarrierSlowRegNoVec $dst, $mem" %}
-  ins_encode %{
-#if INCLUDE_ZGC
-    Register d = $dst$$Register;
-    ZBarrierSetAssembler* bs = (ZBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
-
-    assert(d != r12, "Can't be R12!");
-    assert(d != r15, "Can't be R15!");
-    assert(d != rsp, "Can't be RSP!");
-
-    __ lea(d, $mem$$Address);
-    __ call(RuntimeAddress(bs->load_barrier_weak_slow_stub(d)));
-#else
-    ShouldNotReachHere();
-#endif
-  %}
-  ins_pipe(pipe_slow);
-%}
-
-// For XMM and YMM enabled processors
-instruct loadBarrierWeakSlowRegXmmAndYmm(rRegP dst, memory mem, rFlagsReg cr,
-                                         rxmm0 x0, rxmm1 x1, rxmm2 x2,rxmm3 x3,
-                                         rxmm4 x4, rxmm5 x5, rxmm6 x6, rxmm7 x7,
-                                         rxmm8 x8, rxmm9 x9, rxmm10 x10, rxmm11 x11,
-                                         rxmm12 x12, rxmm13 x13, rxmm14 x14, rxmm15 x15) %{
-
-  match(Set dst (LoadBarrierWeakSlowReg mem));
-  predicate((UseSSE > 0) && (UseAVX <= 2) && (MaxVectorSize >= 16));
-
-  effect(DEF dst, KILL cr,
-         KILL x0, KILL x1, KILL x2, KILL x3,
-         KILL x4, KILL x5, KILL x6, KILL x7,
-         KILL x8, KILL x9, KILL x10, KILL x11,
-         KILL x12, KILL x13, KILL x14, KILL x15);
-
-  format %{"LoadBarrierWeakSlowRegXmm $dst, $mem" %}
-  ins_encode %{
-#if INCLUDE_ZGC
-    Register d = $dst$$Register;
-    ZBarrierSetAssembler* bs = (ZBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
-
-    assert(d != r12, "Can't be R12!");
-    assert(d != r15, "Can't be R15!");
-    assert(d != rsp, "Can't be RSP!");
-
-    __ lea(d,$mem$$Address);
-    __ call(RuntimeAddress(bs->load_barrier_weak_slow_stub(d)));
-#else
-    ShouldNotReachHere();
-#endif
-  %}
-  ins_pipe(pipe_slow);
-%}
-
-// For ZMM enabled processors
-instruct loadBarrierWeakSlowRegZmm(rRegP dst, memory mem, rFlagsReg cr,
-                                   rxmm0 x0, rxmm1 x1, rxmm2 x2,rxmm3 x3,
-                                   rxmm4 x4, rxmm5 x5, rxmm6 x6, rxmm7 x7,
-                                   rxmm8 x8, rxmm9 x9, rxmm10 x10, rxmm11 x11,
-                                   rxmm12 x12, rxmm13 x13, rxmm14 x14, rxmm15 x15,
-                                   rxmm16 x16, rxmm17 x17, rxmm18 x18, rxmm19 x19,
-                                   rxmm20 x20, rxmm21 x21, rxmm22 x22, rxmm23 x23,
-                                   rxmm24 x24, rxmm25 x25, rxmm26 x26, rxmm27 x27,
-                                   rxmm28 x28, rxmm29 x29, rxmm30 x30, rxmm31 x31) %{
-
-  match(Set dst (LoadBarrierWeakSlowReg mem));
-  predicate((UseAVX == 3) && (MaxVectorSize >= 16));
-
-  effect(DEF dst, KILL cr,
-         KILL x0, KILL x1, KILL x2, KILL x3,
-         KILL x4, KILL x5, KILL x6, KILL x7,
-         KILL x8, KILL x9, KILL x10, KILL x11,
-         KILL x12, KILL x13, KILL x14, KILL x15,
-         KILL x16, KILL x17, KILL x18, KILL x19,
-         KILL x20, KILL x21, KILL x22, KILL x23,
-         KILL x24, KILL x25, KILL x26, KILL x27,
-         KILL x28, KILL x29, KILL x30, KILL x31);
-
-  format %{"LoadBarrierWeakSlowRegZmm $dst, $mem" %}
-  ins_encode %{
-#if INCLUDE_ZGC
-    Register d = $dst$$Register;
-    ZBarrierSetAssembler* bs = (ZBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
-
-    assert(d != r12, "Can't be R12!");
-    assert(d != r15, "Can't be R15!");
-    assert(d != rsp, "Can't be RSP!");
-
-    __ lea(d,$mem$$Address);
-    __ call(RuntimeAddress(bs->load_barrier_weak_slow_stub(d)));
-#else
-    ShouldNotReachHere();
-#endif
-  %}
-  ins_pipe(pipe_slow);
 %}
 
 // ============================================================================

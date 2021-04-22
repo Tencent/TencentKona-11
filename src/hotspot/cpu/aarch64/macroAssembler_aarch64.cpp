@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
+ * Copyright (c) 1997, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2020, Red Hat Inc. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -2096,6 +2096,65 @@ int MacroAssembler::pop(unsigned int bitset, Register stack) {
 
   return count;
 }
+
+// Push lots of registers in the bit set supplied.  Don't push sp.
+// Return the number of words pushed
+int MacroAssembler::push_fp(unsigned int bitset, Register stack) {
+  int words_pushed = 0;
+
+  // Scan bitset to accumulate register pairs
+  unsigned char regs[32];
+  int count = 0;
+  for (int reg = 0; reg <= 31; reg++) {
+    if (1 & bitset)
+      regs[count++] = reg;
+    bitset >>= 1;
+  }
+  regs[count++] = zr->encoding_nocheck();
+  count &= ~1;  // Only push an even number of regs
+
+  // Always pushing full 128 bit registers.
+  if (count) {
+    stpq(as_FloatRegister(regs[0]), as_FloatRegister(regs[1]), Address(pre(stack, -count * wordSize * 2)));
+    words_pushed += 2;
+  }
+  for (int i = 2; i < count; i += 2) {
+    stpq(as_FloatRegister(regs[i]), as_FloatRegister(regs[i+1]), Address(stack, i * wordSize * 2));
+    words_pushed += 2;
+  }
+
+  assert(words_pushed == count, "oops, pushed != count");
+  return count;
+}
+
+int MacroAssembler::pop_fp(unsigned int bitset, Register stack) {
+  int words_pushed = 0;
+
+  // Scan bitset to accumulate register pairs
+  unsigned char regs[32];
+  int count = 0;
+  for (int reg = 0; reg <= 31; reg++) {
+    if (1 & bitset)
+      regs[count++] = reg;
+    bitset >>= 1;
+  }
+  regs[count++] = zr->encoding_nocheck();
+  count &= ~1;
+
+  for (int i = 2; i < count; i += 2) {
+    ldpq(as_FloatRegister(regs[i]), as_FloatRegister(regs[i+1]), Address(stack, i * wordSize * 2));
+    words_pushed += 2;
+  }
+  if (count) {
+    ldpq(as_FloatRegister(regs[0]), as_FloatRegister(regs[1]), Address(post(stack, count * wordSize * 2)));
+    words_pushed += 2;
+  }
+
+  assert(words_pushed == count, "oops, pushed != count");
+
+  return count;
+}
+
 #ifdef ASSERT
 void MacroAssembler::verify_heapbase(const char* msg) {
 #if 0
@@ -3962,6 +4021,15 @@ void MacroAssembler::access_store_at(BasicType type, DecoratorSet decorators,
   }
 }
 
+void MacroAssembler::resolve(DecoratorSet decorators, Register obj) {
+  // Use stronger ACCESS_WRITE|ACCESS_READ by default.
+  if ((decorators & (ACCESS_READ | ACCESS_WRITE)) == 0) {
+    decorators |= ACCESS_READ | ACCESS_WRITE;
+  }
+  BarrierSetAssembler* bs = BarrierSet::barrier_set()->barrier_set_assembler();
+  return bs->resolve(this, decorators, obj);
+}
+
 void MacroAssembler::load_heap_oop(Register dst, Address src, Register tmp1,
                                    Register thread_tmp, DecoratorSet decorators) {
   access_load_at(T_OBJECT, IN_HEAP | decorators, dst, src, tmp1, thread_tmp);
@@ -4849,8 +4917,6 @@ void MacroAssembler::string_compare(Register str1, Register str2,
       sub(cnt2, zr, cnt2, LSL, str2_chr_shift);
     } else if (isLU) {
       ldrs(vtmp, Address(str1));
-      cmp(str1, str2);
-      br(Assembler::EQ, DONE);
       ldr(tmp2, Address(str2));
       cmp(cnt2, STUB_THRESHOLD);
       br(GE, STUB);
@@ -4865,8 +4931,6 @@ void MacroAssembler::string_compare(Register str1, Register str2,
       fmovd(tmp1, vtmp);
     } else { // UL case
       ldr(tmp1, Address(str1));
-      cmp(str1, str2);
-      br(Assembler::EQ, DONE);
       ldrs(vtmp, Address(str2));
       cmp(cnt2, STUB_THRESHOLD);
       br(GE, STUB);

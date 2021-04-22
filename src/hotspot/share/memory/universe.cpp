@@ -25,11 +25,12 @@
 #include "precompiled.hpp"
 #include "aot/aotLoader.hpp"
 #include "classfile/classLoader.hpp"
-#include "classfile/classLoaderData.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/javaClasses.hpp"
 #include "classfile/stringTable.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "classfile/vmSymbols.hpp"
+#include "code/codeBehaviours.hpp"
 #include "code/codeCache.hpp"
 #include "code/dependencies.hpp"
 #include "gc/shared/collectedHeap.inline.hpp"
@@ -59,9 +60,9 @@
 #include "prims/resolvedMethodTable.hpp"
 #include "runtime/arguments.hpp"
 #include "runtime/atomic.hpp"
+#include "runtime/deoptimization.hpp"
 #include "runtime/flags/flagSetting.hpp"
 #include "runtime/flags/jvmFlagConstraintList.hpp"
-#include "runtime/deoptimization.hpp"
 #include "runtime/handles.inline.hpp"
 #include "runtime/init.hpp"
 #include "runtime/java.hpp"
@@ -165,14 +166,15 @@ address Universe::_narrow_ptrs_base;
 uint64_t Universe::_narrow_klass_range = (uint64_t(max_juint)+1);
 
 void Universe::basic_type_classes_do(void f(Klass*)) {
-  f(boolArrayKlassObj());
-  f(byteArrayKlassObj());
-  f(charArrayKlassObj());
-  f(intArrayKlassObj());
-  f(shortArrayKlassObj());
-  f(longArrayKlassObj());
-  f(singleArrayKlassObj());
-  f(doubleArrayKlassObj());
+  for (int i = T_BOOLEAN; i < T_LONG+1; i++) {
+    f(_typeArrayKlassObjs[i]);
+  }
+}
+
+void Universe::basic_type_classes_do(KlassClosure *closure) {
+  for (int i = T_BOOLEAN; i < T_LONG+1; i++) {
+    closure->do_klass(_typeArrayKlassObjs[i]);
+  }
 }
 
 void Universe::oops_do(OopClosure* f, bool do_all) {
@@ -566,10 +568,6 @@ oop Universe::swap_reference_pending_list(oop list) {
 #undef assert_pll_locked
 #undef assert_pll_ownership
 
-// initialize_vtable could cause gc if
-// 1) we specified true to initialize_vtable and
-// 2) this ran after gc was enabled
-// In case those ever change we use handles for oops
 void Universe::reinitialize_vtable_of(Klass* ko, TRAPS) {
   // init vtable of k and all subclasses
   ko->vtable().initialize_vtable(false, CHECK);
@@ -582,6 +580,14 @@ void Universe::reinitialize_vtable_of(Klass* ko, TRAPS) {
   }
 }
 
+void Universe::reinitialize_vtables(TRAPS) {
+  // The vtables are initialized by starting at java.lang.Object and
+  // initializing through the subclass links, so that the super
+  // classes are always initialized first.
+  Klass* ok = SystemDictionary::Object_klass();
+  Universe::reinitialize_vtable_of(ok, THREAD);
+}
+
 
 void initialize_itable_for_klass(InstanceKlass* k, TRAPS) {
   k->itable().initialize_itable(false, CHECK);
@@ -589,6 +595,7 @@ void initialize_itable_for_klass(InstanceKlass* k, TRAPS) {
 
 
 void Universe::reinitialize_itables(TRAPS) {
+  MutexLocker mcld(ClassLoaderDataGraph_lock);
   ClassLoaderDataGraph::dictionary_classes_do(initialize_itable_for_klass, CHECK);
 }
 
@@ -673,6 +680,10 @@ void* Universe::non_oop_word() {
   return (void*)_non_oop_bits;
 }
 
+static void initialize_global_behaviours() {
+  CompiledICProtectionBehaviour::set_current(new DefaultICProtectionBehaviour());
+}
+
 jint universe_init() {
   assert(!Universe::_fully_initialized, "called after initialize_vtables");
   guarantee(1 << LogHeapWordSize == sizeof(HeapWord),
@@ -684,6 +695,8 @@ jint universe_init() {
   TraceTime timer("Genesis", TRACETIME_LOG(Info, startuptime));
 
   JavaClasses::compute_hard_coded_offsets();
+
+  initialize_global_behaviours();
 
   jint status = Universe::initialize_heap();
   if (status != JNI_OK) {
@@ -1003,9 +1016,7 @@ bool universe_post_init() {
   { ResourceMark rm;
     Interpreter::initialize();      // needed for interpreter entry points
     if (!UseSharedSpaces) {
-      HandleMark hm(THREAD);
-      Klass* ok = SystemDictionary::Object_klass();
-      Universe::reinitialize_vtable_of(ok, CHECK_false);
+      Universe::reinitialize_vtables(CHECK_false);
       Universe::reinitialize_itables(CHECK_false);
     }
   }

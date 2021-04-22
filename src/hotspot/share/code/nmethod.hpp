@@ -29,6 +29,7 @@
 
 class DepChange;
 class DirectiveSet;
+class JvmtiThreadState;
 
 // nmethods (native methods) are the compiled code versions of Java methods.
 //
@@ -60,7 +61,6 @@ class nmethod : public CompiledMethod {
 
   // Shared fields for all nmethod's
   int       _entry_bci;        // != InvocationEntryBci if this nmethod is an on-stack replacement method
-  jmethodID _jmethod_id;       // Cache of method()->jmethod_id()
 
 #if INCLUDE_JVMCI
   // A weak reference to an InstalledCode object associated with
@@ -78,7 +78,7 @@ class nmethod : public CompiledMethod {
   // That is, installed code other than a "default"
   // HotSpotNMethod causes nmethod unloading.
   // This field is ignored once _jvmci_installed_code is NULL.
-  bool _jvmci_installed_code_triggers_unloading;
+  bool _jvmci_installed_code_triggers_invalidation;
 #endif
 
   // To support simple linked-list chaining of nmethods:
@@ -120,8 +120,9 @@ class nmethod : public CompiledMethod {
   // protected by CodeCache_lock
   bool _has_flushed_dependencies;            // Used for maintenance of dependencies (CodeCache_lock)
 
-  // used by jvmti to track if an unload event has been posted for this nmethod.
+  // used by jvmti to track if an event has been posted for this nmethod.
   bool _unload_reported;
+  bool _load_reported;
 
   // Protected by Patching_lock
   volatile signed char _state;               // {not_installed, in_use, not_entrant, zombie, unloaded}
@@ -157,6 +158,9 @@ class nmethod : public CompiledMethod {
   // is active while stack scanning (mark_active_nmethods()). The hotness
   // counter is decreased (by 1) while sweeping.
   int _hotness_counter;
+
+  // Local state used to keep track of whether unloading is happening or not
+  volatile uint8_t _is_unloading_state;
 
   // These are used for compiled synchronized native methods to
   // locate the owner and stack slot for the BasicLock so that we can
@@ -214,6 +218,9 @@ class nmethod : public CompiledMethod {
   void* operator new(size_t size, int nmethod_size, int comp_level) throw();
 
   const char* reloc_string_for(u_char* begin, u_char* end);
+
+  bool try_transition(int new_state);
+
   // Returns true if this thread changed the state of the nmethod or
   // false if another thread performed the transition.
   bool make_not_entrant_or_zombie(int state);
@@ -253,6 +260,14 @@ class nmethod : public CompiledMethod {
                               jweak speculation_log = NULL
 #endif
   );
+
+  // Only used for unit tests.
+  nmethod()
+    : CompiledMethod(),
+      _is_unloading_state(0),
+      _native_receiver_sp_offset(in_ByteSize(-1)),
+      _native_basic_lock_sp_offset(in_ByteSize(-1)) {}
+
 
   static nmethod* new_native_nmethod(const methodHandle& method,
                                      int compile_id,
@@ -318,10 +333,14 @@ class nmethod : public CompiledMethod {
   // flag accessing and manipulation
   bool  is_not_installed() const                  { return _state == not_installed; }
   bool  is_in_use() const                         { return _state <= in_use; }
-  bool  is_alive() const                          { return _state < zombie; }
+  bool  is_alive() const                          { return _state < unloaded; }
   bool  is_not_entrant() const                    { return _state == not_entrant; }
   bool  is_zombie() const                         { return _state == zombie; }
   bool  is_unloaded() const                       { return _state == unloaded; }
+
+  void clear_unloading_state();
+  virtual bool is_unloading();
+  virtual void do_unloading(bool unloading_occurred);
 
 #if INCLUDE_RTM_OPT
   // rtm state accessing and manipulating
@@ -341,15 +360,11 @@ class nmethod : public CompiledMethod {
   bool  make_not_used()    { return make_not_entrant(); }
   bool  make_zombie()      { return make_not_entrant_or_zombie(zombie); }
 
-  // used by jvmti to track if the unload event has been reported
-  bool  unload_reported()                         { return _unload_reported; }
-  void  set_unload_reported()                     { _unload_reported = true; }
-
   int get_state() const {
     return _state;
   }
 
-  void  make_unloaded(oop cause);
+  void  make_unloaded();
 
   bool has_dependencies()                         { return dependencies_size() != 0; }
   void flush_dependencies(bool delete_immediately);
@@ -361,9 +376,11 @@ class nmethod : public CompiledMethod {
 
   int   comp_level() const                        { return _comp_level; }
 
+  void unlink_from_method(bool acquire_lock);
+
   // Support for oops in scopes and relocs:
   // Note: index 0 is reserved for null.
-  oop   oop_at(int index) const                   { return index == 0 ? (oop) NULL: *oop_addr_at(index); }
+  oop   oop_at(int index) const;
   oop*  oop_addr_at(int index) const {  // for GC
     // relocation indexes are biased by 1 (because 0 is reserved)
     assert(index > 0 && index <= oops_count(), "must be a valid non-zero index");
@@ -456,7 +473,7 @@ public:
   // Copies the value of the name field in the InstalledCode
   // object (if any) associated with this nmethod into buf.
   // Returns the value of buf if it was updated otherwise NULL.
-  char* jvmci_installed_code_name(char* buf, size_t buflen);
+  char* jvmci_installed_code_name(char* buf, size_t buflen) const;
 
   // Updates the state of the InstalledCode (if any) associated with
   // this nmethod based on the current value of _state.
@@ -483,20 +500,6 @@ public:
  public:
 #endif
 
- protected:
-  virtual bool do_unloading_oops(address low_boundary, BoolObjectClosure* is_alive);
-#if INCLUDE_JVMCI
-  // See comment for _jvmci_installed_code_triggers_unloading field.
-  // Returns whether this nmethod was unloaded.
-  virtual bool do_unloading_jvmci();
-#endif
-
- private:
-  bool do_unloading_scopes(BoolObjectClosure* is_alive);
-  //  Unload a nmethod if the *root object is dead.
-  bool can_unload(BoolObjectClosure* is_alive, oop* root);
-  bool unload_if_dead_at(RelocIterator *iter_at_oop, BoolObjectClosure* is_alive);
-
  public:
   void oops_do(OopClosure* f) { oops_do(f, false); }
   void oops_do(OopClosure* f, bool allow_zombie);
@@ -514,6 +517,12 @@ public:
 
   address* orig_pc_addr(const frame* fr);
 
+  // used by jvmti to track if the load and unload events has been reported
+  bool  unload_reported() const                   { return _unload_reported; }
+  void  set_unload_reported()                     { _unload_reported = true; }
+  bool  load_reported() const                     { return _load_reported; }
+  void  set_load_reported()                       { _load_reported = true; }
+
  public:
   // copying of debugging information
   void copy_scopes_pcs(PcDesc* pcs, int count);
@@ -524,8 +533,7 @@ public:
   void    set_original_pc(const frame* fr, address pc) { *orig_pc_addr(fr) = pc; }
 
   // jvmti support:
-  void post_compiled_method_load_event();
-  jmethodID get_and_cache_jmethod_id();
+  void post_compiled_method_load_event(JvmtiThreadState* state = NULL);
 
   // verify operations
   void verify();

@@ -187,8 +187,12 @@ public:
 
   static void setup_remset_size();
 
+  bool cardset_is_empty() const {
+    return _other_regions.is_empty();
+  }
+
   bool is_empty() const {
-    return (strong_code_roots_list_length() == 0) && _other_regions.is_empty();
+    return (strong_code_roots_list_length() == 0) && cardset_is_empty();
   }
 
   bool occupancy_less_or_equal_than(size_t occ) const {
