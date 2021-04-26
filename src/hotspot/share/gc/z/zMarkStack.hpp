@@ -136,6 +136,9 @@ public:
                ZMarkStripe* stripe,
                ZMarkStack* stack);
 
+  ZMarkStack* steal(ZMarkStripeSet* stripes,
+                    ZMarkStripe* stripe);
+
   bool push(ZMarkStackAllocator* allocator,
             ZMarkStripeSet* stripes,
             ZMarkStripe* stripe,
