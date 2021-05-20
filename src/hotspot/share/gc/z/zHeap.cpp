@@ -337,6 +337,10 @@ bool ZHeap::mark_end() {
   return true;
 }
 
+void ZHeap::mark_free() {
+  _mark.free();
+}
+
 void ZHeap::set_soft_reference_policy(bool clear) {
   _reference_processor.set_soft_reference_policy(clear);
 }

@@ -32,6 +32,9 @@ typedef uintptr_t (*ZBarrierSlowPath)(uintptr_t);
 
 class ZBarrier : public AllStatic {
 private:
+  static const bool GCThread    = true;
+  static const bool AnyThread   = false;
+
   static const bool Strong      = false;
   static const bool Finalizable = true;
 
@@ -51,7 +54,7 @@ private:
   static bool during_mark();
   static bool during_relocate();
   template <bool finalizable> static bool should_mark_through(uintptr_t addr);
-  template <bool finalizable, bool publish> static uintptr_t mark(uintptr_t addr);
+  template <bool gc_thread, bool finalizable, bool publish> static uintptr_t mark(uintptr_t addr);
   static uintptr_t remap(uintptr_t addr);
   static uintptr_t relocate(uintptr_t addr);
   static uintptr_t relocate_or_mark(uintptr_t addr);

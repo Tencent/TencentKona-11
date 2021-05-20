@@ -66,7 +66,6 @@ private:
   void follow_partial_array(ZMarkStackEntry entry, bool finalizable);
   void follow_array_object(objArrayOop obj, bool finalizable);
   void follow_object(oop obj, bool finalizable);
-  bool try_mark_object(ZMarkCache* cache, uintptr_t addr, bool finalizable);
   void mark_and_follow(ZMarkCache* cache, ZMarkStackEntry entry);
 
   template <typename T> bool drain(ZMarkStripe* stripe,
@@ -103,11 +102,12 @@ public:
 
   bool is_initialized() const;
 
-  template <bool finalizable, bool publish> void mark_object(uintptr_t addr);
+  template <bool gc_thread, bool finalizable, bool publish> void mark_object(uintptr_t addr);
 
   void start();
   void mark(bool initial);
   bool end();
+  void free();
 
   void flush_and_free();
   bool flush_and_free(Thread* thread);

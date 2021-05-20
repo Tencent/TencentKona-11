@@ -64,6 +64,8 @@ public:
 
   void push_atomic(T* stack);
   T* pop_atomic();
+
+  void clear();
 };
 
 typedef ZStack<ZMarkStackEntry, ZMarkStackSlots>     ZMarkStack;
