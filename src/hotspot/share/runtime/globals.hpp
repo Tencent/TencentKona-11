@@ -2680,7 +2680,22 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
           "Start flight recording with options"))                           \
                                                                             \
   experimental(bool, UseFastUnorderedTimeStamps, false,                     \
-          "Use platform unstable time where supported for timestamps only")
+          "Use platform unstable time where supported for timestamps only") \
+                                                                            \
+  product(bool, UseKonaFiber, true,                                         \
+          "Enable Kona Fiber")                                              \
+                                                                            \
+  product(uintx, DefaultCoroutineStackSize, 4*8*8*K,                        \
+        "Default size of the stack that is associated with new coroutines") \
+                                                                            \
+  product(uintx, MaxFreeCoroutinesCacheSize, 20,                            \
+          "The number of free coroutine stacks a thread can keep")          \
+                                                                            \
+  diagnostic(bool, TraceCoroutine, false,                                   \
+          "Trace Coroutine create/switch/terminate")                        \
+                                                                            \
+  diagnostic(bool, VerifyCoroutineStateOnYield, false,                      \
+          "Verify coroutine state after yield success")
 
 #define VM_FLAGS(develop,                                                   \
                  develop_pd,                                                \

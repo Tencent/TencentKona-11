@@ -1913,7 +1913,7 @@ public class ForkJoinPool extends AbstractExecutorService {
         Thread t; ForkJoinWorkerThread w; WorkQueue q;
         if (task == null)
             throw new NullPointerException();
-        if (((t = Thread.currentThread()) instanceof ForkJoinWorkerThread) &&
+        if (((t = Thread.currentCarrierThread()) instanceof ForkJoinWorkerThread) &&
             (w = (ForkJoinWorkerThread)t).pool == this &&
             (q = w.workQueue) != null)
             q.push(task);
@@ -2016,7 +2016,7 @@ public class ForkJoinPool extends AbstractExecutorService {
      */
     static int getSurplusQueuedTaskCount() {
         Thread t; ForkJoinWorkerThread wt; ForkJoinPool pool; WorkQueue q;
-        if (((t = Thread.currentThread()) instanceof ForkJoinWorkerThread) &&
+        if (((t = Thread.currentCarrierThread()) instanceof ForkJoinWorkerThread) &&
             (pool = (wt = (ForkJoinWorkerThread)t).pool) != null &&
             (q = wt.workQueue) != null) {
             int p = pool.mode & SMASK;

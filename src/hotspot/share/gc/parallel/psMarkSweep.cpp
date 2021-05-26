@@ -62,6 +62,9 @@
 #include "utilities/align.hpp"
 #include "utilities/events.hpp"
 #include "utilities/stack.inline.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 elapsedTimer        PSMarkSweep::_accumulated_time;
 jlong               PSMarkSweep::_time_of_last_gc   = 0;
@@ -519,6 +522,11 @@ void PSMarkSweep::mark_sweep_phase1(bool clear_all_softrefs) {
     JNIHandles::oops_do(mark_and_push_closure());   // Global (strong) JNI handles
     MarkingCodeBlobClosure each_active_code_blob(mark_and_push_closure(), !CodeBlobToOopClosure::FixRelocations);
     Threads::oops_do(mark_and_push_closure(), &each_active_code_blob);
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      ContContainer::oops_do(mark_and_push_closure(), &each_active_code_blob);
+    }
+#endif
     ObjectSynchronizer::oops_do(mark_and_push_closure());
     Management::oops_do(mark_and_push_closure());
     JvmtiExport::oops_do(mark_and_push_closure());
@@ -616,6 +624,11 @@ void PSMarkSweep::mark_sweep_phase3() {
   Universe::oops_do(adjust_pointer_closure());
   JNIHandles::oops_do(adjust_pointer_closure());   // Global (strong) JNI handles
   Threads::oops_do(adjust_pointer_closure(), NULL);
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    ContContainer::oops_do(adjust_pointer_closure(), NULL);
+  }
+#endif
   ObjectSynchronizer::oops_do(adjust_pointer_closure());
   Management::oops_do(adjust_pointer_closure());
   JvmtiExport::oops_do(adjust_pointer_closure());
