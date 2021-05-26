@@ -41,6 +41,9 @@
 #include "runtime/vmThread.hpp"
 #include "runtime/vmOperations.hpp"
 #include "services/threadService.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 // TODO: we need to define a naming convention for perf counters
 // to distinguish counters for:
@@ -63,6 +66,18 @@ volatile int ThreadService::_atomic_daemon_threads_count = 0;
 ThreadDumpResult* ThreadService::_threaddump_list = NULL;
 
 static const int INITIAL_ARRAY_SIZE = 10;
+
+#if INCLUDE_KONA_FIBER
+VirtualThreadStackTrace::VirtualThreadStackTrace(Coroutine* coro) : ThreadStackTrace(NULL, false) {
+  _coro = coro;
+}
+
+void VirtualThreadStackTrace::dump_stack() {
+  if (_coro != NULL) {
+    _coro->print_stack_on(_frames, &_depth);
+  }
+}
+#endif
 
 void ThreadService::init() {
   EXCEPTION_MARK;

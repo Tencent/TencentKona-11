@@ -1228,8 +1228,17 @@ void InterpreterMacroAssembler::lock_object(Register lock_reg) {
     call_VM(noreg,
             CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorenter),
             lock_reg);
-
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      LP64_ONLY(subl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
+    }
+#endif
     bind(done);
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      LP64_ONLY(addl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
+    }
+#endif
   }
 }
 
@@ -1300,9 +1309,17 @@ void InterpreterMacroAssembler::unlock_object(Register lock_reg) {
     call_VM(noreg,
             CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorexit),
             lock_reg);
-
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      LP64_ONLY(addl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
+    }
+#endif
     bind(done);
-
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      LP64_ONLY(subl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
+    }
+#endif
     restore_bcp();
   }
 }
