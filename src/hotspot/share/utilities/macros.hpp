@@ -661,4 +661,8 @@
 #define NOT_CDS_JAVA_HEAP_RETURN_(code) { return code; }
 #endif
 
+#ifndef INCLUDE_KONA_FIBER
+#define INCLUDE_KONA_FIBER 1
+#endif
+
 #endif // SHARE_VM_UTILITIES_MACROS_HPP

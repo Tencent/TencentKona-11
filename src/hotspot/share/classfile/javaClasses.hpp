@@ -82,6 +82,9 @@
   f(java_lang_StackFrameInfo) \
   f(java_lang_LiveStackFrameInfo) \
   f(java_util_concurrent_locks_AbstractOwnableSynchronizer) \
+  f(java_lang_Continuation) \
+  f(java_lang_VTContinuation) \
+  f(java_lang_VT) \
   //end
 
 #define BASIC_JAVA_CLASSES_DO(f) \
@@ -1557,6 +1560,53 @@ class InjectedField {
   static Symbol* lookup_symbol(int symbol_index) {
     return vmSymbols::symbol_at((vmSymbols::SID)symbol_index);
   }
+};
+
+class java_lang_Continuation: AllStatic {
+private:
+  // Note that to reduce dependencies on the JDK we compute these offsets at run-time.
+  static int _data_offset;
+public:
+  // Accessors
+  static jlong data(oop obj) {
+    return obj->long_field(_data_offset);
+  }
+  static void set_data(oop obj, jlong value) {
+    obj->long_field_put(_data_offset, value);
+  }
+  static int get_data_offset() {
+    return _data_offset;
+  }
+
+  static void compute_offsets();
+  static void serialize_offsets(SerializeClosure* f) NOT_CDS_RETURN;
+
+  // Debugging
+  friend class JavaClasses;
+};
+
+class java_lang_VTContinuation: AllStatic {
+private:
+  static int _VT_offset;
+
+public:
+  static oop VT(oop obj) {
+    return obj->obj_field(_VT_offset);
+  }
+  static void compute_offsets();
+  static void serialize_offsets(SerializeClosure* f) NOT_CDS_RETURN;
+};
+
+class java_lang_VT: AllStatic {
+private:
+  static int _state_offset;
+
+public:
+  static int state(oop obj) {
+    return obj->int_field(_state_offset);
+  }
+  static void compute_offsets();
+  static void serialize_offsets(SerializeClosure* f) NOT_CDS_RETURN;
 };
 
 #define DECLARE_INJECTED_FIELD_ENUM(klass, name, signature, may_be_java) \

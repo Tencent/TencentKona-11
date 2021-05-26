@@ -464,6 +464,7 @@
   template(void_double_signature,                     "()D")                                      \
   template(bool_void_signature,                       "(Z)V")                                     \
   template(int_void_signature,                        "(I)V")                                     \
+  template(long_void_signature,                       "(J)V")                                     \
   template(int_int_signature,                         "(I)I")                                     \
   template(char_char_signature,                       "(C)C")                                     \
   template(short_short_signature,                     "(S)S")                                     \
@@ -650,6 +651,14 @@
                                                                                                                   \
   /* forEachRemaining support */                                                                                  \
   template(java_util_stream_StreamsRangeIntSpliterator,          "java/util/stream/Streams$RangeIntSpliterator")  \
+                                                                                                                  \
+  /* continuation support */                                                                                      \
+  template(java_lang_Continuation,                     "java/lang/Continuation")                                  \
+  template(java_lang_VTContinuation,                   "java/lang/VirtualThread$VTContinuation")                  \
+  template(java_lang_VT,                               "java/lang/VirtualThread")                                 \
+  template(cont_start_method_name,                     "start")                                                   \
+  template(reflect_method_signature,                   "Ljava/lang/reflect/Method;")                              \
+  template(VT_signature,                               "Ljava/lang/VirtualThread;")                               \
                                                                                                                   \
   /* jfr signatures */                                                                                            \
   JFR_TEMPLATES(template)                                                                                         \
@@ -864,7 +873,7 @@
    do_name(     isInterrupted_name,                              "isInterrupted")                                       \
    do_signature(isInterrupted_signature,                         "(Z)Z")                                                \
   do_intrinsic(_currentThread,            java_lang_Thread,       currentThread_name, currentThread_signature,   F_S)   \
-   do_name(     currentThread_name,                              "currentThread")                                       \
+   do_name(     currentThread_name,                              "currentThread0")                                      \
    do_signature(currentThread_signature,                         "()Ljava/lang/Thread;")                                \
                                                                                                                         \
   /* reflective intrinsics, for java/lang/Class, etc. */                                                                \
@@ -1486,6 +1495,14 @@
   do_intrinsic(_forEachRemaining, java_util_stream_StreamsRangeIntSpliterator, forEachRemaining_name, forEachRemaining_signature, F_R) \
    do_name(     forEachRemaining_name,    "forEachRemaining")                                                           \
    do_name(     forEachRemaining_signature,                      "(Ljava/util/function/IntConsumer;)V")                 \
+                                                                                                                        \
+  /* continuation */                                                                                                    \
+  do_intrinsic(_contSwitchTo,             java_lang_Continuation, switchTo_name, contSwitchTo_signature, F_SN)          \
+   do_name(     switchTo_name,                                    "switchTo")                                           \
+   do_signature(contSwitchTo_signature,                           "(Ljava/lang/Continuation;Ljava/lang/Continuation;)I")\
+  do_intrinsic(_contSwitchToAndTerminate, java_lang_Continuation, switchToAndTerminate_name, contSwitchToTerminate_signature, F_SN)  \
+   do_signature(contSwitchToTerminate_signature,                  "(Ljava/lang/Continuation;Ljava/lang/Continuation;)V")\
+   do_name(     switchToAndTerminate_name,                        "switchToAndTerminate")                               \
 
     /*end*/
 
