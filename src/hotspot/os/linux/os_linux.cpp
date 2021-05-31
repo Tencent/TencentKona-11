@@ -2322,6 +2322,11 @@ void os::Linux::print_container_info(outputStream* st) {
   i = OSContainer::cpu_shares();
   st->print("cpu_shares: %d\n", i);
 
+  if (CPUShareScaleFactor != 1) {
+    st->print("cpu_shares scale factor: %d\n", (int)CPUShareScaleFactor);
+    st->print("cpu_shares scale limit: %d\n", (int)CPUShareScaleLimit);
+  }
+
   jlong j = OSContainer::memory_limit_in_bytes();
   st->print("memory_limit_in_bytes: " JLONG_FORMAT "\n", j);
 

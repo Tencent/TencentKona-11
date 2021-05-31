@@ -28,6 +28,7 @@
 #include "utilities/globalDefinitions.hpp"
 #include "memory/allocation.hpp"
 #include "runtime/os.hpp"
+#include "runtime/globals_extension.hpp"
 #include "logging/log.hpp"
 #include "osContainer_linux.hpp"
 
@@ -298,10 +299,25 @@ void OSContainer::init() {
   _unlimited_memory = (LONG_MAX / os::vm_page_size()) * os::vm_page_size();
 
   log_trace(os, container)("OSContainer::init: Initializing Container Support");
+  if (CPUShareScaleFactor > 1 && !UseContainerSupport) {
+    FLAG_SET_DEFAULT(UseContainerSupport, true);
+  }
   if (!UseContainerSupport) {
     log_trace(os, container)("Container Support not enabled");
     return;
   }
+
+  uintptr_t core_limit = (uintptr_t)os::Linux::active_processor_count();
+  if (CPUShareScaleLimit > core_limit || CPUShareScaleLimit == 0) {
+    log_trace(os, container)("Ignore invalid CommandLine -XX:CPUShareScaleLimit=%d\n", (int)CPUShareScaleLimit);
+    FLAG_SET_DEFAULT(CPUShareScaleLimit, core_limit);
+  }
+  if (CPUShareScaleFactor == 0) {
+    log_trace(os, container)("Ignore invalid CommandLine -XX:CPUShareScaleFactor=%d\n", (int)CPUShareScaleFactor);
+    FLAG_SET_DEFAULT(CPUShareScaleFactor, 1);
+  }
+  log_trace(os, container)("CPUShareScaleLimit is %d", (int)CPUShareScaleLimit);
+  log_trace(os, container)("CPUShareScaleFactor is %d", (int)CPUShareScaleFactor);
 
   /*
    * Find the cgroup mount point for memory and cpuset
@@ -625,6 +641,13 @@ int OSContainer::active_processor_count() {
   }
   if (share > -1) {
     share_count = ceilf((float)share / (float)PER_CPU_SHARES);
+    int scale_limit = (int)CPUShareScaleLimit;
+    if (share_count < scale_limit) {
+      share_count *= (int)CPUShareScaleFactor;
+      if (share_count > scale_limit) {
+        share_count = scale_limit;
+      }
+    }
     log_trace(os, container)("CPU Share count based on shares: %d", share_count);
   }
 
@@ -702,7 +725,7 @@ int OSContainer::cpu_shares() {
   GET_CONTAINER_INFO(int, cpu, "/cpu.shares",
                      "CPU Shares is: %d", "%d", shares);
   // Convert 1024 to no shares setup
-  if (shares == 1024) return -1;
+  if (shares == 1024 && IgnoreNoShareValue == false) return -1;
 
   return shares;
 }
