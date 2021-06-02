@@ -36,6 +36,7 @@
  *  @run testng/othervm -Xbootclasspath/a:. -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -XX:+ExplicitGCInvokesConcurrent -XX:+UseParallelOldGC GlobalMarkTest
  *  @run testng/othervm -Xbootclasspath/a:. -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -XX:+ExplicitGCInvokesConcurrent -XX:+UseConcMarkSweepGC GlobalMarkTest
  *  @run testng/othervm -Xbootclasspath/a:. -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -XX:+ExplicitGCInvokesConcurrent -XX:+UseG1GC GlobalMarkTest
+ *  @run testng/othervm -Xbootclasspath/a:. -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -XX:+UnlockExperimentalVMOptions -XX:+UseZGC GlobalMarkTest
  *  @summary Test an object is pointed by the stack of continuation, and it will not collect by GC
  *           when the continuation is not running.
  */
