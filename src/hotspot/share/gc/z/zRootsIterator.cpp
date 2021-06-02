@@ -52,6 +52,9 @@
 #if INCLUDE_JFR
 #include "jfr/jfr.hpp"
 #endif
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 static const ZStatSubPhase ZSubPhasePauseRootsSetup("Pause Roots Setup");
 static const ZStatSubPhase ZSubPhasePauseRoots("Pause Roots");
@@ -229,6 +232,19 @@ void ZRootsIterator::do_threads(ZRootsIteratorClosure* cl) {
   ZStatTimer timer(ZSubPhasePauseRootsThreads);
   ResourceMark rm;
   Threads::possibly_parallel_threads_do(true, cl);
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+    int cp = Threads::thread_claim_parity();
+    ZCodeBlobClosure code_cl(cl);
+    for (size_t i = 0; i < CONT_CONTAINER_SIZE; i++) {
+      ContBucket* bucket = ContContainer::bucket(i);
+      if (bucket->claim_oops_do(true, cp)) {
+        bucket->oops_do(cl, ClassUnloading ? &code_cl : NULL);
+      }
+    }
+  }
+#endif
 }
 
 void ZRootsIterator::do_code_cache(ZRootsIteratorClosure* cl) {
