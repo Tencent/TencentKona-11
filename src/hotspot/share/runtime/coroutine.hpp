@@ -265,7 +265,7 @@ public:
   void set_has_javacall(bool hjc) { _has_javacall = hjc; }
 
   static Coroutine* create_thread_coroutine(JavaThread* thread);
-  static Coroutine* create_coroutine(JavaThread* thread, long stack_size, oop coroutineObj);
+  static Coroutine* create_coroutine(JavaThread* thread, long stack_size);
   static void reset_coroutine(Coroutine* coro);
   static void init_coroutine(Coroutine* coro, JavaThread* thread);
 

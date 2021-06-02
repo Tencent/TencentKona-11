@@ -537,7 +537,7 @@ void Coroutine::init_coroutine(Coroutine* coro, JavaThread* thread) {
   }
 }
 
-Coroutine* Coroutine::create_coroutine(JavaThread* thread, long stack_size, oop coroutineObj) {
+Coroutine* Coroutine::create_coroutine(JavaThread* thread, long stack_size) {
   assert(stack_size <= 0, "Can not specify stack size by users");
 
   Coroutine* coro = new Coroutine();
@@ -575,8 +575,10 @@ void Coroutine::oops_do(OopClosure* f, CodeBlobClosure* cf) {
     f->do_oop(&_continuation);
   }
   if(state() != Coroutine::_onstack) {
+    //tty->print_cr("oops_do on %p is skipped", this);
     return;
   }
+  //tty->print_cr("oops_do on %p is performed", this);
   oops_do_Closure fc(f, cf);
   frames_do(&fc);
 }
@@ -746,6 +748,8 @@ void Coroutine::print_stack_on(outputStream* st, void* frames, int* depth) {
 void Coroutine::on_stack_frames_do(FrameClosure* fc, bool isThreadCoroutine) {
   assert(_last_sp != NULL, "CoroutineStack with NULL last_sp");
 
+  //tty->print_cr("on_stack_frames_do on %p is performed", this);
+
   DEBUG_CORO_ONLY(tty->print_cr("frames_do stack "INTPTR_FORMAT, _stack_base));
   // optimization to skip coroutine not started yet, check if return address is coroutine_start
   // fp is only valid for call from interperter, from compiled code fp register is not gurantee valid
@@ -764,7 +768,7 @@ void Coroutine::on_stack_frames_do(FrameClosure* fc, bool isThreadCoroutine) {
   } else {
     DEBUG_CORO_ONLY(tty->print_cr("corountine not started "INTPTR_FORMAT, _stack_base));
     guarantee(!isThreadCoroutine, "thread conrotuine with coroutine_start as return address");
-    guarantee(fp == NULL, "conrotuine fp not in init status"); 
+    guarantee(fp == NULL, "conrotuine fp not in init status");
   }
 }
 
@@ -780,9 +784,8 @@ JVM_ENTRY(jint, CONT_isPinned0(JNIEnv* env, jclass klass, long data)) {
 }
 JVM_END
 
-JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, jobject cont, long stackSize)) {
+JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, long stackSize)) {
   DEBUG_CORO_PRINT("CONT_createContinuation\n");
-  assert(cont != NULL, "cannot create coroutine with NULL Coroutine object");
 
   if (stackSize < 0) {
     guarantee(thread->current_coroutine()->is_thread_coroutine(), "current coroutine is not thread coroutine");
@@ -812,7 +815,7 @@ JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, jobject cont
     }
   }
   if (coro == NULL) {
-    coro = Coroutine::create_coroutine(thread, stackSize, JNIHandles::resolve(cont));
+    coro = Coroutine::create_coroutine(thread, stackSize);
     if (coro == NULL) {
       HandleMark mark(thread);
       THROW_0(vmSymbols::java_lang_OutOfMemoryError());
@@ -856,7 +859,7 @@ JVM_END
 
 static JNINativeMethod CONT_methods[] = {
   {CC"isPinned0",                 CC"(J)I", FN_PTR(CONT_isPinned0)},
-  {CC"createContinuation",        CC"("JLCONT "J)J", FN_PTR(CONT_createContinuation)},
+  {CC"createContinuation",        CC"(J)J", FN_PTR(CONT_createContinuation)},
   {CC"switchTo",                  CC"("JLCONT JLCONT")I", FN_PTR(CONT_switchTo)},
   {CC"switchToAndTerminate",      CC"("JLCONT JLCONT")V", FN_PTR(CONT_switchToAndTerminate)},
   {CC"dumpStackTrace",            CC"("JLCONT ")[" JLSTE, FN_PTR(CONT_dumpStackTrace)},
