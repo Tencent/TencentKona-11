@@ -33,14 +33,6 @@
 #include "runtime/javaFrameAnchor.hpp"
 #include "runtime/monitorChunk.hpp"
 
-#ifdef DEBUG_COROUTINES
-#define DEBUG_CORO_ONLY(x) x
-#define DEBUG_CORO_PRINT(x) tty->print(x)
-#else
-#define DEBUG_CORO_ONLY(x) 
-#define DEBUG_CORO_PRINT(x)
-#endif
-
 class Coroutine;
 
 const size_t CONT_BITMAP_LEN             = 10;

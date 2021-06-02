@@ -264,10 +264,8 @@ void ContContainer::insert(Coroutine* cont) {
     ContBucket* bucket = ContContainer::bucket(index);
     MutexLockerEx ml(bucket->lock(), Mutex::_no_safepoint_check_flag);
     bucket->insert(cont);
-    if (TraceCoroutine) {
-      ResourceMark rm;
-      tty->print_cr("[insert] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
-    }
+    Log(coroutine) log;
+    log.trace("[insert] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
   }
 }
 
@@ -278,10 +276,8 @@ void ContContainer::remove(Coroutine* cont) {
     ContBucket* bucket = ContContainer::bucket(index);
     MutexLockerEx ml(bucket->lock(), Mutex::_no_safepoint_check_flag);
     bucket->remove(cont);
-    if (TraceCoroutine) {
-      ResourceMark rm;
-      tty->print_cr("[remove] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
-    }
+    Log(coroutine) log;
+    log.trace("[remove] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
   }
 }
 
@@ -365,9 +361,10 @@ void coroutine_start(void* dummy, const void* coroutineObjAddr) {
 
 void Coroutine::TerminateCoroutine(Coroutine* coro) {
   JavaThread* thread = coro->thread();
-  if (TraceCoroutine) {
+  if (log_is_enabled(Trace, coroutine)) {
     ResourceMark rm;
-    tty->print_cr("[Co]: TerminateCoroutine %p in thread %s(%p)", coro, coro->thread()->name(), coro->thread());
+    Log(coroutine) log;
+    log.trace("[Co]: TerminateCoroutine %p in thread %s(%p)", coro, coro->thread()->name(), coro->thread());
   }
   guarantee(thread == JavaThread::current(), "thread not match");
 
@@ -426,9 +423,8 @@ Coroutine::~Coroutine() {
 // check yield is from thread contianuation or to thread contianuation
 // check resource is not still hold by contianuation when yield back to thread contianuation
 void Coroutine::yield_verify(Coroutine* from, Coroutine* to, bool terminate) {
-  if (TraceCoroutine) {
-    tty->print_cr("yield_verify from %p to %p", from, to);
-  }
+  Log(coroutine) log;
+  log.trace("yield_verify from %p to %p", from, to);
   JavaThread* thread = from->_thread;
   guarantee(thread->reserved_stack_activation() == thread->stack_base(), "reserved overflow should have been processed");
   // check before change, check is need when yield from none thread to others
@@ -531,9 +527,10 @@ void Coroutine::init_coroutine(Coroutine* coro, JavaThread* thread) {
 #if defined(_WINDOWS)
   coro->_last_SEH = NULL;
 #endif
-  if (TraceCoroutine) {
+  if (log_is_enabled(Trace, coroutine)) {
     ResourceMark rm;
-    tty->print_cr("[Co]: CreateCoroutine %p in thread %s(%p)", coro, coro->thread()->name(), coro->thread());
+    Log(coroutine) log;
+    log.trace("[Co]: CreateCoroutine %p in thread %s(%p)", coro, coro->thread()->name(), coro->thread());
   }
 }
 
@@ -643,8 +640,6 @@ bool Coroutine::init_stack(JavaThread* thread) {
   }
   _stack_size = ContReservedStack::stack_size;
   _last_sp = NULL;
-
-  DEBUG_CORO_ONLY(tty->print("created coroutine stack at %08x with real size: %i\n", _stack_base, _stack_size));
   return true;
 }
 
@@ -748,9 +743,6 @@ void Coroutine::print_stack_on(outputStream* st, void* frames, int* depth) {
 void Coroutine::on_stack_frames_do(FrameClosure* fc, bool isThreadCoroutine) {
   assert(_last_sp != NULL, "CoroutineStack with NULL last_sp");
 
-  //tty->print_cr("on_stack_frames_do on %p is performed", this);
-
-  DEBUG_CORO_ONLY(tty->print_cr("frames_do stack "INTPTR_FORMAT, _stack_base));
   // optimization to skip coroutine not started yet, check if return address is coroutine_start
   // fp is only valid for call from interperter, from compiled code fp register is not gurantee valid
   // JIT method utilize sp and oop map for oops iteration.
@@ -766,7 +758,6 @@ void Coroutine::on_stack_frames_do(FrameClosure* fc, bool isThreadCoroutine) {
       fc->frames_do(fst.current(), fst.register_map());
     }
   } else {
-    DEBUG_CORO_ONLY(tty->print_cr("corountine not started "INTPTR_FORMAT, _stack_base));
     guarantee(!isThreadCoroutine, "thread conrotuine with coroutine_start as return address");
     guarantee(fp == NULL, "conrotuine fp not in init status");
   }
@@ -785,13 +776,10 @@ JVM_ENTRY(jint, CONT_isPinned0(JNIEnv* env, jclass klass, long data)) {
 JVM_END
 
 JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, long stackSize)) {
-  DEBUG_CORO_PRINT("CONT_createContinuation\n");
-
   if (stackSize < 0) {
     guarantee(thread->current_coroutine()->is_thread_coroutine(), "current coroutine is not thread coroutine");
-    if (TraceCoroutine) {
-      tty->print_cr("CONT_createContinuation: reuse main thread continuation %p", thread->current_coroutine());
-    }
+    Log(coroutine) log;
+    log.trace("CONT_createContinuation: reuse main thread continuation %p", thread->current_coroutine());
     return (jlong)thread->current_coroutine();
   }
 
@@ -811,7 +799,6 @@ JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, long stackSi
       thread->coroutine_cache_size()--;
       Coroutine::reset_coroutine(coro);
       Coroutine::init_coroutine(coro, thread);
-      DEBUG_CORO_ONLY(tty->print("reused coroutine stack at %08x\n", _stack_base));
     }
   }
   if (coro == NULL) {
@@ -822,9 +809,8 @@ JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, long stackSi
     }
   }
   ContContainer::insert(coro);
-  if (TraceCoroutine) {
-    tty->print_cr("CONT_createContinuation: create continuation %p", coro);
-  }
+  Log(coroutine) log;
+  log.trace("CONT_createContinuation: create continuation %p", coro);
   return (jlong)coro;
 }
 JVM_END

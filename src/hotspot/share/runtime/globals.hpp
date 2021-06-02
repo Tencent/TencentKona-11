@@ -2691,9 +2691,6 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   product(uintx, MaxFreeCoroutinesCacheSize, 20,                            \
           "The number of free coroutine stacks a thread can keep")          \
                                                                             \
-  diagnostic(bool, TraceCoroutine, false,                                   \
-          "Trace Coroutine create/switch/terminate")                        \
-                                                                            \
   diagnostic(bool, VerifyCoroutineStateOnYield, false,                      \
           "Verify coroutine state after yield success")
 
