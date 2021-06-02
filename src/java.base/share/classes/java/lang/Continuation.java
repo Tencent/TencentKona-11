@@ -79,7 +79,7 @@ public class Continuation {
         /**
          * @param reason pinned reason
          * Invoke method with Pinned reason
-         */    
+         */
         public void run(Pinned reason);
     }
 
@@ -140,7 +140,7 @@ public class Continuation {
     public Continuation(ContinuationScope scope, Runnable target) {
         this(scope, 0, target);
     }
-    
+
     /**
      * TBD
      * @param scope TBD
@@ -158,7 +158,7 @@ public class Continuation {
         this.scope = kernelScope;
         this.target = null;
         this.stackSize = 0;
-        data = createContinuation(this, -1);
+        data = createContinuation(-1);
     }
 
     @Override
@@ -173,7 +173,7 @@ public class Continuation {
     Continuation getParent() {
         return parent;
     }
-    
+
     /**
      * TBD
      * @return TBD
@@ -195,7 +195,7 @@ public class Continuation {
         // Thread.setScopedCache(null);
         setMounted(0);
     }
-    
+
     /**
      * start/continue execute a continuation
      * 1. no parent continuation, switch from thread coroutine to continuation
@@ -220,7 +220,7 @@ public class Continuation {
         try {
             if (TRACE) System.out.println("Continuation run before call");
             if (data == 0) {
-                data = createContinuation(this, stackSize);
+                data = createContinuation(stackSize);
             }
             int result = switchTo(this, parent);
             if (result != 0) {
@@ -241,7 +241,7 @@ public class Continuation {
             unmount();
         }
     }
-    
+
     // yield from current caller to target
     // if target is null, yield to thread coroutine
     private final boolean yield0(Continuation target) {
@@ -325,7 +325,7 @@ public class Continuation {
         target.mount();
         t.setContinuation(target);
         if (target.data == 0) {
-            target.data = Continuation.createContinuation(target, 0);
+            target.data = Continuation.createContinuation(0);
         }
         if (current.yield0(target) == false) {
             // restore
@@ -340,7 +340,7 @@ public class Continuation {
         }
         return true;
     }
- 
+
     private void onPinned0(int reason) {
         if (TRACE) System.out.println("PINNED " + this + " reason: " + reason);
         onPinned(pinnedReason(reason));
@@ -413,7 +413,7 @@ public class Continuation {
      *
      * check from current continuation to its parent continuation
      * Nested scoped NYI
-     * 
+     *
      * @param scope the continuation scope
      * @return {@code} true if we're in the give scope and are pinned; {@code false otherwise}
      */
@@ -461,7 +461,7 @@ public class Continuation {
     // check runtime structure if it has monitor/jni frame
     private static native void registerNatives();
     private static native int isPinned0(long data);
-    private static native long createContinuation(Continuation cont, long stackSize);
+    private static native long createContinuation(long stackSize);
     @HotSpotIntrinsicCandidate
     private static native int switchTo(Continuation target, Continuation current);
     @HotSpotIntrinsicCandidate
