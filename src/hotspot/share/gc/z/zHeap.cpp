@@ -341,6 +341,10 @@ void ZHeap::mark_free() {
   _mark.free();
 }
 
+void ZHeap::keep_alive(oop obj) {
+  ZBarrier::keep_alive_barrier_on_oop(obj);
+}
+
 void ZHeap::set_soft_reference_policy(bool clear) {
   _reference_processor.set_soft_reference_policy(clear);
 }

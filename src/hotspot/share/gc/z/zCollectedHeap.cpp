@@ -31,6 +31,7 @@
 #include "gc/z/zServiceability.hpp"
 #include "gc/z/zStat.hpp"
 #include "gc/z/zUtils.inline.hpp"
+#include "memory/iterator.hpp"
 #include "runtime/mutexLocker.hpp"
 
 ZCollectedHeap* ZCollectedHeap::heap() {
@@ -256,6 +257,10 @@ size_t ZCollectedHeap::block_size(const HeapWord* addr) const {
 
 bool ZCollectedHeap::block_is_obj(const HeapWord* addr) const {
   return _heap.block_is_obj((uintptr_t)addr);
+}
+
+void ZCollectedHeap::keep_alive(oop obj) {
+  _heap.keep_alive(obj);
 }
 
 void ZCollectedHeap::register_nmethod(nmethod* nm) {
