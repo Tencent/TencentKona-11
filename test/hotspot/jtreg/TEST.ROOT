@@ -65,6 +65,7 @@ requires.properties= \
     vm.cds \
     vm.cds.custom.loaders \
     vm.cds.archived.java.heap \
+    vm.fiber \
     vm.graal.enabled \
     vm.compiler1.enabled \
     vm.compiler2.enabled \
