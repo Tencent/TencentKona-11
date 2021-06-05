@@ -50,6 +50,9 @@
 #include "runtime/vmThread.hpp"
 #include "utilities/events.hpp"
 #include "utilities/xmlstream.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 #ifdef ASSERT
 
@@ -212,6 +215,9 @@ public:
       jt->nmethods_do(_cl);
     }
   }
+#if INCLUDE_KONA_FIBER
+  CodeBlobClosure* cb_cl() const { return _cl; }
+#endif
 };
 
 class NMethodMarkingTask : public AbstractGangTask {
@@ -230,6 +236,19 @@ public:
 
   void work(uint worker_id) {
     Threads::possibly_parallel_threads_do(true, _cl);
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+      int cp = Threads::thread_claim_parity();
+      CodeBlobClosure *cb_cl = _cl->cb_cl();
+      for (size_t i = 0; i < CONT_CONTAINER_SIZE; i++) {
+        ContBucket* bucket = ContContainer::bucket(i);
+        if (bucket->claim_oops_do(true, cp)) {
+          bucket->nmethods_do(cb_cl);
+        }
+      }
+    }
+#endif
   }
 };
 

@@ -111,6 +111,8 @@ public class VMProps implements Callable<Map<String, String>> {
         map.put("vm.cds", this::vmCDS);
         map.put("vm.cds.custom.loaders", this::vmCDSForCustomLoaders);
         map.put("vm.cds.archived.java.heap", this::vmCDSForArchivedJavaHeap);
+        // vm.fiber is true if the VM is compiled with fiber support.
+        map.put("vm.fiber", this::vmFiber);
         // vm.graal.enabled is true if Graal is used as JIT
         map.put("vm.graal.enabled", this::isGraalEnabled);
         map.put("vm.compiler1.enabled", this::isCompiler1Enabled);
@@ -427,6 +429,15 @@ public class VMProps implements Callable<Map<String, String>> {
      */
     protected String vmCDSForArchivedJavaHeap() {
         return "" + ("true".equals(vmCDS()) && WB.isJavaHeapArchiveSupported());
+    }
+
+   /**
+     * Check for fiber support.
+     *
+     * @return true if fiber is supported by the VM to be tested.
+     */
+    protected String vmFiber() {
+        return "" + WB.isFiberIncludedInVmBuild();
     }
 
     /**
