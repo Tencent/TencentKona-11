@@ -1831,6 +1831,14 @@ WB_ENTRY(jboolean, WB_IsCDSIncludedInVmBuild(JNIEnv* env))
 #endif // INCLUDE_CDS
 WB_END
 
+WB_ENTRY(jboolean, WB_IsFiberIncludedInVmBuild(JNIEnv* env))
+#if INCLUDE_KONA_FIBER
+  return true;
+#else
+  return false;
+#endif // INCLUDE_KONA_FIBER
+WB_END
+
 WB_ENTRY(jboolean, WB_IsJavaHeapArchiveSupported(JNIEnv* env))
   return MetaspaceShared::is_heap_object_archiving_allowed();
 WB_END
@@ -2244,6 +2252,9 @@ static JNINativeMethod methods[] = {
   {CC"getResolvedReferences", CC"(Ljava/lang/Class;)Ljava/lang/Object;", (void*)&WB_GetResolvedReferences},
   {CC"areOpenArchiveHeapObjectsMapped",   CC"()Z",    (void*)&WB_AreOpenArchiveHeapObjectsMapped},
   {CC"isCDSIncludedInVmBuild",            CC"()Z",    (void*)&WB_IsCDSIncludedInVmBuild },
+#if INCLUDE_KONA_FIBER
+  {CC"isFiberIncludedInVmBuild",          CC"()Z",    (void*)&WB_IsFiberIncludedInVmBuild },
+#endif
   {CC"isJFRIncludedInVmBuild",            CC"()Z",    (void*)&WB_IsJFRIncludedInVmBuild },
   {CC"isJavaHeapArchiveSupported",      CC"()Z",      (void*)&WB_IsJavaHeapArchiveSupported },
 
