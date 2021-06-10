@@ -700,6 +700,7 @@ JRT_BLOCK_ENTRY(void, Runtime1::monitorenter(JavaThread* thread, oopDesc* obj, B
     }
   }
   SharedRuntime::monitor_enter_helper(obj, lock->lock(), thread, UseFastLocking);
+  thread->inc_locks_acquired();
 JRT_END
 
 

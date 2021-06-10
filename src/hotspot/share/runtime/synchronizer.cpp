@@ -222,9 +222,6 @@ bool ObjectSynchronizer::quick_enter(oop obj, Thread * Self,
 
     if (owner == Self) {
       m->_recursions++;
-#if INCLUDE_KONA_FIBER
-      Self->inc_locks_acquired();
-#endif
       return true;
     }
 
@@ -243,9 +240,6 @@ bool ObjectSynchronizer::quick_enter(oop obj, Thread * Self,
     if (owner == NULL && Atomic::replace_if_null(Self, &(m->_owner))) {
       assert(m->_recursions == 0, "invariant");
       assert(m->_owner == Self, "invariant");
-#if INCLUDE_KONA_FIBER
-      Self->inc_locks_acquired();
-#endif
       return true;
     }
   }
@@ -273,9 +267,6 @@ void ObjectSynchronizer::fast_enter(Handle obj, BasicLock* lock,
     if (!SafepointSynchronize::is_at_safepoint()) {
       BiasedLocking::Condition cond = BiasedLocking::revoke_and_rebias(obj, attempt_rebias, THREAD);
       if (cond == BiasedLocking::BIAS_REVOKED_AND_REBIASED) {
-#if INCLUDE_KONA_FIBER
-        THREAD->inc_locks_acquired();
-#endif
         return;
       }
     } else {
@@ -321,9 +312,6 @@ void ObjectSynchronizer::fast_exit(oop object, BasicLock* lock, TRAPS) {
       }
     }
 #endif
-#if INCLUDE_KONA_FIBER
-     THREAD->dec_locks_acquired();
-#endif
     return;
   }
 
@@ -333,9 +321,6 @@ void ObjectSynchronizer::fast_exit(oop object, BasicLock* lock, TRAPS) {
     assert(dhw->is_neutral(), "invariant");
     if (object->cas_set_mark(dhw, mark) == mark) {
       TEVENT(fast_exit: release stack-lock);
-#if INCLUDE_KONA_FIBER
-      THREAD->dec_locks_acquired();
-#endif
       return;
     }
   }
@@ -344,9 +329,6 @@ void ObjectSynchronizer::fast_exit(oop object, BasicLock* lock, TRAPS) {
   ObjectSynchronizer::inflate(THREAD,
                               object,
                               inflate_cause_vm_internal)->exit(true, THREAD);
-#if INCLUDE_KONA_FIBER
-  THREAD->dec_locks_acquired();
-#endif
 }
 
 // -----------------------------------------------------------------------------
@@ -364,9 +346,6 @@ void ObjectSynchronizer::slow_enter(Handle obj, BasicLock* lock, TRAPS) {
     lock->set_displaced_header(mark);
     if (mark == obj()->cas_set_mark((markOop) lock, mark)) {
       TEVENT(slow_enter: release stacklock);
-#if INCLUDE_KONA_FIBER
-      THREAD->inc_locks_acquired();
-#endif
       return;
     }
     // Fall through to inflate() ...
@@ -375,9 +354,6 @@ void ObjectSynchronizer::slow_enter(Handle obj, BasicLock* lock, TRAPS) {
     assert(lock != mark->locker(), "must not re-lock the same lock");
     assert(lock != (BasicLock*)obj->mark(), "don't relock with same BasicLock");
     lock->set_displaced_header(NULL);
-#if INCLUDE_KONA_FIBER
-    THREAD->inc_locks_acquired();
-#endif
     return;
   }
 
@@ -389,9 +365,6 @@ void ObjectSynchronizer::slow_enter(Handle obj, BasicLock* lock, TRAPS) {
   ObjectSynchronizer::inflate(THREAD,
                               obj(),
                               inflate_cause_monitor_enter)->enter(THREAD);
-#if INCLUDE_KONA_FIBER
-  THREAD->inc_locks_acquired();
-#endif
 }
 
 // This routine is used to handle interpreter/compiler slow case
@@ -425,11 +398,7 @@ intptr_t ObjectSynchronizer::complete_exit(Handle obj, TRAPS) {
                                                        obj(),
                                                        inflate_cause_vm_internal);
 
-  intptr_t recursive = monitor->complete_exit(THREAD);
-#if INCLUDE_KONA_FIBER
-  THREAD->dec_locks_acquired();
-#endif
-  return recursive;
+  return monitor->complete_exit(THREAD);
 }
 
 // NOTE: must use heavy weight monitor to handle complete_exit/reenter()
@@ -445,9 +414,6 @@ void ObjectSynchronizer::reenter(Handle obj, intptr_t recursion, TRAPS) {
                                                        inflate_cause_vm_internal);
 
   monitor->reenter(recursion, THREAD);
-#if INCLUDE_KONA_FIBER
-  THREAD->inc_locks_acquired();
-#endif
 }
 // -----------------------------------------------------------------------------
 // JNI locks on java objects
@@ -461,9 +427,6 @@ void ObjectSynchronizer::jni_enter(Handle obj, TRAPS) {
   }
   THREAD->set_current_pending_monitor_is_from_java(false);
   ObjectSynchronizer::inflate(THREAD, obj(), inflate_cause_jni_enter)->enter(THREAD);
-#if INCLUDE_KONA_FIBER
-  THREAD->inc_locks_acquired();
-#endif
   THREAD->set_current_pending_monitor_is_from_java(true);
 }
 
@@ -484,9 +447,6 @@ void ObjectSynchronizer::jni_exit(oop obj, Thread* THREAD) {
   // monitor->check(CHECK); must exit even if an exception is pending.
   if (monitor->check(THREAD)) {
     monitor->exit(true, THREAD);
-#if INCLUDE_KONA_FIBER
-    THREAD->dec_locks_acquired();
-#endif
   }
 }
 
