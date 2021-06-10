@@ -2134,6 +2134,11 @@ JRT_BLOCK_ENTRY(void, SharedRuntime::complete_monitor_locking_C(oopDesc* obj, Ba
   SharedRuntime::monitor_enter_helper(obj, lock, thread, true);
 JRT_END
 
+JRT_BLOCK_ENTRY(void, SharedRuntime::complete_monitor_locking_C2(oopDesc* obj, BasicLock* lock, JavaThread* thread))
+  SharedRuntime::monitor_enter_helper(obj, lock, thread, true);
+  thread->inc_locks_acquired();
+JRT_END
+
 void SharedRuntime::monitor_exit_helper(oopDesc* obj, BasicLock* lock, JavaThread* thread,
                                         bool use_inlined_fast_locking) {
   assert(JavaThread::current() == thread, "invariant");

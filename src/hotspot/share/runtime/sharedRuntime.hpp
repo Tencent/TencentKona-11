@@ -512,6 +512,7 @@ class SharedRuntime: AllStatic {
 
   // Slow-path Locking and Unlocking
   static void complete_monitor_locking_C(oopDesc* obj, BasicLock* lock, JavaThread* thread);
+  static void complete_monitor_locking_C2(oopDesc* obj, BasicLock* lock, JavaThread* thread);
   static void complete_monitor_unlocking_C(oopDesc* obj, BasicLock* lock, JavaThread* thread);
 
   // Resolving of calls
