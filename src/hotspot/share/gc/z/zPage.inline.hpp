@@ -231,13 +231,20 @@ inline bool ZPage::is_marked() const {
 }
 
 inline bool ZPage::is_object_marked(uintptr_t addr) const {
+  assert(is_relocatable(), "Invalid page state");
   const size_t index = ((ZAddress::offset(addr) - start()) >> object_alignment_shift()) * 2;
   return _livemap.get(index);
 }
 
 inline bool ZPage::is_object_strongly_marked(uintptr_t addr) const {
+  assert(is_relocatable(), "Invalid page state");
   const size_t index = ((ZAddress::offset(addr) - start()) >> object_alignment_shift()) * 2;
   return _livemap.get(index + 1);
+}
+
+template <bool finalizable>
+inline bool ZPage::is_object_marked(uintptr_t addr) const {
+  return finalizable ? is_object_marked(addr) : is_object_strongly_marked(addr);
 }
 
 inline bool ZPage::is_object_live(uintptr_t addr) const {

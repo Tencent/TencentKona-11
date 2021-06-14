@@ -122,7 +122,7 @@ class ClassLoaderData : public CHeapObj<mtClass> {
   bool _modified_oops;             // Card Table Equivalent (YC/CMS support)
   bool _accumulated_modified_oops; // Mod Union Equivalent (CMS support)
 
-  s2 _keep_alive;          // if this CLD is kept alive.
+  int _keep_alive;         // if this CLD is kept alive.
                            // Used for anonymous classes and the boot class
                            // loader. _keep_alive does not need to be volatile or
                            // atomic since there is one unique CLD per anonymous class.
@@ -298,6 +298,10 @@ class ClassLoaderData : public CHeapObj<mtClass> {
   ModuleEntry* unnamed_module() { return _unnamed_module; }
   ModuleEntryTable* modules();
   bool modules_defined() { return (_modules != NULL); }
+
+  // Offsets
+  static ByteSize holder_offset()     { return in_ByteSize(offset_of(ClassLoaderData, _holder)); }
+  static ByteSize keep_alive_offset() { return in_ByteSize(offset_of(ClassLoaderData, _keep_alive)); }
 
   // Loaded class dictionary
   Dictionary* dictionary() const { return _dictionary; }

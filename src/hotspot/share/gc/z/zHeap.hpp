@@ -45,6 +45,8 @@
 #include "gc/z/zWorkers.hpp"
 #include "memory/allocation.hpp"
 
+class ThreadClosure;
+
 class ZHeap {
   friend class VMStructs;
 
@@ -132,14 +134,16 @@ public:
   // Marking
   bool is_object_live(uintptr_t addr) const;
   bool is_object_strongly_live(uintptr_t addr) const;
-  template <bool finalizable, bool publish> void mark_object(uintptr_t addr);
+  template <bool gc_thread, bool finalizable, bool publish> void mark_object(uintptr_t addr);
   void mark_start();
   void mark(bool initial);
   void mark_flush_and_free(Thread* thread);
   bool mark_end();
+  void keep_alive(oop obj);
 
   // Post-marking & Pre-relocation
   void destroy_detached_pages();
+  void mark_free();
 
   // Relocation set
   void select_relocation_set();

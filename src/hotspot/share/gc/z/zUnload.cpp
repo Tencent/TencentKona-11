@@ -164,8 +164,9 @@ void ZUnload::purge() {
   CodeCache::purge_exception_caches();
 }
 
-class ZUnloadRendezvousClosure : public ThreadClosure {
+class ZUnloadRendezvousClosure : public HandshakeClosure {
 public:
+  ZUnloadRendezvousClosure() : HandshakeClosure("ZUnloadRendezvous") {}
   void do_thread(Thread* thread) {}
 };
 

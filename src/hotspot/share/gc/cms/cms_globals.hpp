@@ -78,6 +78,9 @@
           "thread available")                                               \
           range(1, max_uintx)                                               \
                                                                             \
+  product(bool, CMSIgnoreYoungGenPerWorker, false,                          \
+          "Not calucate young gen size by CMSYoungGenPerWorker")            \
+                                                                            \
   product(uintx, CMSIncrementalSafetyFactor, 10,                            \
           "Percentage (0-100) used to add conservatism when computing the " \
           "duty cycle")                                                     \

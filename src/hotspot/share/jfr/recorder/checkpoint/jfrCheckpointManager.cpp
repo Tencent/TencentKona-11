@@ -39,6 +39,7 @@
 #include "jfr/utilities/jfrBigEndian.hpp"
 #include "jfr/utilities/jfrTypes.hpp"
 #include "logging/log.hpp"
+#include "memory/iterator.hpp"
 #include "memory/resourceArea.hpp"
 #include "runtime/handles.inline.hpp"
 #include "runtime/mutexLocker.hpp"
@@ -375,7 +376,7 @@ void JfrCheckpointManager::write_type_set() {
 }
 
 void JfrCheckpointManager::write_type_set_for_unloaded_classes() {
-  assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint!");
+  assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
   JfrCheckpointWriter writer(false, true, Thread::current());
   const JfrCheckpointContext ctx = writer.context();
   JfrTypeSet::serialize(&writer, NULL, true);
