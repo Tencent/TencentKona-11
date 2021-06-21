@@ -64,6 +64,8 @@ public:
 
   void push_atomic(T* stack);
   T* pop_atomic();
+
+  void clear();
 };
 
 typedef ZStack<ZMarkStackEntry, ZMarkStackSlots>     ZMarkStack;
@@ -135,6 +137,9 @@ public:
   void install(ZMarkStripeSet* stripes,
                ZMarkStripe* stripe,
                ZMarkStack* stack);
+
+  ZMarkStack* steal(ZMarkStripeSet* stripes,
+                    ZMarkStripe* stripe);
 
   bool push(ZMarkStackAllocator* allocator,
             ZMarkStripeSet* stripes,

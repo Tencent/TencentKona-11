@@ -31,14 +31,6 @@
 #include "runtime/safepoint.hpp"
 #include "utilities/debug.hpp"
 
-bool ZBarrier::during_mark() {
-  return ZGlobalPhase == ZPhaseMark;
-}
-
-bool ZBarrier::during_relocate() {
-  return ZGlobalPhase == ZPhaseRelocate;
-}
-
 template <bool finalizable>
 bool ZBarrier::should_mark_through(uintptr_t addr) {
   // Finalizable marked oops can still exists on the heap after marking
@@ -72,7 +64,7 @@ bool ZBarrier::should_mark_through(uintptr_t addr) {
   return true;
 }
 
-template <bool finalizable, bool publish>
+template <bool gc_thread, bool finalizable, bool publish>
 uintptr_t ZBarrier::mark(uintptr_t addr) {
   uintptr_t good_addr;
 
@@ -89,7 +81,7 @@ uintptr_t ZBarrier::mark(uintptr_t addr) {
 
   // Mark
   if (should_mark_through<finalizable>(addr)) {
-    ZHeap::heap()->mark_object<finalizable, publish>(good_addr);
+    ZHeap::heap()->mark_object<gc_thread, finalizable, publish>(good_addr);
   }
 
   return good_addr;
@@ -122,7 +114,7 @@ uintptr_t ZBarrier::relocate(uintptr_t addr) {
 }
 
 uintptr_t ZBarrier::relocate_or_mark(uintptr_t addr) {
-  return during_relocate() ? relocate(addr) : mark<Strong, Publish>(addr);
+  return during_relocate() ? relocate(addr) : mark<AnyThread, Strong, Publish>(addr);
 }
 
 uintptr_t ZBarrier::relocate_or_remap(uintptr_t addr) {
@@ -188,11 +180,11 @@ uintptr_t ZBarrier::keep_alive_barrier_on_phantom_oop_slow_path(uintptr_t addr) 
 // Mark barrier
 //
 uintptr_t ZBarrier::mark_barrier_on_oop_slow_path(uintptr_t addr) {
-  return mark<Strong, Overflow>(addr);
+  return mark<GCThread, Strong, Overflow>(addr);
 }
 
 uintptr_t ZBarrier::mark_barrier_on_finalizable_oop_slow_path(uintptr_t addr) {
-  const uintptr_t good_addr = mark<Finalizable, Overflow>(addr);
+  const uintptr_t good_addr = mark<GCThread, Finalizable, Overflow>(addr);
   if (ZAddress::is_good(addr)) {
     // If the oop was already strongly marked/good, then we do
     // not want to downgrade it to finalizable marked/good.
@@ -212,9 +204,10 @@ uintptr_t ZBarrier::mark_barrier_on_finalizable_oop_slow_path(uintptr_t addr) {
 uintptr_t ZBarrier::mark_barrier_on_root_oop_slow_path(uintptr_t addr) {
   assert(SafepointSynchronize::is_at_safepoint(), "Should be at safepoint");
   assert(during_mark(), "Invalid phase");
+  assert(ZThread::is_worker(), "Invalid thread");
 
   // Mark
-  return mark<Strong, Publish>(addr);
+  return mark<GCThread, Strong, Publish>(addr);
 }
 
 //

@@ -42,6 +42,7 @@ static const ZStatPhaseCycle      ZPhaseCycle("Garbage Collection Cycle");
 static const ZStatPhasePause      ZPhasePauseMarkStart("Pause Mark Start");
 static const ZStatPhaseConcurrent ZPhaseConcurrentMark("Concurrent Mark");
 static const ZStatPhaseConcurrent ZPhaseConcurrentMarkContinue("Concurrent Mark Continue");
+static const ZStatPhaseConcurrent ZPhaseConcurrentMarkFree("Concurrent Mark Free");
 static const ZStatPhasePause      ZPhasePauseMarkEnd("Pause Mark End");
 static const ZStatPhaseConcurrent ZPhaseConcurrentProcessNonStrongReferences("Concurrent Process Non-Strong References");
 static const ZStatPhaseConcurrent ZPhaseConcurrentResetRelocationSet("Concurrent Reset Relocation Set");
@@ -367,6 +368,11 @@ void ZDriver::run_gc_cycle(GCCause::Cause cause) {
       ZStatTimer timer(ZPhaseConcurrentMarkContinue);
       ZHeap::heap()->mark(false /* initial */);
     }
+  }
+
+  {
+    ZStatTimer timer(ZPhaseConcurrentMarkFree);
+    ZHeap::heap()->mark_free();
   }
 
   // Phase 4: Concurrent Process Non-Strong References

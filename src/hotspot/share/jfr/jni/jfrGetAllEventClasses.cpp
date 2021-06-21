@@ -47,7 +47,7 @@ jlong JfrEventClasses::unloaded_event_classes_count() {
 
 void JfrEventClasses::increment_unloaded_event_class() {
   // incremented during class unloading (safepoint) for each unloaded event class
-  assert(SafepointSynchronize::is_at_safepoint(), "invariant");
+  assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
   ++unloaded_event_classes;
 }
 

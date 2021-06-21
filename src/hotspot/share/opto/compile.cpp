@@ -1890,8 +1890,9 @@ bool Compile::must_alias(const TypePtr* adr_type, int alias_idx) {
 bool Compile::can_alias(const TypePtr* adr_type, int alias_idx) {
   if (alias_idx == AliasIdxTop)         return false; // the empty category
   if (adr_type == NULL)                 return false; // NULL serves as TypePtr::TOP
-  if (alias_idx == AliasIdxBot)         return true;  // the universal category
-  if (adr_type->base() == Type::AnyPtr) return true;  // TypePtr::BOTTOM or its twins
+  // Known instance doesn't alias with bottom memory
+  if (alias_idx == AliasIdxBot)         return !adr_type->is_known_instance();                   // the universal category
+  if (adr_type->base() == Type::AnyPtr) return !C->get_adr_type(alias_idx)->is_known_instance(); // TypePtr::BOTTOM or its twins
 
   // the only remaining possible overlap is identity
   int adr_idx = get_alias_index(adr_type);
@@ -4130,7 +4131,7 @@ void Compile::ConstantTable::calculate_offsets_and_size() {
   _size = align_up(offset, (int)CodeEntryAlignment);
 }
 
-void Compile::ConstantTable::emit(CodeBuffer& cb) {
+bool Compile::ConstantTable::emit(CodeBuffer& cb) const {
   MacroAssembler _masm(&cb);
   for (int i = 0; i < _constants.length(); i++) {
     Constant con = _constants.at(i);
@@ -4159,12 +4160,30 @@ void Compile::ConstantTable::emit(CodeBuffer& cb) {
       // filled in later in fill_jump_table.
       address dummy = (address) n;
       constant_addr = _masm.address_constant(dummy);
-      // Expand jump-table
-      for (uint i = 1; i < n->outcnt(); i++) {
-        address temp_addr = _masm.address_constant(dummy + i);
-        assert(temp_addr, "consts section too small");
+      if (constant_addr == NULL) {
+        return false;
       }
-      break;
+      assert((constant_addr - _masm.code()->consts()->start()) == con.offset(),
+             "must be: %d == %d", (int)(constant_addr - _masm.code()->consts()->start()), (int)(con.offset()));
+
+      // Expand jump-table
+      address last_addr = NULL;
+      for (uint j = 1; j < n->outcnt(); j++) {
+        last_addr = _masm.address_constant(dummy + j);
+        if (last_addr == NULL) {
+          return false;
+        }
+      }
+#ifdef ASSERT
+      address start = _masm.code()->consts()->start();
+      address new_constant_addr = last_addr - ((n->outcnt() - 1) * sizeof(address));
+      // Expanding the jump-table could result in an expansion of the const code section.
+      // In that case, we need to check if the new constant address matches the offset.
+      assert((constant_addr - start == con.offset()) || (new_constant_addr - start == con.offset()),
+             "must be: %d == %d or %d == %d (after an expansion)", (int)(constant_addr - start), (int)(con.offset()),
+             (int)(new_constant_addr - start), (int)(con.offset()));
+#endif
+      continue; // Loop
     }
     case T_METADATA: {
       Metadata* obj = con.get_metadata();
@@ -4174,10 +4193,14 @@ void Compile::ConstantTable::emit(CodeBuffer& cb) {
     }
     default: ShouldNotReachHere();
     }
-    assert(constant_addr, "consts section too small");
+
+    if (constant_addr == NULL) {
+      return false;
+    }
     assert((constant_addr - _masm.code()->consts()->start()) == con.offset(),
-            "must be: %d == %d", (int) (constant_addr - _masm.code()->consts()->start()), (int)(con.offset()));
+            "must be: %d == %d", (int)(constant_addr - _masm.code()->consts()->start()), (int)(con.offset()));
   }
+  return true;
 }
 
 int Compile::ConstantTable::find_offset(Constant& con) const {
@@ -4278,16 +4301,22 @@ int Compile::static_subtype_check(ciKlass* superk, ciKlass* subk) {
   }
 
   ciType* superelem = superk;
-  if (superelem->is_array_klass())
+  ciType* subelem = subk;
+  if (superelem->is_array_klass()) {
     superelem = superelem->as_array_klass()->base_element_type();
+  }
+  if (subelem->is_array_klass()) {
+    subelem = subelem->as_array_klass()->base_element_type();
+  }
 
   if (!subk->is_interface()) {  // cannot trust static interface types yet
     if (subk->is_subtype_of(superk)) {
       return SSC_always_true;   // (1) false path dead; no dynamic test needed
     }
     if (!(superelem->is_klass() && superelem->as_klass()->is_interface()) &&
+        !(subelem->is_klass() && subelem->as_klass()->is_interface()) &&
         !superk->is_subtype_of(subk)) {
-      return SSC_always_false;
+      return SSC_always_false;  // (2) true path dead; no dynamic test needed
     }
   }
 

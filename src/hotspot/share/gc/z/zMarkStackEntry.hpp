@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -35,16 +35,21 @@
 //  ------------
 //
 //   6
-//   3                                                                   2 1 0
-//  +---------------------------------------------------------------------+-+-+
-//  |11111111 11111111 11111111 11111111 11111111 11111111 11111111 111111|1|1|
-//  +---------------------------------------------------------------------+-+-+
-//  |                                                                     | |
-//  |                                      1-1 Partial Array Flag (1-bit) * |
-//  |                                                                       |
-//  |                                                0-0 Final Flag (1-bit) *
+//   3                                                                5 4 3 2 1 0
+//  +------------------------------------------------------------------+-+-+-+-+-+
+//  |11111111 11111111 11111111 11111111 11111111 11111111 11111111 111|1|1|1|1|1|
+//  +------------------------------------------------------------------+-+-+-+-+-+
+//  |                                                                    | | | |
+//  |                                                                    | | | |
+//  |                                              3-3 Mark Flag (1-bit) * | | |
+//  |                                                                      | | |
+//  |                                      2-2 Increment Live Flag (1-bit) * | |
+//  |                                                                        | |
+//  |                                         1-1 Partial Array Flag (1-bit) * |
+//  |                                                                          |
+//  |                                                   0-0 Final Flag (1-bit) *
 //  |
-//  * 63-2 Object Address (62-bits)
+//  * 63-4 Object Address (60-bits)
 //
 //
 //  Partial array entry
@@ -69,7 +74,9 @@ class ZMarkStackEntry  {
 private:
   typedef ZBitField<uint64_t, bool,      0,  1>  field_finalizable;
   typedef ZBitField<uint64_t, bool,      1,  1>  field_partial_array;
-  typedef ZBitField<uint64_t, uintptr_t, 2,  62> field_object_address;
+  typedef ZBitField<uint64_t, bool,      2,  1>  field_inc_live;
+  typedef ZBitField<uint64_t, bool,      3,  1>  field_mark;
+  typedef ZBitField<uint64_t, uintptr_t, 4,  60> field_object_address;
   typedef ZBitField<uint64_t, size_t,    2,  30> field_partial_array_length;
   typedef ZBitField<uint64_t, size_t,    32, 32> field_partial_array_offset;
 
@@ -83,8 +90,10 @@ public:
     // what _entry is initialized to.
   }
 
-  ZMarkStackEntry(uintptr_t object_address, bool finalizable) :
+  ZMarkStackEntry(uintptr_t object_address, bool mark, bool inc_live, bool finalizable) :
       _entry(field_object_address::encode(object_address) |
+             field_mark::encode(mark) |
+             field_inc_live::encode(inc_live) |
              field_partial_array::encode(false) |
              field_finalizable::encode(finalizable)) {}
 
@@ -108,6 +117,14 @@ public:
 
   size_t partial_array_length() const {
     return field_partial_array_length::decode(_entry);
+  }
+
+  bool inc_live() const {
+    return field_inc_live::decode(_entry);
+  }
+
+  bool mark() const {
+    return field_mark::decode(_entry);
   }
 
   uintptr_t object_address() const {
