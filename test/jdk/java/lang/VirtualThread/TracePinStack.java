@@ -48,7 +48,7 @@ public class TracePinStack {
                 }
             };
 
-            Thread vt = Thread.builder().virtual(executor).name("vt-0").task(target).build();
+            Thread vt = Thread.ofVirtual().scheduler(executor).name("vt-0").unstarted(target);
             vt.start();
             vt.join();
             executor.shutdown();

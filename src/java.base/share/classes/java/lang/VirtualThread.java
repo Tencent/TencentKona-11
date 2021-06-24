@@ -144,7 +144,7 @@ class VirtualThread extends Thread {
         if ((characteristics & NO_THREAD_LOCALS) != 0) {
             this.threadLocals = ThreadLocal.ThreadLocalMap.NOT_SUPPORTED;
             this.inheritableThreadLocals = ThreadLocal.ThreadLocalMap.NOT_SUPPORTED;
-        } else if ((characteristics & INHERIT_THREAD_LOCALS) != 0) {
+        } else if ((characteristics & NO_INHERIT_THREAD_LOCALS) == 0) {
             Thread parent = Thread.currentThread();
             ThreadLocal.ThreadLocalMap parentMap = parent.inheritableThreadLocals;
             if (parentMap != null
