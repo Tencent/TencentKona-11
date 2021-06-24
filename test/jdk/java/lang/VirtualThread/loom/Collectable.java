@@ -5,7 +5,7 @@
  *
  * This code is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation. THL A29 Limited designates 
+ * published by the Free Software Foundation. THL A29 Limited designates
  * this particular file as subject to the "Classpath" exception as provided
  * by Oracle in the LICENSE file that accompanied this code.
  *
@@ -37,7 +37,7 @@ public class Collectable {
 
     // ensure that an unstarted virtual thread can be GC"ed
     public void testGC1() {
-        Thread thread = Thread.builder().virtual().task(() -> { }).build();
+        Thread thread = Thread.ofVirtual().unstarted(() -> { });
         WeakReference<Thread> ref = new WeakReference<>(thread);
         thread = null;
         waitUntilCleared(ref);

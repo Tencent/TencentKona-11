@@ -5,7 +5,7 @@
  *
  * This code is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation. THL A29 Limited designates 
+ * published by the Free Software Foundation. THL A29 Limited designates
  * this particular file as subject to the "Classpath" exception as provided
  * by Oracle in the LICENSE file that accompanied this code.
  *
@@ -24,7 +24,7 @@
  * @test
  * @run testng VTWaitTest
  * @summary Virtual Thread wait test
- *   Conditional wait\CountDownLatch 
+ *   Conditional wait\CountDownLatch
  */
 import java.util.concurrent.*;
 import java.util.concurrent.locks.*;
@@ -57,17 +57,17 @@ public class VTWaitTest {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Lock lock = new ReentrantLock();
 
-        Thread vt1 = Thread.builder().virtual(executor).name("vt-1").task(() -> {
+        Thread vt1 = Thread.ofVirtual().scheduler(executor).name("vt-1").unstarted(() -> {
             lock.lock();
             assertEquals(val, 1);
             val++;
             lock.unlock();
-        }).build();
+        });
 
-        Thread vt2 = Thread.builder().virtual(executor).name("vt-2").task(() -> {
+        Thread vt2 = Thread.ofVirtual().scheduler(executor).name("vt-2").unstarted(() -> {
             assertEquals(val, 0);
             val++;
-        }).build();
+        });
 
         lock.lock();
         vt1.start();
@@ -84,7 +84,7 @@ public class VTWaitTest {
     }
 
     // ReentrantLock test use Lock support
-    // 1. Init val = 0, sleep 1s in main 
+    // 1. Init val = 0, sleep 1s in main
     // 2. Execute in SingleThreadExecutor, lock.lock in VT1 and cond.wait, this should yield
     // 3. Continue run VT2 and check value is still 0, update value to 1
     // 3. Lock and Condition notify in main thread this will unpark VT1, in VT1 check value is 1 update value to 2
@@ -97,7 +97,7 @@ public class VTWaitTest {
         Condition cond = lock.newCondition();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        Thread vt1 = Thread.builder().virtual(executor).name("vt-1").task(() -> {
+        Thread vt1 = Thread.ofVirtual().scheduler(executor).name("vt-1").unstarted(() -> {
             lock.lock();
             enter_lock = true;
             try {
@@ -109,12 +109,12 @@ public class VTWaitTest {
             }
             assertEquals(val, 1);
             val++;
-        }).build();
+        });
 
-        Thread vt2 = Thread.builder().virtual(executor).name("vt-2").task(() -> { 
+        Thread vt2 = Thread.ofVirtual().scheduler(executor).name("vt-2").unstarted(() -> { 
             assertEquals(val, 0);
             val++;
-        }).build();
+        });
 
         vt1.start();
         vt2.start();
@@ -153,7 +153,7 @@ public class VTWaitTest {
         };
 
         Thread[] vts = new Thread[40];
-        ThreadFactory f = Thread.builder().virtual(executor).name("MultiVThreadLockRace_", 0).factory();
+        ThreadFactory f = Thread.ofVirtual().scheduler(executor).name("MultiVThreadLockRace_", 0).factory();
         for (int i = 0; i < 40; i++) {
             vts[i] = f.newThread(target);
         }
@@ -197,9 +197,9 @@ public class VTWaitTest {
 
         Thread[] vts = new Thread[40];
         Thread[] threads = new Thread[40];
-        ThreadFactory vf = Thread.builder().virtual(executor).name("vt_", 0).factory();
-        ThreadFactory tf = Thread.builder().name("thread_", 0).factory();
-        for (int i = 0; i < 40; i++) { 
+        ThreadFactory vf = Thread.ofVirtual().scheduler(executor).name("vt_", 0).factory();
+        ThreadFactory tf = Thread.ofVirtual().name("thread_", 0).factory();
+        for (int i = 0; i < 40; i++) {
             vts[i] = vf.newThread(target);
             threads[i] = tf.newThread(thread_target);
         }
@@ -213,11 +213,10 @@ public class VTWaitTest {
             vts[i].join();
             threads[i].join();
         }
-    
         assertEquals(val, 80);
-        executor.shutdown();  
+        executor.shutdown(); 
     }
-    
+
     static CountDownLatch doneSignal;
     // complex condition, multiple VTs condition wait/notify, find some cases
     static void MultiThreadCondRace() throws Exception {
@@ -244,7 +243,7 @@ public class VTWaitTest {
         };
 
         Thread[] vts = new Thread[100];
-        ThreadFactory f = Thread.builder().virtual(executor).name("vt_", 0).factory();
+        ThreadFactory f = Thread.ofVirtual().scheduler(executor).name("vt_", 0).factory();
         for (int i = 0; i < 100; i++) {
             vts[i] = f.newThread(target);
         }

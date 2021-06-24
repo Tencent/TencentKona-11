@@ -5,7 +5,7 @@
  *
  * This code is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation. THL A29 Limited designates 
+ * published by the Free Software Foundation. THL A29 Limited designates
  * this particular file as subject to the "Classpath" exception as provided
  * by Oracle in the LICENSE file that accompanied this code.
  *
@@ -61,7 +61,7 @@ public class VTExecutorTest {
 
     private static void testSchedule(int sleepMilli) throws Exception {
         AtomicInteger count = new AtomicInteger();
-        ThreadFactory f = Thread.builder().virtual().name("testSchedule_", 0).factory();
+        ThreadFactory f = Thread.ofVirtual().factory();
         ExecutorService e = Executors.newFixedThreadPool(realThreadCount, f);
         CountDownLatch startSignal = new CountDownLatch(1);
         CountDownLatch doneSignal = new CountDownLatch(requestCount);

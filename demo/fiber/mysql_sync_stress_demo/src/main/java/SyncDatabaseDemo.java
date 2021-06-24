@@ -5,7 +5,7 @@
  *
  * This code is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation. THL A29 Limited designates 
+ * published by the Free Software Foundation. THL A29 Limited designates
  * this particular file as subject to the "Classpath" exception as provided
  * by Oracle in the LICENSE file that accompanied this code.
  *
@@ -191,9 +191,9 @@ public class SyncDatabaseDemo {
     public static void initExecutor() {
         ThreadFactory factory;
         if (testOption == useFiber) {
-            factory = Thread.builder().virtual().factory();
+            factory = Thread.ofVirtual().factory();
         } else {
-            factory = Thread.builder().factory();
+            factory = Thread.ofPlatform().factory();
         }
 
         if (testOption == useAsync) {
@@ -207,7 +207,7 @@ public class SyncDatabaseDemo {
         if (testOption == useFiber || testOption == useThreadAndThreadPool) {
             // an independent thread pool which has 16 threads
             db_executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
-        } 
+        }
     }
 
     public static void main(String[] args) throws Exception {

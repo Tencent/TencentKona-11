@@ -60,7 +60,7 @@ public class ThreadExecutorTest {
         final int NUM_TASKS = 1000;
         AtomicInteger threadCount = new AtomicInteger();
 
-        ThreadFactory factory1 = Thread.builder().virtual().name("63").factory();
+        ThreadFactory factory1 = Thread.ofVirtual().name("63").factory();
         ThreadFactory factory2 = task -> {
             threadCount.addAndGet(1);
             return factory1.newThread(task);
@@ -91,9 +91,10 @@ public class ThreadExecutorTest {
     public void testNewVirtualThreadExecutor() throws Exception {
         final int NUM_TASKS = 10;
         AtomicInteger virtualThreadCount = new AtomicInteger();
-        ThreadFactory factory1 = Thread.builder().virtual().name("94").factory();
+        ThreadFactory factory1 = Thread.ofVirtual().name("94").factory();
         ExecutorService executor = Executors.newCachedThreadPool(factory1);
-        /*try (var executor = Executors.newVirtualThreadExecutor())*/ {
+        /*try (var executor = Executors.newVirtualThreadExecutor())*/ 
+        try {
             for (int i=0; i<NUM_TASKS; i++) {
                 executor.submit(() -> {
                     if (Thread.currentThread().isVirtual()) {
@@ -101,15 +102,17 @@ public class ThreadExecutorTest {
                     }
                 });
             }
+        } finally {
+            executor.shutdown();
+            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            assertTrue(virtualThreadCount.get() == NUM_TASKS);
         }
-        executor.shutdown();
-        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-        assertTrue(virtualThreadCount.get() == NUM_TASKS);
     }
 
     //Test that shutdownNow stops executing tasks.
     public void testShutdownNow() {
-        ThreadFactory factory = Thread.builder().virtual().daemon(true).name("112").factory();
+        //ThreadFactory factory = Thread.ofVirtual().daemon(true).factory();
+        ThreadFactory factory = Thread.ofVirtual().name("115").factory();
         ExecutorService executor = Executors.newCachedThreadPool(factory);
         Future<?> result;
         try {
@@ -127,7 +130,8 @@ public class ThreadExecutorTest {
     //Test submit when the Executor is shutdown but not terminated.
     public void testSubmitAfterShutdown() {
         Phaser barrier = new Phaser(2);
-        ThreadFactory factory = Thread.builder().virtual().daemon(true).name("130").factory();
+        //ThreadFactory factory = Thread.ofVirtual().daemon(true).factory();
+        ThreadFactory factory = Thread.ofVirtual().name("134").factory();
         ExecutorService executor = Executors.newCachedThreadPool(factory);
         try {
             // submit task to prevent executor from terminating
@@ -142,7 +146,8 @@ public class ThreadExecutorTest {
     }
     // Test submit when the Executor is terminated.
     public void testSubmitAfterTermination() {
-        ThreadFactory factory = Thread.builder().virtual().daemon(true).name("145").factory();
+        //ThreadFactory factory = Thread.ofVirtual().daemon(true).factory();
+        ThreadFactory factory = Thread.ofVirtual().name("150").factory();
         ExecutorService executor = Executors.newSingleThreadExecutor(factory);
         executor.shutdown();
         assertTrue(executor.isShutdown() && executor.isTerminated());
@@ -150,9 +155,9 @@ public class ThreadExecutorTest {
     }
     //Test invokeAny where all tasks complete normally.
     public void testInvokeAnyCompleteNormally1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("153").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("158").factory();
         ExecutorService executor = Executors.newSingleThreadExecutor(factory);
-        /*try (var executor = Executors.newVirtualThreadExecutor())*/ 
+        /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
             Callable<String> task1 = () -> "foo";
             Callable<String> task2 = () -> "bar";
@@ -170,9 +175,9 @@ public class ThreadExecutorTest {
 
     // Test invokeAny where all tasks complete normally.
     public void testInvokeAnyCompleteNormally2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("168").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("178").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
-        /*try (var executor = Executors.newVirtualThreadExecutor())*/ 
+        /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
             Callable<String> task1 = () -> "foo";
             Callable<String> task2 = () -> {
@@ -193,7 +198,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAny where all tasks complete with exception.
     public void testInvokeAnyCompleteExceptionally1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("186").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("201").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         /*try (var executor = Executors.newVirtualThreadExecutor())*/ 
         try {
@@ -219,7 +224,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAny where all tasks complete with exception.
     public void testInvokeAnyCompleteExceptionally2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("207").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("227").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
@@ -248,9 +253,9 @@ public class ThreadExecutorTest {
 
     // Test invokeAny where some, not all, tasks complete normally.
     public void testInvokeAnySomeCompleteNormally1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("231").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("256").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
-        /*try (var executor = Executors.newVirtualThreadExecutor())*/ 
+        /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
             class FooException extends Exception { }
             Callable<String> task1 = () -> "foo";
@@ -265,18 +270,18 @@ public class ThreadExecutorTest {
     }
     // Test invokeAny where some, not all, tasks complete normally.
     public void testInvokeAnySomeCompleteNormally2() throws Exception {
-       ThreadFactory factory = Thread.builder().virtual().name("243").factory();
-       ExecutorService executor = Executors.newFixedThreadPool(2, factory);
-       //try (var executor = Executors.newVirtualThreadExecutor())
-       try {
-            class FooException extends Exception { }
-            Callable<String> task1 = () -> {
-                Thread.sleep(Duration.ofSeconds(2).toMillis());
-                return "foo";
-            };
-            Callable<String> task2 = () -> { throw new FooException(); };
-            String result = executor.invokeAny(Arrays.asList(task1, task2));
-            assertTrue("foo".equals(result));
+        ThreadFactory factory = Thread.ofVirtual().name("273").factory();
+        ExecutorService executor = Executors.newFixedThreadPool(2, factory);
+        //try (var executor = Executors.newVirtualThreadExecutor())
+        try {
+             class FooException extends Exception { }
+             Callable<String> task1 = () -> {
+                 Thread.sleep(Duration.ofSeconds(2).toMillis());
+                 return "foo";
+             };
+             Callable<String> task2 = () -> { throw new FooException(); };
+             String result = executor.invokeAny(Arrays.asList(task1, task2));
+             assertTrue("foo".equals(result));
         } finally {
             executor.shutdown();
             executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
@@ -286,7 +291,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAny where all tasks complete normally before timeout expires.
     public void testInvokeAnyWithTimeout1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("260").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("294").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
@@ -304,7 +309,7 @@ public class ThreadExecutorTest {
     // Test invokeAny where timeout expires before any task completes.
     @Test(expectedExceptions = { TimeoutException.class })
     public void testInvokeAnyWithTimeout2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("273").factory();
+        ThreadFactory factory = Thread.ofVirtual().factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
@@ -327,7 +332,7 @@ public class ThreadExecutorTest {
     // Test invokeAny where timeout expires after some tasks have completed
     @Test(expectedExceptions = { TimeoutException.class })
     public void testInvokeAnyWithTimeout3() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("291").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("335").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
@@ -347,7 +352,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAny cancels remaining tasks
     public void testInvokeAnyCancelRemaining() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("306").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("355").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
@@ -368,7 +373,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAny with interrupt status set.
     public void testInvokeAnyInterrupt1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("322").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("376").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         /*try (var executor = Executors.newVirtualThreadExecutor())*/
         try {
@@ -392,9 +397,9 @@ public class ThreadExecutorTest {
 
     // Test interrupt with thread blocked in invokeAny.
     public void testInvokeAnyInterrupt2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("341").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("400").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
-        // try (var executor = Executors.newVirtualThreadExecutor())
+        // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
             Callable<String> task1 = () -> {
                 Thread.sleep(Duration.ofMinutes(1).toMillis());
@@ -423,7 +428,7 @@ public class ThreadExecutorTest {
     // Test invokeAny after ExecutorService has been shutdown.
     @Test(expectedExceptions = { RejectedExecutionException.class })
     public void testInvokeAnyAfterShutdown() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("368").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("431").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         executor.shutdown();
 
@@ -435,7 +440,7 @@ public class ThreadExecutorTest {
     // Test invokeAny with empty collection.
     @Test(expectedExceptions = { IllegalArgumentException.class })
     public void testInvokeAnyEmpty1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("380").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("443").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -450,7 +455,7 @@ public class ThreadExecutorTest {
     // Test invokeAny with empty collection.
     @Test(expectedExceptions = { IllegalArgumentException.class })
     public void testInvokeAnyEmpty2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("391").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("458").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -465,7 +470,7 @@ public class ThreadExecutorTest {
     // Test invokeAny with null.
     @Test(expectedExceptions = { NullPointerException.class })
     public void testInvokeAnyNull1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("402").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("473").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -480,7 +485,7 @@ public class ThreadExecutorTest {
     // Test invokeAny with null element
     @Test(expectedExceptions = { NullPointerException.class })
     public void testInvokeAnyNull2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("413").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("488").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -497,7 +502,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAll where all tasks complete normally.
     public void testInvokeAll1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("426").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("505").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -527,7 +532,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAll where all tasks complete with exception.
     public void testInvokeAll2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("452").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("535").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -560,7 +565,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAll where all tasks complete normally before the timeout expires.
     public void testInvokeAll3() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("481").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("568").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -590,7 +595,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAll where some tasks do not complete before the timeout expires.
     public void testInvokeAll4() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("507").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("598").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -635,7 +640,7 @@ public class ThreadExecutorTest {
     // default <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,
     //                                      boolean cancelOnException)
     /*public void testInvokeAll5() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("548").factory();
+        ThreadFactory factory = Thread.ofVirtual().factory();
         ExecutorService executor = Executors.newFixedThreadPool(3, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         {
@@ -672,7 +677,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAll with cancelOnException=true, first task should be cancelled
     public void testInvokeAll6() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("585").factory();
+        ThreadFactory factory = Thread.ofVirtual().factory();
         ExecutorService executor = Executors.newFixedThreadPool(3, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         {
@@ -709,7 +714,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAll with interrupt status set.
     public void testInvokeAllInterrupt1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("622").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("717").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -736,7 +741,7 @@ public class ThreadExecutorTest {
     }
 
     public void testInvokeAllInterrupt2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("645").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("744").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -764,7 +769,7 @@ public class ThreadExecutorTest {
 
     // no cacelationOnException method
     /* public void testInvokeAllInterrupt3() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("669").factory();
+        ThreadFactory factory = Thread.ofVirtual().factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         {
@@ -788,7 +793,7 @@ public class ThreadExecutorTest {
 
     // Test interrupt with thread blocked in invokeAll
     public void testInvokeAllInterrupt4() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("693").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("796").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -818,7 +823,7 @@ public class ThreadExecutorTest {
 
     // Test interrupt with thread blocked in invokeAll with timeout
     public void testInvokeAllInterrupt5() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("719").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("826").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -848,7 +853,7 @@ public class ThreadExecutorTest {
 
     // Test interrupt with thread blocked in invokeAll cancelOnException=true
     /*public void testInvokeAllInterrupt6() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("745").factory();
+        ThreadFactory factory = Thread.ofVirtual().factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         {
@@ -875,7 +880,7 @@ public class ThreadExecutorTest {
     // Test invokeAll after ExecutorService has been shutdown.
     @Test(expectedExceptions = { RejectedExecutionException.class })
     public void testInvokeAllAfterShutdown1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("772").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("883").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         executor.shutdown();
 
@@ -886,14 +891,13 @@ public class ThreadExecutorTest {
 
     @Test(expectedExceptions = { RejectedExecutionException.class })
     public void testInvokeAllAfterShutdown2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("783").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("894").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         executor.shutdown();
 
         Callable<String> task1 = () -> "foo";
         Callable<String> task2 = () -> "bar";
         executor.invokeAll(Arrays.asList(task1, task2), 1, TimeUnit.SECONDS);
-        assertTrue(executor.isTerminated());
     }
 
     /*@Test(expectedExceptions = { RejectedExecutionException.class })
@@ -908,7 +912,7 @@ public class ThreadExecutorTest {
 
     // Test invokeAll with empty collection.
     public void testInvokeAllEmpty1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("804").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("915").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -922,7 +926,7 @@ public class ThreadExecutorTest {
     }
 
     public void testInvokeAllEmpty2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("814").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("929").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -945,14 +949,12 @@ public class ThreadExecutorTest {
 
     @Test(expectedExceptions = { NullPointerException.class })
     public void testInvokeAllNull1() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("833").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("952").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
-        try
-        {
+        try {
             executor.invokeAll(null);
-        }
-        finally {
+        } finally {
             executor.shutdown();
             executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             assertTrue(executor.isTerminated());
@@ -961,7 +963,7 @@ public class ThreadExecutorTest {
 
     @Test(expectedExceptions = { NullPointerException.class })
     public void testInvokeAllNull2() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("843").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("966").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -978,7 +980,7 @@ public class ThreadExecutorTest {
 
     @Test(expectedExceptions = { NullPointerException.class })
     public void testInvokeAllNull3() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("856").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("983").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -992,7 +994,7 @@ public class ThreadExecutorTest {
 
     @Test(expectedExceptions = { NullPointerException.class })
     public void testInvokeAllNull4() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("866").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("997").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
@@ -1007,7 +1009,7 @@ public class ThreadExecutorTest {
 
     @Test(expectedExceptions = { NullPointerException.class })
     public void testInvokeAllNull5() throws Exception {
-        ThreadFactory factory = Thread.builder().virtual().name("877").factory();
+        ThreadFactory factory = Thread.ofVirtual().name("1012").factory();
         ExecutorService executor = Executors.newFixedThreadPool(2, factory);
         // try (var executor = Executors.newVirtualThreadExecutor()) {
         try {
