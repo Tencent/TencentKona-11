@@ -5,7 +5,7 @@
  *
  * This code is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation. THL A29 Limited designates 
+ * published by the Free Software Foundation. THL A29 Limited designates
  * this particular file as subject to the "Classpath" exception as provided
  * by Oracle in the LICENSE file that accompanied this code.
  *
@@ -23,7 +23,7 @@
 /*
  * @test
  * @modules java.base/jdk.internal.misc
- * @run testng SimpleVTDefault 
+ * @run testng SimpleVTDefault
  * @summary Basic test for virtual thread, test create/run/yield/resume/stop
  */
 import java.util.concurrent.*;
@@ -45,7 +45,7 @@ public class SimpleVTDefault {
                 finished_vt_count++;
             }
         };
-        Thread vt = Thread.newThread("foo_thread", Thread.VIRTUAL, target); 
+        Thread vt = Thread.ofVirtual().name("foo_thread").unstarted(target);
         vt.start();
         vt.join();
         //Thread.sleep(1000);
@@ -66,7 +66,7 @@ public class SimpleVTDefault {
         };
 
         Thread[] vts = new Thread[40];
-        ThreadFactory f = Thread.builder().virtual().name("FixedThreadPoolSimple_", 0).factory();
+        ThreadFactory f = Thread.ofVirtual().name("FixedThreadPoolSimple_", 0).factory();
         for (int i = 0; i < 40; i++) {
             vts[i] = f.newThread(target);
         }
@@ -94,7 +94,7 @@ public class SimpleVTDefault {
                 assertNotEquals(Thread.currentCarrierThread(), kernel);
             }
         };
-        Thread vt = Thread.newThread("park_thread", Thread.VIRTUAL, target); 
+        Thread vt = Thread.ofVirtual().name("park_thread").unstarted(target);
         vt.start();
 
         System.out.println("after start " + Thread.currentThread().getName() + " " + Thread.currentCarrierThread().getName());
@@ -144,7 +144,7 @@ public class SimpleVTDefault {
                 assertEquals(Thread.currentThread().getName(), "vt" + myIndex);
             }
         };
-        ThreadFactory f = Thread.builder().virtual().name("vt", 0).factory();
+        ThreadFactory f = Thread.ofVirtual().name("vt", 0).factory();
         for (int i = 0; i < 10; i++) {
             vts[i] = f.newThread(target);
         }
@@ -183,7 +183,7 @@ public class SimpleVTDefault {
                 assertEquals(Thread.currentThread().getName(), "vt" + myIndex);
             }
         };
-        ThreadFactory f = Thread.builder().virtual().name("vt", 0).factory();
+        ThreadFactory f = Thread.ofVirtual().name("vt", 0).factory();
         for (int i = 0; i < 100; i++) {
             vts[i] = f.newThread(target);
         }
