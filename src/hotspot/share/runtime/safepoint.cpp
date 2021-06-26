@@ -654,13 +654,16 @@ public:
     // All threads deflate monitors and mark nmethods (if necessary).
     Threads::possibly_parallel_threads_do(true, &_cleanup_threads_cl);
 #if INCLUDE_KONA_FIBER
-    if (UseKonaFiber && _cleanup_threads_cl.nmethod_cl() != NULL) {
+    if (UseKonaFiber) {
       guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+      CodeBlobClosure* cb_cl = _cleanup_threads_cl.nmethod_cl();
       int cp = Threads::thread_claim_parity();
       for (size_t i = 0; i < CONT_CONTAINER_SIZE; i++) {
         ContBucket* bucket = ContContainer::bucket(i);
         if (bucket->claim_oops_do(true, cp)) {
-          bucket->nmethods_do(_cleanup_threads_cl.nmethod_cl());
+          if (cb_cl != NULL) {
+            bucket->nmethods_do(cb_cl);
+          }
         }
       }
     }

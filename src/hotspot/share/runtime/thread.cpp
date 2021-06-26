@@ -4586,6 +4586,16 @@ void Threads::assert_all_threads_claimed() {
   const int thread_parity = vmt->oops_do_parity();
   assert((thread_parity == _thread_claim_parity),
          "VMThread " PTR_FORMAT " has incorrect parity %d != %d", p2i(vmt), thread_parity, _thread_claim_parity);
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+    for (size_t i = 0; i < CONT_CONTAINER_SIZE; i++) {
+      ContBucket* bucket = ContContainer::bucket(i);
+      int b_parity = bucket->parity();
+      assert(b_parity == _thread_claim_parity, " has incorrect parity %d != %d", b_parity, _thread_claim_parity);
+    }
+  }
+#endif
 }
 #endif // ASSERT
 

@@ -136,6 +136,7 @@ public:
       return claim_oops_do_par_case(collection_parity);
     }
   }
+  int parity() const { return (int)_oops_do_parity; }
   static void create_cont_bucket_roots_tasks(GCTaskQueue* q);
   static void create_cont_bucket_roots_marking_tasks(GCTaskQueue* q);
 
@@ -156,7 +157,6 @@ public:
   static void insert(Coroutine* cont);
   static void remove(Coroutine* cont);
   static void init();
-  static void verify();
 
   static void frames_do(void f(frame*, const RegisterMap*));
   static void oops_do(OopClosure* f, CodeBlobClosure* cf);
