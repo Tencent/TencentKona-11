@@ -24,6 +24,9 @@
 #include "precompiled.hpp"
 #include "gc/z/zTask.hpp"
 #include "gc/z/zThread.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 ZTask::GangTask::GangTask(ZTask* ztask, const char* name) :
     AbstractGangTask(name),
@@ -45,3 +48,9 @@ const char* ZTask::name() const {
 AbstractGangTask* ZTask::gang_task() {
   return &_gang_task;
 }
+
+#if INCLUDE_KONA_FIBER
+void ZConcurrentCoroutineTask::work() {
+  Coroutine::concurrent_task_run(_cl, &_claim);
+}
+#endif

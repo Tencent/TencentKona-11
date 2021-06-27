@@ -32,11 +32,18 @@
 #include "gc/cms/concurrentMarkSweepThread.hpp"
 #include "gc/g1/g1ConcurrentMarkThread.inline.hpp"
 #include "gc/parallel/pcTasks.hpp"
+#include "gc/shared/barrierSetNMethod.hpp"
 #include "runtime/jniHandles.inline.hpp"
 #include "oops/method.inline.hpp"
+#if INCLUDE_ZGC
+#include "gc/z/zBarrierSet.inline.hpp"
+#endif
 
 JavaThread* Coroutine::_main_thread = NULL;
 Method* Coroutine::_continuation_start = NULL;
+Coroutine::ConcCoroStage Coroutine::_conc_stage = Coroutine::_Uninitialized;
+int Coroutine::_conc_claim_parity = 1;
+
 ContBucket* ContContainer::_buckets= NULL;
 
 Mutex* ContReservedStack::_lock = NULL;
@@ -165,7 +172,7 @@ bool ContPreMappedStack::initialize_virtual_space(intptr_t real_stack_size) {
   return true;
 }
 
-ContBucket::ContBucket() : _lock(Mutex::leaf, "ContBucket", false, Monitor::_safepoint_check_never) {
+ContBucket::ContBucket() : _lock(Mutex::leaf + 1, "ContBucket", false, Monitor::_safepoint_check_never) {
   _head = NULL;
   _count = 0;
 
@@ -376,6 +383,67 @@ void Coroutine::Initialize() {
   guarantee(_continuation_start != NULL, "continuation start not resolveds");
 }
 
+void Coroutine::start_concurrent(ConcCoroStage stage) {
+  guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+  assert(_conc_claim_parity >= 1 && _conc_claim_parity <= 2, "unexpected _conc_claim_parity");
+  _conc_stage = stage;
+  _conc_claim_parity++;
+  if (_conc_claim_parity == 3) {
+    _conc_claim_parity = 1;
+  }
+  Log(gc) log;
+  log.trace("[Coroutine::start_concurrent] stage %d, parity %d", stage, _conc_claim_parity);
+}
+
+void Coroutine::end_concurrent() {
+  Log(gc) log;
+  log.trace("[Coroutine::end_concurrent]");
+}
+
+class ConcCoroutineCodeBlobClosure : public CodeBlobToOopClosure {
+private:
+  BarrierSetNMethod* _bs;
+
+public:
+  ConcCoroutineCodeBlobClosure(OopClosure* cl) :
+    CodeBlobToOopClosure(cl, true /* fix_relocations */),
+    _bs(BarrierSet::barrier_set()->barrier_set_nmethod()) {}
+
+  virtual void do_code_blob(CodeBlob* cb) {
+    nmethod* const nm = cb->as_nmethod_or_null();
+    if (nm != NULL) {
+      _bs->nmethod_entry_barrier(nm);
+    }
+  }
+};
+
+void Coroutine::concurrent_task_run(OopClosure* f, int* claim) {
+  ConcCoroutineCodeBlobClosure cf(f);
+  while (true) {
+    int res = Atomic::add(1, claim);
+    int cur = res - 1;
+    if (cur >= (int)CONT_CONTAINER_SIZE) {
+      break;
+    }
+    ContBucket* bucket = ContContainer::bucket(cur);
+    MutexLockerEx ml(bucket->lock(), Mutex::_no_safepoint_check_flag);
+    Coroutine* head = bucket->head();
+    if (head == NULL) {
+      continue;
+    }
+    Coroutine* current = head;
+    do {
+      if (current->conc_claim(true)) {
+        ResourceMark rm;
+        current->oops_do(f, ClassUnloading ? &cf : NULL);
+        bool res = current->conc_claim(false);
+        guarantee(res == true, "must success release");
+      }
+      current = current->next();
+    } while (current != head);
+  }
+}
+
 void Coroutine::cont_metadata_do(void f(Metadata*)) {
   if (_continuation_start != NULL) {
     f(_continuation_start);
@@ -395,6 +463,50 @@ Coroutine::~Coroutine() {
       "VerifyCoroutineStateOnYield is on and _verify_state is NULL");
   }
   free_stack();
+}
+
+#if INCLUDE_ZGC
+class ZConcurrentCoroutineRootsClosure : public OopClosure {
+public:
+  virtual void do_oop(oop* p) {
+    ZBarrier::load_barrier_on_oop_field((volatile oop*)p);
+  }
+
+  virtual void do_oop(narrowOop* p) {
+    ShouldNotReachHere();
+  }
+};
+
+void Z_Coroutine_Concurrent_Do(Coroutine* coro) {
+  ZConcurrentCoroutineRootsClosure cl;
+  ConcCoroutineCodeBlobClosure code_cl(&cl);
+  coro->oops_do(&cl, ClassUnloading ? &code_cl : NULL);
+}
+#endif
+
+void Coroutine::Concurrent_Coroutine_slowpath(Coroutine* coro) {
+  guarantee(!SafepointSynchronize::is_at_safepoint(), "should not at safepoint");
+  int claim_index;
+  bool can_claim = true;
+  while ((claim_index = coro->_coro_claim) != _conc_claim_parity) {
+    if (claim_index == 4) {
+      // GC thread processing
+      // adaptive counter and sleep?
+      os::naked_yield();
+      can_claim = false;
+      continue;
+    }
+    assert(can_claim == true, "can_claim false means processing by GC thread");
+    if(coro->conc_claim(false)) {
+      if (_conc_stage == _ZConcurrent) {
+        ResourceMark rm;
+        Z_Coroutine_Concurrent_Do(coro);
+      } else {
+        guarantee(false, "unexpected stage");
+      }
+      return;
+    }
+  }
 }
 
 // check yield is from thread contianuation or to thread contianuation
@@ -465,6 +577,7 @@ Coroutine* Coroutine::create_thread_coroutine(JavaThread* thread) {
   coro->_verify_state = NULL;
   coro->_is_thread_coroutine = true;
   coro->_thread = thread;
+  coro->_coro_claim = _conc_claim_parity;
   coro->init_thread_stack(thread);
   coro->_has_javacall = true;
 #ifdef ASSERT
@@ -474,6 +587,11 @@ Coroutine* Coroutine::create_thread_coroutine(JavaThread* thread) {
   coro->_last_SEH = NULL;
 #endif
   ContContainer::insert(coro);
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(coroutine) log;
+    log.trace("[Co]: CreateThreadCoroutine %p in thread %s(%p)", coro, thread->name(), thread);
+  }
   return coro;
 }
 
@@ -497,6 +615,7 @@ void Coroutine::init_coroutine(Coroutine* coro, JavaThread* thread) {
   coro->_state = _onstack;
   coro->_is_thread_coroutine = false;
   coro->_thread = thread;
+  coro->_coro_claim = _conc_claim_parity;
 
 #ifdef ASSERT
   coro->_java_call_counter = 0;
@@ -532,6 +651,24 @@ void Coroutine::frames_do(FrameClosure* fc) {
   if (_state == Coroutine::_onstack) {
     on_stack_frames_do(fc, _is_thread_coroutine);
   }
+}
+
+bool Coroutine::conc_claim(bool gc_thread) {
+  int coro_parity = _coro_claim;
+  if (coro_parity != _conc_claim_parity) {
+    int new_value = gc_thread ? 4 : _conc_claim_parity;
+    int res = Atomic::cmpxchg(new_value, &_coro_claim, coro_parity);
+    if (res == coro_parity) {
+      return true;
+    } else {
+      if (gc_thread) {
+        guarantee(res == _conc_claim_parity, "Or else what?");
+      } else {
+        guarantee(res == _conc_claim_parity || res == 4, "Or else what?");
+      }
+    }
+  }
+  return false;
 }
 
 class oops_do_Closure: public FrameClosure {
