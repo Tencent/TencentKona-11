@@ -32,6 +32,9 @@
 #include "gc/z/zRootsIterator.hpp"
 #include "gc/z/zTask.hpp"
 #include "gc/z/zWorkers.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 ZRelocate::ZRelocate(ZWorkers* workers) :
     _workers(workers) {}
@@ -62,6 +65,12 @@ public:
   virtual void do_oop(narrowOop* p) {
     ShouldNotReachHere();
   }
+
+#if INCLUDE_KONA_FIBER
+  virtual bool should_do_coroutine() {
+    return false;
+  }
+#endif
 };
 
 class ZRelocateRootsTask : public ZTask {
@@ -82,8 +91,16 @@ public:
 };
 
 void ZRelocate::start() {
-  ZRelocateRootsTask task;
-  _workers->run_parallel(&task);
+  // ZRootsIterator destruct before Coroutine::start_concurrent
+  {
+    ZRelocateRootsTask task;
+    _workers->run_parallel(&task);
+  }
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    Coroutine::start_concurrent(Coroutine::_ZConcurrent);
+  }
+#endif
 }
 
 class ZRelocateObjectClosure : public ObjectClosure {
@@ -149,6 +166,14 @@ public:
 };
 
 bool ZRelocate::relocate(ZRelocationSet* relocation_set) {
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    ZLoadBarrierOopClosure cl;
+    ZConcurrentCoroutineTask task(&cl);
+    _workers->run_concurrent(&task);
+    Coroutine::end_concurrent();
+  }
+#endif
   ZRelocateTask task(this, relocation_set);
   _workers->run_concurrent(&task);
   return !task.failed();

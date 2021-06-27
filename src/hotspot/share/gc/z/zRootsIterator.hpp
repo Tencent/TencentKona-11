@@ -34,6 +34,9 @@
 class ZRootsIteratorClosure : public OopClosure, public ThreadClosure {
 public:
   virtual void do_thread(Thread* thread);
+#if INCLUDE_KONA_FIBER
+  virtual bool should_do_coroutine() { return true; }
+#endif
 };
 
 typedef OopStorage::ParState<true /* concurrent */, false /* is_const */> ZOopStorageIterator;

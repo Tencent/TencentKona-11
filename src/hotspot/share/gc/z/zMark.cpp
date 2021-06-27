@@ -50,6 +50,9 @@
 #include "utilities/align.hpp"
 #include "utilities/globalDefinitions.hpp"
 #include "utilities/ticks.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 static const ZStatSubPhase ZSubPhaseConcurrentMark("Concurrent Mark");
 static const ZStatSubPhase ZSubPhaseConcurrentMarkTryFlush("Concurrent Mark Try Flush");
@@ -150,6 +153,12 @@ public:
   virtual void do_oop(narrowOop* p) {
     ShouldNotReachHere();
   }
+
+#if INCLUDE_KONA_FIBER
+  virtual bool should_do_coroutine() {
+    return false;
+  }
+#endif
 };
 
 class ZMarkRootsTask : public ZTask {
@@ -185,8 +194,17 @@ void ZMark::start() {
   prepare_mark();
 
   // Mark roots
-  ZMarkRootsTask task(this);
-  _workers->run_parallel(&task);
+  // ZRootsIterator destruct in following block
+  {
+    ZMarkRootsTask task(this);
+    _workers->run_parallel(&task);
+  }
+
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    Coroutine::start_concurrent(Coroutine::_ZConcurrent);
+  }
+#endif
 }
 
 void ZMark::prepare_work() {
@@ -702,6 +720,14 @@ void ZMark::mark(bool initial) {
     ZMarkConcurrentRootsTask task(this);
     _workers->run_concurrent(&task);
   }
+#if INCLUDE_KONA_FIBER
+  if (initial && UseKonaFiber) {
+    ZLoadBarrierOopClosure cl;
+    ZConcurrentCoroutineTask task(&cl);
+    _workers->run_concurrent(&task);
+    Coroutine::end_concurrent();
+  }
+#endif
 
   ZMarkTask task(this);
   _workers->run_concurrent(&task);

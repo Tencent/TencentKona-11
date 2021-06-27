@@ -209,6 +209,18 @@ public:
     _dummy      = 0xffffffff
   };
 
+  enum ConcCoroStage {
+    _Uninitialized    = 0x00000000,
+    _ZConcurrent      = 0x00000001
+  };
+  // similar with _thread_claim_parity, flip-flop between 1,2. As mutator thread might racing
+  // with concurrent GC thread, define a third state 4 (GC claimed and processing).
+  // 1. In GC Pause STW, invoke start_concurrent and flip _conc_claim_parity
+  // 2. Concurrent GC thread CAS _coro_claim from old parity to 4 before processing.
+  // 3. Concurrent GC thread set _coro_claim from 4 to new parity after processing.
+  // 4. Mutator thread claim CAS _coro_claim from old parity to _conc_claim_parity
+  // 5. Mutator thread wait if _coro_claim is 4 until it changes to _conc_claim_parity.
+  static int              _conc_claim_parity;
 private:
   CoroutineState  _state;
   bool            _is_thread_coroutine;
@@ -222,6 +234,7 @@ private:
 
   JavaThread*     _thread;
   CoroutineVerify* _verify_state;
+  volatile int    _coro_claim;
 
 #ifdef ASSERT
   int             _java_call_counter;
@@ -235,6 +248,9 @@ private:
   static JavaThread* _main_thread;
   static Method* _continuation_start;
 
+  // _conc_stage help muator thread decide which closure use for coroutine processing.
+  static ConcCoroStage    _conc_stage;
+
   bool init_stack(JavaThread* thread);
 
   void add_stack_frame(void* frames, int* depth, javaVFrame* jvf);
@@ -243,6 +259,13 @@ private:
 public:
   virtual ~Coroutine();
   static void Initialize();
+  static void start_concurrent(ConcCoroStage stage);
+  static void end_concurrent();
+  static void concurrent_task_run(OopClosure* f, int* claim);
+
+  // 1. try claim or wait finish
+  // 2. claim success invoke _conc_cl on coroutine
+  static void Concurrent_Coroutine_slowpath(Coroutine* coro);
 
   static void yield_verify(Coroutine* from, Coroutine* to, bool terminate);
   static JavaThread* main_thread() { return _main_thread; }
@@ -279,6 +302,7 @@ public:
   bool is_disposable();
 
   // GC support
+  bool conc_claim(bool is_gc_thread);
   void oops_do(OopClosure* f, CodeBlobClosure* cf);
   void nmethods_do(CodeBlobClosure* cf);
   void metadata_do(void f(Metadata*));
@@ -300,6 +324,7 @@ public:
   static ByteSize stack_size_offset()         { return byte_offset_of(Coroutine, _stack_size); }
   static ByteSize last_sp_offset()            { return byte_offset_of(Coroutine, _last_sp); }
 
+  static ByteSize coro_claim_offset()         { return byte_offset_of(Coroutine, _coro_claim); }
 #ifdef ASSERT
   static ByteSize java_call_counter_offset()  { return byte_offset_of(Coroutine, _java_call_counter); }
 #endif
