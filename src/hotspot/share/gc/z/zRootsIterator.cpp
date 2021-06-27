@@ -233,13 +233,14 @@ void ZRootsIterator::do_threads(ZRootsIteratorClosure* cl) {
   ResourceMark rm;
   Threads::possibly_parallel_threads_do(true, cl);
 #if INCLUDE_KONA_FIBER
+  // for concurrent mark and relocate, only update parity
   if (UseKonaFiber) {
     guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
     int cp = Threads::thread_claim_parity();
     ZCodeBlobClosure code_cl(cl);
     for (size_t i = 0; i < CONT_CONTAINER_SIZE; i++) {
       ContBucket* bucket = ContContainer::bucket(i);
-      if (bucket->claim_oops_do(true, cp)) {
+      if (bucket->claim_oops_do(true, cp) && cl->should_do_coroutine()) {
         bucket->oops_do(cl, ClassUnloading ? &code_cl : NULL);
       }
     }

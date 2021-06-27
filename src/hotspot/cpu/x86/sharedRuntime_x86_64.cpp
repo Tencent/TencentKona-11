@@ -4090,6 +4090,18 @@ void continuation_switchTo_contents(MacroAssembler *masm, int start, OopMapSet* 
   if (VerifyCoroutineStateOnYield) {
     __ VerifyCoroutineState(old_coroutine, target_coroutine, terminate);
   }
+  // insert ZGC concurrent mark/relocate slowpath barrier
+  // fastpath check: load _coro_claim, check if same with _conc_claim_parity
+  Label concCoroSlowPath;
+  Label concCoroSlowPathDone;
+  Label endLable;
+  if (UseZGC) {
+    __ lea(temp, RuntimeAddress((unsigned char*)&Coroutine::_conc_claim_parity));
+    __ movl(temp, Address(temp, 0));
+    __ cmpl(temp, Address(target_coroutine, in_bytes(Coroutine::coro_claim_offset())));
+    __ jcc(Assembler::notEqual, concCoroSlowPath);
+  }
+  __ bind(concCoroSlowPathDone);
 
   // save old continuation, save rsp
   if(terminate == false)	{
@@ -4159,6 +4171,16 @@ void continuation_switchTo_contents(MacroAssembler *masm, int start, OopMapSet* 
       __ movptr(j_rarg1, old_coroutine_obj);
     }
     __ movptr(j_rarg0, 0);
+    if (UseZGC) {
+      __ jmp(endLable);
+    }
   }
+  // concurrent slow path
+  __ bind(concCoroSlowPath);
+  if (UseZGC) {
+    __ Concurrent_Coroutine_slowpath(target_coroutine);
+    __ jmp(concCoroSlowPathDone);
+  }
+  __ bind(endLable);
 }
 #endif
