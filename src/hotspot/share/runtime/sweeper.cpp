@@ -273,7 +273,11 @@ void NMethodSweeper::mark_active_nmethods() {
 
 CodeBlobClosure* NMethodSweeper::prepare_mark_active_nmethods() {
 #ifdef ASSERT
-  if (ThreadLocalHandshakes) {
+  if (ThreadLocalHandshakes
+#if INCLUDE_KONA_FIBER
+      && !UseKonaFiber
+#endif
+  ) {
     assert(Thread::current()->is_Code_cache_sweeper_thread(), "must be executed under CodeCache_lock and in sweeper thread");
     assert_lock_strong(CodeCache_lock);
   } else {
@@ -340,7 +344,11 @@ CodeBlobClosure* NMethodSweeper::prepare_reset_hotness_counters() {
 void NMethodSweeper::do_stack_scanning() {
   assert(!CodeCache_lock->owned_by_self(), "just checking");
   if (wait_for_stack_scanning()) {
-    if (ThreadLocalHandshakes) {
+    if (ThreadLocalHandshakes
+#if INCLUDE_KONA_FIBER
+        && !UseKonaFiber
+#endif
+    ) {
       CodeBlobClosure* code_cl;
       {
         MutexLockerEx ccl(CodeCache_lock, Mutex::_no_safepoint_check_flag);
