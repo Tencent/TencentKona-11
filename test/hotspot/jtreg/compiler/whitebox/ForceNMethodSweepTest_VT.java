@@ -82,7 +82,7 @@ public class ForceNMethodSweepTest_VT {
             }
         };
         guaranteedSweep();
-        Thread vt1 = Thread.builder().virtual().task(warmup).start();
+        Thread vt1 = Thread.ofVirtual().start(warmup);
         vt1.join();
 
         Asserts.assertEQ(WHITE_BOX.isMethodCompiled(foo_method), true, "foo is not compiled");
@@ -93,7 +93,7 @@ public class ForceNMethodSweepTest_VT {
         };
         System.out.println("before start vt");
         VT_parked_flag = false;
-        Thread vt = Thread.builder().virtual().task(target).start();
+        Thread vt = Thread.ofVirtual().start(target);
         // wait enter park status
         while (true) {
             if (VT_parked_flag) {
