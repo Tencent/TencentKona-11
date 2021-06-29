@@ -138,6 +138,7 @@ tier1_compiler_3 = \
   compiler/uncommontrap/ \
   compiler/unsafe/ \
   compiler/vectorization/ \
+  compiler/whitebox/ForceNMethodSweepTest_VT.java \
   -compiler/intrinsics/bmi \
   -compiler/intrinsics/mathexact \
   -compiler/intrinsics/sha \
