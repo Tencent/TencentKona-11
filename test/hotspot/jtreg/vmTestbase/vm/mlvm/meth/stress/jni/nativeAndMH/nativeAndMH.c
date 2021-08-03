@@ -56,7 +56,8 @@ Java_vm_mlvm_meth_stress_jni_nativeAndMH_Test_native01(
 
     NSK_JNI_VERIFY(pEnv, NULL != (objectClass = NSK_CPP_STUB2(FindClass, pEnv, "java/lang/Object")));
 
-    NSK_JNI_VERIFY(pEnv, NULL != (arguments = NSK_CPP_STUB4(NewObjectArray, pEnv, ARGS_COUNT, objectClass, NULL)));
+    if (!NSK_JNI_VERIFY(pEnv, NULL != (arguments = NSK_CPP_STUB4(NewObjectArray, pEnv, ARGS_COUNT, objectClass, NULL))))
+        return NULL;
 
     NSK_JNI_VERIFY_VOID(pEnv, NSK_CPP_STUB4(SetObjectArrayElement, pEnv, arguments, 0, a1));
     NSK_JNI_VERIFY_VOID(pEnv, NSK_CPP_STUB4(SetObjectArrayElement, pEnv, arguments, 1, a2));

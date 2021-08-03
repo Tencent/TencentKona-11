@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -884,7 +884,8 @@ HeapWord* G1CollectedHeap::attempt_allocation_humongous(size_t word_size) {
       result = humongous_obj_allocate(word_size);
       if (result != NULL) {
         size_t size_in_regions = humongous_obj_size_in_regions(word_size);
-        g1_policy()->add_bytes_allocated_in_old_since_last_gc(size_in_regions * HeapRegion::GrainBytes);
+        g1_policy()->old_gen_alloc_tracker()->
+          add_allocated_humongous_bytes_since_last_gc(size_in_regions * HeapRegion::GrainBytes);
         return result;
       }
 
@@ -904,6 +905,9 @@ HeapWord* G1CollectedHeap::attempt_allocation_humongous(size_t word_size) {
         assert(succeeded, "only way to get back a non-NULL result");
         log_trace(gc, alloc)("%s: Successfully scheduled collection returning " PTR_FORMAT,
                              Thread::current()->name(), p2i(result));
+        size_t size_in_regions = humongous_obj_size_in_regions(word_size);
+        g1_policy()->old_gen_alloc_tracker()->
+          record_collection_pause_humongous_allocation(size_in_regions * HeapRegion::GrainBytes);
         return result;
       }
 
@@ -2004,15 +2008,21 @@ void G1CollectedHeap::increment_old_marking_cycles_completed(bool concurrent) {
 }
 
 void G1CollectedHeap::collect(GCCause::Cause cause) {
+  try_collect(cause, true);
+}
+
+bool G1CollectedHeap::try_collect(GCCause::Cause cause, bool retry_on_gc_failure) {
   assert_heap_not_locked();
 
-  uint gc_count_before;
-  uint old_marking_count_before;
-  uint full_gc_count_before;
-  bool retry_gc;
+  bool gc_succeeded;
+  bool should_retry_gc;
 
   do {
-    retry_gc = false;
+    should_retry_gc = false;
+
+    uint gc_count_before;
+    uint old_marking_count_before;
+    uint full_gc_count_before;
 
     {
       MutexLocker ml(Heap_lock);
@@ -2033,19 +2043,18 @@ void G1CollectedHeap::collect(GCCause::Cause cause) {
                                    true,  /* should_initiate_conc_mark */
                                    g1_policy()->max_pause_time_ms());
       VMThread::execute(&op);
-      if (!op.pause_succeeded()) {
+      gc_succeeded = op.gc_succeeded();
+      if (!gc_succeeded && retry_on_gc_failure) {
         if (old_marking_count_before == _old_marking_cycles_started) {
-          retry_gc = op.should_retry_gc();
+          should_retry_gc = op.should_retry_gc();
         } else {
           // A Full GC happened while we were trying to schedule the
-          // initial-mark GC. No point in starting a new cycle given
+          // concurrent cycle. No point in starting a new cycle given
           // that the whole heap was collected anyway.
         }
 
-        if (retry_gc) {
-          if (GCLocker::is_active_and_needs_gc()) {
-            GCLocker::stall_until_clear();
-          }
+        if (should_retry_gc && GCLocker::is_active_and_needs_gc()) {
+          GCLocker::stall_until_clear();
         }
       }
     } else if (GCLocker::should_discard(cause, gc_count_before)) {
@@ -2053,7 +2062,7 @@ void G1CollectedHeap::collect(GCCause::Cause cause) {
       // another collection slipping in after our gc_count but before
       // our request is processed.  _gc_locker collections upgraded by
       // GCLockerInvokesConcurrent are handled above and never discarded.
-      return;
+      return false;
     } else {
       if (cause == GCCause::_gc_locker || cause == GCCause::_wb_young_gc
           DEBUG_ONLY(|| cause == GCCause::_scavenge_alot)) {
@@ -2066,13 +2075,16 @@ void G1CollectedHeap::collect(GCCause::Cause cause) {
                                      false, /* should_initiate_conc_mark */
                                      g1_policy()->max_pause_time_ms());
         VMThread::execute(&op);
+        gc_succeeded = op.gc_succeeded();
       } else {
         // Schedule a Full GC.
         VM_G1CollectFull op(gc_count_before, full_gc_count_before, cause);
         VMThread::execute(&op);
+        gc_succeeded = op.gc_succeeded();
       }
     }
-  } while (retry_gc);
+  } while (should_retry_gc);
+  return gc_succeeded;
 }
 
 bool G1CollectedHeap::is_in(const void* p) const {
@@ -2487,7 +2499,7 @@ HeapWord* G1CollectedHeap::do_collection_pause(size_t word_size,
   VMThread::execute(&op);
 
   HeapWord* result = op.result();
-  bool ret_succeeded = op.prologue_succeeded() && op.pause_succeeded();
+  bool ret_succeeded = op.prologue_succeeded() && op.gc_succeeded();
   assert(result == NULL || ret_succeeded,
          "the result should be NULL if the VM did not succeed");
   *succeeded = ret_succeeded;
@@ -3005,7 +3017,7 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
             size_t bytes_before = capacity();
             // No need for an ergo logging here,
             // expansion_amount() does this when it returns a value > 0.
-            double expand_ms;
+            double expand_ms = 0.0;
             if (!expand(expand_bytes, _workers, &expand_ms)) {
               // We failed to expand the heap. Cannot do anything about it.
             }
@@ -3881,7 +3893,8 @@ void G1CollectedHeap::post_evacuate_collection_set(EvacuationInfo& evacuation_in
 }
 
 void G1CollectedHeap::record_obj_copy_mem_stats() {
-  g1_policy()->add_bytes_allocated_in_old_since_last_gc(_old_evac_stats.allocated() * HeapWordSize);
+  g1_policy()->old_gen_alloc_tracker()->
+    add_allocated_bytes_since_last_gc(_old_evac_stats.allocated() * HeapWordSize);
 
   _gc_tracer_stw->report_evacuation_statistics(create_g1_evac_summary(&_survivor_evac_stats),
                                                create_g1_evac_summary(&_old_evac_stats));
@@ -4040,7 +4053,7 @@ private:
       g1h->decrement_summary_bytes(_before_used_bytes);
 
       G1Policy* policy = g1h->g1_policy();
-      policy->add_bytes_allocated_in_old_since_last_gc(_bytes_allocated_in_old_since_last_gc);
+      policy->old_gen_alloc_tracker()->add_allocated_bytes_since_last_gc(_bytes_allocated_in_old_since_last_gc);
 
       g1h->alloc_buffer_stats(InCSetState::Old)->add_failure_used_and_waste(_failure_used_words, _failure_waste_words);
     }
