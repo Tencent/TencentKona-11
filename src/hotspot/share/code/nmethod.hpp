@@ -502,7 +502,7 @@ public:
 
  public:
   void oops_do(OopClosure* f) { oops_do(f, false); }
-  void oops_do(OopClosure* f, bool allow_zombie);
+  void oops_do(OopClosure* f, bool allow_dead);
   bool detect_scavenge_root_oops();
   void verify_scavenge_root_oops() PRODUCT_RETURN;
 

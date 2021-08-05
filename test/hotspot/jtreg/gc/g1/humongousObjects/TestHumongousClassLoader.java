@@ -42,6 +42,7 @@ import java.nio.file.Paths;
  * @requires vm.opt.ExplicitGCInvokesConcurrent != true
  * @requires vm.opt.ClassUnloading  != false
  * @requires vm.opt.ClassUnloadingWithConcurrentMark  != false
+ * @requires vm.opt.VerifyAfterGC != true
  * @library /test/lib /
  * @modules java.base/jdk.internal.misc
  * @modules java.management
