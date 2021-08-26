@@ -195,7 +195,7 @@ void ContBucket::remove(Coroutine* cont) {
 bool ContBucket::claim_oops_do_par_case(int strong_roots_parity) {
   jint cont_bucket_parity = _oops_do_parity;
   if (cont_bucket_parity != strong_roots_parity) {
-    jint res = Atomic::cmpxchg(strong_roots_parity, &_oops_do_parity, cont_bucket_parity);
+    jint res = Atomic::cmpxchg((jint)strong_roots_parity, &_oops_do_parity, cont_bucket_parity);
     if (res == cont_bucket_parity) {
       return true;
     } else {
@@ -482,7 +482,6 @@ void Z_Coroutine_Concurrent_Do(Coroutine* coro) {
   ConcCoroutineCodeBlobClosure code_cl(&cl);
   coro->oops_do(&cl, ClassUnloading ? &code_cl : NULL);
 }
-#endif
 
 void Coroutine::Concurrent_Coroutine_slowpath(Coroutine* coro) {
   guarantee(!SafepointSynchronize::is_at_safepoint(), "should not at safepoint");
@@ -508,6 +507,7 @@ void Coroutine::Concurrent_Coroutine_slowpath(Coroutine* coro) {
     }
   }
 }
+#endif
 
 // check yield is from thread contianuation or to thread contianuation
 // check resource is not still hold by contianuation when yield back to thread contianuation
@@ -960,9 +960,9 @@ JVM_END
 static JNINativeMethod CONT_methods[] = {
   {CC"isPinned0",                 CC"(J)I", FN_PTR(CONT_isPinned0)},
   {CC"createContinuation",        CC"(J)J", FN_PTR(CONT_createContinuation)},
-  {CC"switchTo",                  CC"("JLCONT JLCONT")I", FN_PTR(CONT_switchTo)},
-  {CC"switchToAndTerminate",      CC"("JLCONT JLCONT")V", FN_PTR(CONT_switchToAndTerminate)},
-  {CC"dumpStackTrace",            CC"("JLCONT ")[" JLSTE, FN_PTR(CONT_dumpStackTrace)},
+  {CC"switchTo",                  CC"(" JLCONT JLCONT ")I", FN_PTR(CONT_switchTo)},
+  {CC"switchToAndTerminate",      CC"(" JLCONT JLCONT ")V", FN_PTR(CONT_switchToAndTerminate)},
+  {CC"dumpStackTrace",            CC"(" JLCONT ")[" JLSTE, FN_PTR(CONT_dumpStackTrace)},
 };
 
 static const int switchToIndex = 2;

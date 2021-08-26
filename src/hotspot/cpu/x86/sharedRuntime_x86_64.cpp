@@ -4177,10 +4177,12 @@ void continuation_switchTo_contents(MacroAssembler *masm, int start, OopMapSet* 
   }
   // concurrent slow path
   __ bind(concCoroSlowPath);
+#if INCLUDE_ZGC
   if (UseZGC) {
     __ Concurrent_Coroutine_slowpath(target_coroutine);
     __ jmp(concCoroSlowPathDone);
   }
+#endif
   __ bind(endLable);
 }
 #endif
