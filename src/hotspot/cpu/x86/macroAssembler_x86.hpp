@@ -614,7 +614,9 @@ class MacroAssembler: public Assembler {
 
 #if INCLUDE_KONA_FIBER
   void VerifyCoroutineState(Register old_coroutine, Register target_coroutine, bool terminate);
+#if INCLUDE_ZGC
   void Concurrent_Coroutine_slowpath(Register target_coroutine);
+#endif
 #endif
 
   // dumps registers and other state
