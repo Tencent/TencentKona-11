@@ -265,7 +265,9 @@ public:
 
   // 1. try claim or wait finish
   // 2. claim success invoke _conc_cl on coroutine
+#if INCLUDE_ZGC
   static void Concurrent_Coroutine_slowpath(Coroutine* coro);
+#endif
 
   static void yield_verify(Coroutine* from, Coroutine* to, bool terminate);
   static JavaThread* main_thread() { return _main_thread; }

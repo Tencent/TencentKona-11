@@ -875,6 +875,7 @@ void MacroAssembler::VerifyCoroutineState(Register old_coroutine, Register targe
   pop(rbp);
 }
 
+#if INCLUDE_ZGC
 void MacroAssembler::Concurrent_Coroutine_slowpath(Register target_coroutine) {
   push(rbp);
   movq(rbp, rsp);
@@ -886,6 +887,7 @@ void MacroAssembler::Concurrent_Coroutine_slowpath(Register target_coroutine) {
   mov(rsp, rbp);
   pop(rbp);
 }
+#endif
 #endif
 
 void MacroAssembler::print_state() {
