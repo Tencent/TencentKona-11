@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,12 +22,20 @@
  */
 
 #include "precompiled.hpp"
-#include "gc/z/zGlobals.hpp"
+#include "gc/z/zVirtualMemory.hpp"
+#include "logging/log.hpp"
 
-uintptr_t ZAddressReservedStart() {
-  return ZAddressMetadataMarked0;
-}
+#include <sys/mman.h>
+#include <sys/types.h>
 
-uintptr_t ZAddressReservedEnd() {
-  return ZAddressMetadataRemapped + ZAddressOffsetMax;
+bool ZVirtualMemoryManager::reserve(uintptr_t start, size_t size) {
+  // Reserve address space
+  const uintptr_t actual_start = (uintptr_t)mmap((void*)start, size, PROT_NONE,
+                                                 MAP_ANONYMOUS|MAP_PRIVATE|MAP_NORESERVE, -1, 0);
+  if (actual_start != start) {
+    log_error(gc)("Failed to reserve address space for Java heap");
+    return false;
+  }
+
+  return true;
 }

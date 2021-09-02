@@ -32,39 +32,35 @@ class ZPhysicalMemory;
 
 class ZPhysicalMemoryBacking {
 private:
+  ZMemoryManager _manager;
   ZBackingFile   _file;
-  ZMemoryManager _committed;
-  ZMemoryManager _uncommitted;
 
-  void warn_available_space(size_t max) const;
-  void warn_max_map_count(size_t max) const;
-
+  void check_max_map_count(size_t max_capacity) const;
+  void check_available_space_on_filesystem(size_t max_capacity) const;
   void map_failed(ZErrno err) const;
 
-  void advise_view(uintptr_t addr, size_t size, int advice) const;
+  void advise_view(uintptr_t addr, size_t size) const;
   void pretouch_view(uintptr_t addr, size_t size) const;
-  void map_view(const ZPhysicalMemory& pmem, uintptr_t addr, bool pretouch) const;
-  void unmap_view(const ZPhysicalMemory& pmem, uintptr_t addr) const;
+  void map_view(ZPhysicalMemory pmem, uintptr_t addr, bool pretouch) const;
+  void unmap_view(ZPhysicalMemory pmem, uintptr_t addr) const;
 
 public:
+  ZPhysicalMemoryBacking(size_t max_capacity);
+
   bool is_initialized() const;
 
-  void warn_commit_limits(size_t max) const;
-  bool supports_uncommit();
-
-  size_t commit(size_t size);
-  size_t uncommit(size_t size);
+  size_t try_expand(size_t old_capacity, size_t new_capacity);
 
   ZPhysicalMemory alloc(size_t size);
-  void free(const ZPhysicalMemory& pmem);
+  void free(ZPhysicalMemory pmem);
 
   uintptr_t nmt_address(uintptr_t offset) const;
 
-  void map(const ZPhysicalMemory& pmem, uintptr_t offset) const;
-  void unmap(const ZPhysicalMemory& pmem, uintptr_t offset) const;
+  void map(ZPhysicalMemory pmem, uintptr_t offset) const;
+  void unmap(ZPhysicalMemory pmem, uintptr_t offset) const;
 
-  void debug_map(const ZPhysicalMemory& pmem, uintptr_t offset) const;
-  void debug_unmap(const ZPhysicalMemory& pmem, uintptr_t offset) const;
+  void debug_map(ZPhysicalMemory pmem, uintptr_t offset) const;
+  void debug_unmap(ZPhysicalMemory pmem, uintptr_t offset) const;
 };
 
 #endif // OS_CPU_LINUX_AARCH64_GC_Z_ZPHYSICALMEMORYBACKING_LINUX_AARCH64_HPP

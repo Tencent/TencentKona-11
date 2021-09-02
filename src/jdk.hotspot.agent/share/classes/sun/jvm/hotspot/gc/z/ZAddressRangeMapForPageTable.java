@@ -52,10 +52,6 @@ public class ZAddressRangeMapForPageTable  extends VMObject {
         return mapField.getValue(addr);
     }
 
-    public long size() {
-        return ZGlobals.ZAddressOffsetMax >> ZGlobals.ZGranuleSizeShift;
-    }
-
     private long index_for_addr(Address addr) {
         long index = ZAddress.offset(addr) >> ZGlobals.ZGranuleSizeShift;
 

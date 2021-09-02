@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,12 +22,17 @@
  */
 
 #include "precompiled.hpp"
-#include "gc/z/zGlobals.hpp"
+#include "gc/z/zLargePages.hpp"
+#include "runtime/globals.hpp"
 
-uintptr_t ZAddressReservedStart() {
-  return ZAddressMetadataMarked0;
-}
-
-uintptr_t ZAddressReservedEnd() {
-  return ZAddressMetadataRemapped + ZAddressOffsetMax;
+void ZLargePages::initialize_platform() {
+  if (UseLargePages) {
+    if (UseTransparentHugePages) {
+      _state = Transparent;
+    } else {
+      _state = Explicit;
+    }
+  } else {
+    _state = Disabled;
+  }
 }
