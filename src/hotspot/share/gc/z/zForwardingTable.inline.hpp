@@ -39,7 +39,7 @@ inline ZForwardingTable::~ZForwardingTable() {
 }
 
 inline ZForwardingTableEntry ZForwardingTable::at(ZForwardingTableCursor* cursor) const {
-  return _table[*cursor];
+  return OrderAccess::load_acquire(_table + *cursor);
 }
 
 inline ZForwardingTableEntry ZForwardingTable::first(uintptr_t from_index, ZForwardingTableCursor* cursor) const {

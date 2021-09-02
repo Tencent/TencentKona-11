@@ -64,7 +64,7 @@ uintptr_t ZObjectAllocator::alloc_object_in_shared_page(ZPage** shared_page,
                                                         size_t size,
                                                         ZAllocationFlags flags) {
   uintptr_t addr = 0;
-  ZPage* page = *shared_page;
+  ZPage* page = OrderAccess::load_acquire(shared_page);
 
   if (page != NULL) {
     addr = page->alloc_object_atomic(size);
@@ -284,7 +284,7 @@ size_t ZObjectAllocator::used() const {
 size_t ZObjectAllocator::remaining() const {
   assert(ZThread::is_java(), "Should be a Java thread");
 
-  ZPage* page = _shared_small_page.get();
+  ZPage* page = OrderAccess::load_acquire(_shared_small_page.addr());
   if (page != NULL) {
     return page->remaining();
   }

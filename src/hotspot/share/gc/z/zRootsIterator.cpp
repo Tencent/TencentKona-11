@@ -101,10 +101,10 @@ ZParallelOopsDo<T, F>::ZParallelOopsDo(T* iter) :
 
 template <typename T, void (T::*F)(ZRootsIteratorClosure*)>
 void ZParallelOopsDo<T, F>::oops_do(ZRootsIteratorClosure* cl) {
-  if (!_completed) {
+  if (!Atomic::load(&_completed)) {
     (_iter->*F)(cl);
-    if (!_completed) {
-      _completed = true;
+    if (!Atomic::load(&_completed)) {
+      Atomic::store(true, &_completed);
     }
   }
 }

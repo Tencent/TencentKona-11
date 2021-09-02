@@ -38,7 +38,7 @@ inline void ZLiveMap::reset() {
 }
 
 inline bool ZLiveMap::is_marked() const {
-  return _seqnum == ZGlobalSeqNum;
+  return OrderAccess::load_acquire(&_seqnum) == ZGlobalSeqNum;
 }
 
 inline uint32_t ZLiveMap::live_objects() const {

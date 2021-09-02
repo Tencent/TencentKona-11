@@ -50,7 +50,8 @@ void ZLiveMap::reset(size_t index) {
 
   // Multiple threads can enter here, make sure only one of them
   // resets the marking information while the others busy wait.
-  for (uint32_t seqnum = _seqnum; seqnum != ZGlobalSeqNum; seqnum = _seqnum) {
+  for (uint32_t seqnum = OrderAccess::load_acquire(&_seqnum); seqnum != ZGlobalSeqNum;
+       seqnum = OrderAccess::load_acquire(&_seqnum)) {
     if ((seqnum != seqnum_initializing) &&
         (Atomic::cmpxchg(seqnum_initializing, &_seqnum, seqnum) == seqnum)) {
       // Reset marking information
@@ -67,7 +68,7 @@ void ZLiveMap::reset(size_t index) {
 
       // Update seqnum
       assert(_seqnum == seqnum_initializing, "Invalid");
-      _seqnum = ZGlobalSeqNum;
+      OrderAccess::release_store(&_seqnum, ZGlobalSeqNum);
       break;
     }
 
