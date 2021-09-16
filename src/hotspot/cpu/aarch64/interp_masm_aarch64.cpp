@@ -579,6 +579,13 @@ void InterpreterMacroAssembler::remove_activation(
 
   bind(unlock);
   unlock_object(c_rarg1);
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    ldrw(rscratch1, Address(rthread, in_bytes(Thread::locksAcquired_offset())));
+    subw(rscratch1, rscratch1, 1);
+    strw(rscratch1, Address(rthread, in_bytes(Thread::locksAcquired_offset())));
+  }
+#endif
   pop(state);
 
   // Check that for block-structured locking (i.e., that all locked
@@ -621,6 +628,13 @@ void InterpreterMacroAssembler::remove_activation(
 
       push(state);
       unlock_object(c_rarg1);
+#if INCLUDE_KONA_FIBER
+      if (UseKonaFiber) {
+        ldrw(rscratch1, Address(rthread, in_bytes(Thread::locksAcquired_offset())));
+        subw(rscratch1, rscratch1, 1);
+        strw(rscratch1, Address(rthread, in_bytes(Thread::locksAcquired_offset())));
+      }
+#endif
       pop(state);
 
       if (install_monitor_exception) {
