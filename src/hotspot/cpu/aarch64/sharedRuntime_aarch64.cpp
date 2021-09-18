@@ -3092,7 +3092,7 @@ void continuation_switchTo_contents(MacroAssembler *masm, int start, OopMapSet* 
   Register old_coroutine_obj     = r2;
   Register old_coroutine         = r4;
   Register temp                  = r5;
-  Register temp2                 = r4;
+  Register temp2                 = r6;
 
   // check if continuation is pinned, return pinned result
   // terminate must happen in Continuation.start method no JNI and lock
@@ -3111,6 +3111,19 @@ void continuation_switchTo_contents(MacroAssembler *masm, int start, OopMapSet* 
   if (VerifyCoroutineStateOnYield) {
     __ VerifyCoroutineState(old_coroutine, target_coroutine, terminate);
   }
+  // insert ZGC concurrent mark/relocate slowpath barrier
+  // fastpath check: load _coro_claim, check if same with _conc_claim_parity
+  Label concCoroSlowPath;
+  Label concCoroSlowPathDone;
+  Label endLable;
+  if (UseZGC) {
+    __ lea(temp, RuntimeAddress((unsigned char*)&Coroutine::_conc_claim_parity));
+    __ ldrw(temp2, Address(temp, 0));
+    __ ldrw(temp, Address(target_coroutine, in_bytes(Coroutine::coro_claim_offset())));
+    __ cmp(temp, temp2);
+    __ br(Assembler::NE, concCoroSlowPath);
+  }
+  __ bind(concCoroSlowPathDone);
 
   // save old continuation, save rsp
   if(terminate == false)        {
@@ -3168,7 +3181,17 @@ void continuation_switchTo_contents(MacroAssembler *masm, int start, OopMapSet* 
       __ mov(j_rarg1, old_coroutine_obj);
     }
     __ mov(j_rarg0, zr);
+    if (UseZGC) {
+      __ b(endLable);
+    }
   }
+  // concurrent slow path
+  __ bind(concCoroSlowPath);
+  if (UseZGC) {
+    __ Concurrent_Coroutine_slowpath(target_coroutine);
+    __ b(concCoroSlowPathDone);
+  }
+  __ bind(endLable);
 }
 #endif // INCLUDE_KONA_FIBER
 

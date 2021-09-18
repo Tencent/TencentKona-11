@@ -967,6 +967,7 @@ public:
 
 #if INCLUDE_KONA_FIBER
   void VerifyCoroutineState(Register old_coroutine, Register target_coroutine, bool terminate);
+  void Concurrent_Coroutine_slowpath(Register target_coroutine);
 #endif
 
   static void debug64(char* msg, int64_t pc, int64_t regs[]);
