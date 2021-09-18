@@ -2268,6 +2268,18 @@ void MacroAssembler::VerifyCoroutineState(Register old_coroutine, Register targe
   mov(sp, rfp);
   pop(RegSet::of(rfp, lr), sp);
 }
+
+void MacroAssembler::Concurrent_Coroutine_slowpath(Register target_coroutine) {
+  push(RegSet::of(rfp, lr), sp);
+  mov(rfp, sp);
+  andr(sp, rfp, -16);     // align stack as required by push_CPU_state and call
+  push_CPU_state();   // keeps alignment at 16 bytes
+  mov(c_rarg0, target_coroutine);
+  call_VM_leaf(CAST_FROM_FN_PTR(address, Coroutine::Concurrent_Coroutine_slowpath), c_rarg0);
+  pop_CPU_state();
+  mov(sp, rfp);
+  pop(RegSet::of(rfp, lr), sp);
+}
 #endif
 
 void MacroAssembler::unimplemented(const char* what) {
