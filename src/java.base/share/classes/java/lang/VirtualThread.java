@@ -51,6 +51,11 @@ import sun.nio.ch.Interruptible;
 import sun.security.action.GetPropertyAction;
 import sun.security.util.SecurityConstants;
 
+import jdk.internal.event.VirtualThreadStartEvent;
+import jdk.internal.event.VirtualThreadEndEvent;
+import jdk.internal.event.VirtualThreadPinnedEvent;
+import jdk.internal.event.VirtualThreadSubmitFailedEvent;
+
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
@@ -235,6 +240,11 @@ class VirtualThread extends Thread {
             throw new IllegalThreadStateException("Already started");
         }
         try {
+            if (VirtualThreadStartEvent.isTurnedOn()) {
+                VirtualThreadStartEvent event = new VirtualThreadStartEvent();
+                event.javaThreadId = getId();
+                event.commit();
+            }
             ScheduleContinuation();
         } catch (RejectedExecutionException ree) {
             // assume executor has been shutdown
@@ -414,6 +424,12 @@ class VirtualThread extends Thread {
                 lock.unlock();
             }
         }
+        
+        if (VirtualThreadEndEvent.isTurnedOn()) {
+            VirtualThreadEndEvent event = new VirtualThreadEndEvent();
+            event.javaThreadId = getId();
+            event.commit();
+        }
     }
 
     /**
@@ -429,6 +445,8 @@ class VirtualThread extends Thread {
         carrier.setVirtualThread(null);
         final ReentrantLock lock = getLock();
         lock.lock();
+        VirtualThreadPinnedEvent pinnedEvent = new VirtualThreadPinnedEvent();
+        pinnedEvent.begin();
         try {
             assert state == PARKING;
             setState(PINNED);
@@ -463,6 +481,11 @@ class VirtualThread extends Thread {
         // restore interrupt status
         if (awaitInterrupted)
             Thread.currentThread().interrupt();
+
+        // commit event if enabled
+        if (pinnedEvent.isEnabled()) {
+            pinnedEvent.commit();
+        }
     }
 
     /**
@@ -1198,10 +1221,22 @@ class VirtualThread extends Thread {
             if (vt != null) {
                 carrier.setVirtualThread(null);
             }
-        }
-        scheduler.execute(runContinuation);
-        if (vt != null) {
-            carrier.setVirtualThread(vt);
+        } 
+        try {
+            scheduler.execute(runContinuation);
+        } catch (RejectedExecutionException ree) {
+            // record event
+            VirtualThreadSubmitFailedEvent event = new VirtualThreadSubmitFailedEvent();
+            if (event.isEnabled()) {
+                event.javaThreadId = getId();
+                event.exceptionMessage = ree.getMessage();
+                event.commit();
+            }
+            throw ree;
+        } finally {
+            if (vt != null) {
+                carrier.setVirtualThread(vt);
+            }
         }
     }
 }
