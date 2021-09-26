@@ -40,6 +40,10 @@ import jdk.jfr.events.FileWriteEvent;
 import jdk.jfr.events.SecurityPropertyModificationEvent;
 import jdk.jfr.events.SocketReadEvent;
 import jdk.jfr.events.SocketWriteEvent;
+import jdk.jfr.events.VirtualThreadStartEvent;
+import jdk.jfr.events.VirtualThreadEndEvent;
+import jdk.jfr.events.VirtualThreadPinnedEvent;
+import jdk.jfr.events.VirtualThreadSubmitFailedEvent;
 import jdk.jfr.events.TLSHandshakeEvent;
 import jdk.jfr.events.X509CertificateEvent;
 import jdk.jfr.events.X509ValidationEvent;
@@ -54,6 +58,10 @@ import jdk.jfr.internal.Utils;
 public final class JDKEvents {
 
     private static final Class<?>[] mirrorEventClasses = {
+        VirtualThreadStartEvent.class,
+        VirtualThreadEndEvent.class,
+        VirtualThreadPinnedEvent.class,
+        VirtualThreadSubmitFailedEvent.class,
         SecurityPropertyModificationEvent.class,
         TLSHandshakeEvent.class,
         X509CertificateEvent.class,
@@ -71,6 +79,10 @@ public final class JDKEvents {
         ErrorThrownEvent.class,
         ActiveSettingEvent.class,
         ActiveRecordingEvent.class,
+        jdk.internal.event.VirtualThreadStartEvent.class,
+        jdk.internal.event.VirtualThreadEndEvent.class,
+        jdk.internal.event.VirtualThreadPinnedEvent.class,
+        jdk.internal.event.VirtualThreadSubmitFailedEvent.class,
         jdk.internal.event.SecurityPropertyModificationEvent.class,
         jdk.internal.event.TLSHandshakeEvent.class,
         jdk.internal.event.X509CertificateEvent.class,
