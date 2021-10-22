@@ -235,7 +235,7 @@ private:
   JavaThread*     _thread;
   CoroutineVerify* _verify_state;
   volatile int    _coro_claim;
-
+  address         _stack_overflow_limit;
 #ifdef ASSERT
   int             _java_call_counter;
 #endif
@@ -325,6 +325,7 @@ public:
   static ByteSize stack_base_offset()         { return byte_offset_of(Coroutine, _stack_base); }
   static ByteSize stack_size_offset()         { return byte_offset_of(Coroutine, _stack_size); }
   static ByteSize last_sp_offset()            { return byte_offset_of(Coroutine, _last_sp); }
+  static ByteSize stack_overflow_limit_offset() { return byte_offset_of(Coroutine, _stack_overflow_limit); }
 
   static ByteSize coro_claim_offset()         { return byte_offset_of(Coroutine, _coro_claim); }
 #ifdef ASSERT
