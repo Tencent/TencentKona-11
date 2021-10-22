@@ -4127,6 +4127,8 @@ void continuation_switchTo_contents(MacroAssembler *masm, int start, OopMapSet* 
   __ movptr(Address(thread, JavaThread::reserved_stack_activation_offset()), temp);
   __ movl(temp, Address(target_coroutine, Coroutine::stack_size_offset()));
   __ movl(Address(thread, JavaThread::stack_size_offset()), temp);
+  __ movptr(temp, Address(target_coroutine, Coroutine::stack_overflow_limit_offset()));
+  __ movptr(Address(thread, JavaThread::stack_overflow_limit_offset()), temp);
   __ movptr(rsp, Address(target_coroutine, Coroutine::last_sp_offset()));
 #if defined(_WINDOWS)
     {
