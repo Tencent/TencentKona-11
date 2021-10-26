@@ -32,6 +32,7 @@ import java.security.ProtectionDomain;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
@@ -44,6 +45,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Collectors;
 
 import jdk.internal.misc.InnocuousThread;
 import jdk.internal.misc.Unsafe;
@@ -1142,6 +1144,14 @@ class VirtualThread extends Thread {
      * pinned.
      */
     private static class PinnedThreadPrinter {
+        static final StackWalker STACK_WALKER;
+        static {
+            Set<StackWalker.Option> options = Set.of(StackWalker.Option.SHOW_REFLECT_FRAMES,
+                                                     StackWalker.Option.RETAIN_CLASS_REFERENCE);
+            PrivilegedAction<StackWalker> pa = () ->
+                LiveStackFrame.getStackWalker(options);
+            STACK_WALKER = AccessController.doPrivileged(pa);
+        }
         /**
          * Prints a stack trace of the current virtual thread to the standard output stream.
          * This method is synchronized to reduce interference in the output.
@@ -1152,15 +1162,23 @@ class VirtualThread extends Thread {
             assert !(Thread.currentThread() instanceof VirtualThread);
 
             System.out.println(Thread.currentThread());
-            StackTraceElement[] ste = virtualThreadStackTrace((new Exception()).getStackTrace());
-            boolean afterYield = false;
 
-            for (int i = 0; i < ste.length; i++) {
-                if (afterYield) {
-                    System.out.format("    %s%n", ste[i]);
-                } else if ("java.lang.Continuation".equals(ste[i].getClassName())
-                           && "yield".equals(ste[i].getMethodName())) {
-                    afterYield = true;
+            List<LiveStackFrame> stack = STACK_WALKER.walk(s ->
+                s.map(f -> (LiveStackFrame) f)
+                    .filter(f -> f.getDeclaringClass() != PinnedThreadPrinter.class)
+                    .collect(Collectors.toList())
+            );
+
+            // Different with Loom
+            // 1. loom check if native/monitor stack exist before print
+            // 2. loom cache same stack and skipping print duplicated stack
+            for (LiveStackFrame frame : stack) {
+                StackTraceElement ste = frame.toStackTraceElement();
+                int monitorCount = frame.getMonitors().length;
+                if (monitorCount > 0 || frame.isNativeMethod()) {
+                    System.out.format("    %s <== monitors:%d%n", ste, monitorCount);
+                } else {
+                    System.out.format("    %s%n", ste);
                 }
             }
         }
