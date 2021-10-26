@@ -67,7 +67,6 @@ public class TracePinStack {
         System.out.println(output.getOutput());
         output.shouldContain("jdk.internal.misc.VirtualThreads.park");
         output.shouldContain("TracePinStack$TestParkWithMonitor$1.run");
-        output.shouldNotContain("java.lang.Continuation.yield");
 
         System.out.println("PASSED");
     }
