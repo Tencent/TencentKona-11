@@ -377,19 +377,19 @@ DeadlockCycle* ThreadService::find_deadlocks_at_safepoint(ThreadsList * t_list, 
   ObjectMonitor* waitingToLockMonitor = NULL;
   oop waitingToLockBlocker = NULL;
   bool blocked_on_monitor = false;
-  JavaThread *currentThread, *previousThread;
+  ExecutionType *currentThread, *previousThread;
   int num_deadlocks = 0;
 
   // Initialize the depth-first-number for each JavaThread.
-  JavaThreadIterator jti(t_list);
-  for (JavaThread* jt = jti.first(); jt != NULL; jt = jti.next()) {
+  ExecutionUnitsIterator jti(t_list);
+  for (ExecutionType* jt = jti.first(); jt != NULL; jt = jti.next()) {
     jt->set_depth_first_number(-1);
   }
 
   DeadlockCycle* deadlocks = NULL;
   DeadlockCycle* last = NULL;
   DeadlockCycle* cycle = new DeadlockCycle();
-  for (JavaThread* jt = jti.first(); jt != NULL; jt = jti.next()) {
+  for (ExecutionType* jt = jti.first(); jt != NULL; jt = jti.next()) {
     if (jt->depth_first_number() >= 0) {
       // this thread was already visited
       continue;
@@ -414,8 +414,9 @@ DeadlockCycle* ThreadService::find_deadlocks_at_safepoint(ThreadsList * t_list, 
       if (waitingToLockMonitor != NULL) {
         address currentOwner = (address)waitingToLockMonitor->owner();
         if (currentOwner != NULL) {
-          currentThread = Threads::owning_thread_from_monitor_owner(t_list,
+          JavaThread* owning_t = Threads::owning_thread_from_monitor_owner(t_list,
                                                                     currentOwner);
+          currentThread = owning_t CORO_ONLY( == NULL ? NULL : owning_t->current_coroutine());
           if (currentThread == NULL) {
             // This function is called at a safepoint so the JavaThread
             // that owns waitingToLockMonitor should be findable, but
@@ -442,7 +443,7 @@ DeadlockCycle* ThreadService::find_deadlocks_at_safepoint(ThreadsList * t_list, 
             oop threadObj = java_util_concurrent_locks_AbstractOwnableSynchronizer::get_owner_threadObj(waitingToLockBlocker);
             // This JavaThread (if there is one) is protected by the
             // ThreadsListSetter in VM_FindDeadlocks::doit().
-            currentThread = threadObj != NULL ? java_lang_Thread::thread(threadObj) : NULL;
+            currentThread = threadObj != NULL ? ExecutionUnit::get_execution_unit(threadObj) : NULL;
           } else {
             currentThread = NULL;
           }
@@ -951,7 +952,7 @@ void ThreadSnapshot::metadata_do(void f(Metadata*)) {
 
 DeadlockCycle::DeadlockCycle() {
   _is_deadlock = false;
-  _threads = new (ResourceObj::C_HEAP, mtInternal) GrowableArray<JavaThread*>(INITIAL_ARRAY_SIZE, true);
+  _threads = new (ResourceObj::C_HEAP, mtInternal) GrowableArray<ExecutionType*>(INITIAL_ARRAY_SIZE, true);
   _next = NULL;
 }
 
@@ -964,7 +965,7 @@ void DeadlockCycle::print_on_with(ThreadsList * t_list, outputStream* st) const 
   st->print_cr("Found one Java-level deadlock:");
   st->print("=============================");
 
-  JavaThread* currentThread;
+  ExecutionType* currentThread;
   ObjectMonitor* waitingToLockMonitor;
   oop waitingToLockBlocker;
   int len = _threads->length();
@@ -989,8 +990,9 @@ void DeadlockCycle::print_on_with(ThreadsList * t_list, outputStream* st) const 
         // No Java object associated - a JVMTI raw monitor
         owner_desc = " (JVMTI raw monitor),\n  which is held by";
       }
-      currentThread = Threads::owning_thread_from_monitor_owner(t_list,
+      JavaThread* owning_t = Threads::owning_thread_from_monitor_owner(t_list,
                                                                 (address)waitingToLockMonitor->owner());
+      currentThread = owning_t CORO_ONLY( == NULL ? NULL : owning_t->current_coroutine());
       if (currentThread == NULL) {
         // The deadlock was detected at a safepoint so the JavaThread
         // that owns waitingToLockMonitor should be findable, but
@@ -1007,7 +1009,7 @@ void DeadlockCycle::print_on_with(ThreadsList * t_list, outputStream* st) const 
       assert(waitingToLockBlocker->is_a(SystemDictionary::java_util_concurrent_locks_AbstractOwnableSynchronizer_klass()),
              "Must be an AbstractOwnableSynchronizer");
       oop ownerObj = java_util_concurrent_locks_AbstractOwnableSynchronizer::get_owner_threadObj(waitingToLockBlocker);
-      currentThread = java_lang_Thread::thread(ownerObj);
+      currentThread = ExecutionUnit::get_execution_unit(ownerObj);
       assert(currentThread != NULL, "AbstractOwnableSynchronizer owning thread is unexpectedly NULL");
     }
     st->print("%s \"%s\"", owner_desc, currentThread->get_thread_name());
