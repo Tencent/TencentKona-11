@@ -4279,6 +4279,7 @@ int reflect_UnsafeStaticFieldAccessorImpl::_base_offset;
 int java_lang_Continuation::_data_offset;
 int java_lang_VTContinuation::_VT_offset;
 int java_lang_VT::_state_offset;
+int java_lang_VT::_cont_offset;
 
 #define STACKTRACEELEMENT_FIELDS_DO(macro) \
   macro(declaringClassObject_offset,  k, "declaringClassObject", class_signature, false); \
@@ -4439,7 +4440,8 @@ void java_lang_VTContinuation::compute_offsets() {
 }
 
 #define VT_FIELDS_DO(macro) \
-  macro(_state_offset, k, "state", int_signature, false)
+  macro(_state_offset, k, "state", int_signature, false); \
+  macro(_cont_offset, k, "cont", Cont_signature, false)
 
 void java_lang_VT::compute_offsets() {
   InstanceKlass* k = SystemDictionary::VT_klass();

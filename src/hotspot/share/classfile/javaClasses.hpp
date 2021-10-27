@@ -1600,10 +1600,14 @@ public:
 class java_lang_VT: AllStatic {
 private:
   static int _state_offset;
+  static int _cont_offset;
 
 public:
   static int state(oop obj) {
     return obj->int_field(_state_offset);
+  }
+  static oop Cont(oop obj) {
+    return obj->obj_field(_cont_offset);
   }
   static void compute_offsets();
   static void serialize_offsets(SerializeClosure* f) NOT_CDS_RETURN;

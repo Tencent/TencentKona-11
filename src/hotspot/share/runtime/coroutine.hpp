@@ -26,14 +26,17 @@
 #ifndef SHARE_RUNTIME_COROUTINE_HPP
 #define SHARE_RUNTIME_COROUTINE_HPP
 
-#include "runtime/jniHandles.hpp"
+#include "runtime/jniHandles.inline.hpp"
 #include "runtime/handles.hpp"
 #include "memory/allocation.hpp"
 #include "memory/resourceArea.hpp"
 #include "runtime/javaFrameAnchor.hpp"
 #include "runtime/monitorChunk.hpp"
 
-class Coroutine;
+#define CORO_ONLY(x) x
+#define CORO_NOT_ONLY(x)
+
+class Coroutine; // ? why
 
 const size_t CONT_BITMAP_LEN             = 10;
 const size_t CONT_CONTAINER_SIZE         = 1 << CONT_BITMAP_LEN;
@@ -225,11 +228,12 @@ private:
   CoroutineState  _state;
   bool            _is_thread_coroutine;
   //for javacall stack reclaim
-  bool             _has_javacall;
+  bool            _has_javacall;
 
   address         _stack_base;
   intptr_t        _stack_size;
   address         _last_sp;
+  address         _stack_overflow_limit;
 #ifndef CHECK_UNHANDLED_OOPS
   union {
 #endif
@@ -242,7 +246,7 @@ private:
   JavaThread*     _thread;
   CoroutineVerify* _verify_state;
   volatile int    _coro_claim;
-  address         _stack_overflow_limit;
+  int             _depth_first_number;
 #ifdef ASSERT
   int             _java_call_counter;
 #endif
@@ -262,6 +266,7 @@ private:
 
   void add_stack_frame(void* frames, int* depth, javaVFrame* jvf);
   void print_stack_on(outputStream* st, void* frames, int* depth);
+  const char* get_vt_name_string(char* buf = NULL, int buflen = 0) const;
 
 public:
   virtual ~Coroutine();
@@ -305,6 +310,15 @@ public:
     assert(!is_thread_coroutine(), "could not be thread coroutine");
     _continuation = o;
   }
+
+  // For deadlock detection
+  int depth_first_number() { return _depth_first_number; }
+  void set_depth_first_number(int dfn) { _depth_first_number = dfn; }
+  ObjectMonitor* current_pending_monitor();
+  oop current_park_blocker();
+  oop threadObj() const;
+  const char* get_thread_name() const;
+  bool current_pending_monitor_is_from_java();
 
 #ifdef ASSERT
   int java_call_counter() const           { return _java_call_counter; }
@@ -411,4 +425,7 @@ template<class T> void DoublyLinkedList<T>::insert_into_list(pointer& list) {
 
 void CONT_RegisterNativeMethods(JNIEnv *env, jclass cls, JavaThread* thread);
 #endif // SHARE_RUNTIME_COROUTINE_HPP
+#else
+#define CORO_ONLY(x)
+#define CORO_NOT_ONLY(x) x
 #endif // INCLUDE_KONA_FIBER
