@@ -1,5 +1,5 @@
  /*
- * Copyright (c) 2012, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -231,7 +231,7 @@ class VerifyContainsOopClosure : public OopClosure {
   VerifyContainsOopClosure(oop target) : _target(target), _found(false) {}
 
   void do_oop(oop* p) {
-    if (p != NULL && oopDesc::equals(RawAccess<>::oop_load(p), _target)) {
+    if (p != NULL && RawAccess<>::oop_load(p) == _target) {
       _found = true;
     }
   }
@@ -432,7 +432,7 @@ void ClassLoaderData::record_dependency(const Klass* k) {
 
     // Just return if this dependency is to a class with the same or a parent
     // class_loader.
-    if (oopDesc::equals(from, to) || java_lang_ClassLoader::isAncestor(from, to)) {
+    if (from == to || java_lang_ClassLoader::isAncestor(from, to)) {
       return; // this class loader is in the parent list, no need to add it.
     }
   }
