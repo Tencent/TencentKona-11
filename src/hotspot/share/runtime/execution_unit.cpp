@@ -20,6 +20,7 @@
  *
  */
 
+#include "precompiled.hpp"
 #include "runtime/execution_unit.hpp"
 #include "runtime/threadSMR.inline.hpp"
 #include "classfile/systemDictionary.hpp"
