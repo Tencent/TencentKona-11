@@ -1226,9 +1226,7 @@ void ThreadSafepointState::handle_polling_page_exception() {
   if( nm->is_at_poll_return(real_return_addr) ) {
     // See if return type is an oop.
     bool return_oop = nm->method()->is_returning_oop();
-#if INCLUDE_KONA_FIBER 
-    HandleMark hm;
-#endif
+    HandleMark hm(thread());
     Handle return_value;
     if (return_oop) {
       // The oop result has been saved on the stack together with all
