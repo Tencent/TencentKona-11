@@ -4211,6 +4211,10 @@ static jint attach_current_thread(JavaVM *vm, void **penv, void *_args, bool dae
   thread->register_thread_stack_with_NMT();
   thread->initialize_thread_current();
 
+#if INCLUDE_KONA_FIBER
+  thread->initialize_coroutine_support();
+#endif
+
   if (!os::create_attached_thread(thread)) {
     thread->smr_delete();
     return JNI_ERR;
