@@ -677,7 +677,7 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   diagnostic(bool, LogCompilation, false,                                   \
           "Log compilation activity in detail to LogFile")                  \
                                                                             \
-  product(bool, PrintCompilation, false,                                    \
+  manageable(bool, PrintCompilation, false,                                 \
           "Print compilations")                                             \
                                                                             \
   product(bool, PrintExtendedThreadInfo, true,                             \
