@@ -2685,6 +2685,9 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   product(bool, UseKonaFiber, true,                                         \
           "Enable Kona Fiber")                                              \
                                                                             \
+  product(bool, SkipMetaWalkByPreviousClassVersion, false,                  \
+          "Previous version class will not lead to metaspace walk")         \
+                                                                            \
   product(uintx, DefaultCoroutineStackSize, 4*8*8*K,                        \
         "Default size of the stack that is associated with new coroutines") \
                                                                             \

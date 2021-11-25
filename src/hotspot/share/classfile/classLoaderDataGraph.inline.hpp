@@ -70,9 +70,17 @@ void ClassLoaderDataGraph::dec_array_classes(size_t count) {
 bool ClassLoaderDataGraph::should_clean_metaspaces_and_reset() {
   bool do_cleaning = _safepoint_cleanup_needed && _should_clean_deallocate_lists;
 #if INCLUDE_JVMTI
-  do_cleaning = do_cleaning || InstanceKlass::has_previous_versions();
+  if (!SkipMetaWalkByPreviousClassVersion) {
+    do_cleaning = do_cleaning || InstanceKlass::has_previous_versions();
+  }
 #endif
   _safepoint_cleanup_needed = false;  // reset
+  log_info(safepoint)("should_clean_metaspaces_and_reset %s %s %s %s",
+    do_cleaning ? "true" : "false",
+    _safepoint_cleanup_needed ? "true" : "false",
+    _should_clean_deallocate_lists ? "true" : "false",
+    InstanceKlass::has_previous_versions() ? "true" : "false");
+
   return do_cleaning;
 }
 
