@@ -153,8 +153,8 @@ public:
 class ContContainer : AllStatic {
 private:
   static ContBucket* _buckets;
-  static size_t hash_code(Coroutine* cont);
 public:
+  static size_t hash_code(Coroutine* cont);
   static ContBucket* bucket(size_t index);
   static ContBucket* buckets() { return _buckets; };
   static void insert(Coroutine* cont);
@@ -319,6 +319,7 @@ public:
   oop threadObj() const;
   const char* get_thread_name() const;
   bool current_pending_monitor_is_from_java();
+  static Coroutine* owning_coro_from_monitor_owner(address owner);
 
 #ifdef ASSERT
   int java_call_counter() const           { return _java_call_counter; }
@@ -350,6 +351,12 @@ public:
   static ByteSize stack_size_offset()         { return byte_offset_of(Coroutine, _stack_size); }
   static ByteSize last_sp_offset()            { return byte_offset_of(Coroutine, _last_sp); }
   static ByteSize stack_overflow_limit_offset() { return byte_offset_of(Coroutine, _stack_overflow_limit); }
+
+  bool is_lock_owned(address adr) const {
+    return _stack_base >= adr && adr > (_stack_base - _stack_size);
+  }
+
+  bool is_attaching_via_jni() const;
 
   static ByteSize coro_claim_offset()         { return byte_offset_of(Coroutine, _coro_claim); }
 #ifdef ASSERT

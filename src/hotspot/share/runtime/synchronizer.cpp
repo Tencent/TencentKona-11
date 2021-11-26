@@ -220,7 +220,7 @@ bool ObjectSynchronizer::quick_enter(oop obj, Thread * Self,
     // Case: light contention possibly amenable to TLE
     // Case: TLE inimical operations such as nested/recursive synchronization
 
-    if (owner == Self) {
+    if (owner == ((JavaThread *)Self)->get_cur_exec()) {
       m->_recursions++;
       return true;
     }
@@ -237,9 +237,9 @@ bool ObjectSynchronizer::quick_enter(oop obj, Thread * Self,
     // and last are the inflated Java Monitor (ObjectMonitor) checks.
     lock->set_displaced_header(markOopDesc::unused_mark());
 
-    if (owner == NULL && Atomic::replace_if_null(Self, &(m->_owner))) {
+    if (owner == NULL && Atomic::replace_if_null(((JavaThread *)Self)->get_cur_exec(), &(m->_owner))) {
       assert(m->_recursions == 0, "invariant");
-      assert(m->_owner == Self, "invariant");
+      assert(m->_owner == ((JavaThread *)Self)->get_cur_exec(), "invariant");
       return true;
     }
   }
@@ -882,7 +882,7 @@ ObjectSynchronizer::LockOwnership ObjectSynchronizer::query_lock_ownership
   if (mark->has_monitor()) {
     void * owner = mark->monitor()->_owner;
     if (owner == NULL) return owner_none;
-    return (owner == self ||
+    return (owner == self->get_cur_exec() ||
             self->is_lock_owned((address)owner)) ? owner_self : owner_other;
   }
 
@@ -892,7 +892,7 @@ ObjectSynchronizer::LockOwnership ObjectSynchronizer::query_lock_ownership
 }
 
 // FIXME: jvmti should call this
-JavaThread* ObjectSynchronizer::get_lock_owner(ThreadsList * t_list, Handle h_obj) {
+ExecutionType* ObjectSynchronizer::get_lock_owner(ThreadsList * t_list, Handle h_obj) {
   if (UseBiasedLocking) {
     if (SafepointSynchronize::is_at_safepoint()) {
       BiasedLocking::revoke_at_safepoint(h_obj);
@@ -921,7 +921,7 @@ JavaThread* ObjectSynchronizer::get_lock_owner(ThreadsList * t_list, Handle h_ob
 
   if (owner != NULL) {
     // owning_thread_from_monitor_owner() may also return NULL here
-    return Threads::owning_thread_from_monitor_owner(t_list, owner);
+    return ExecutionUnit::owning_thread_from_monitor_owner(t_list, owner);
   }
 
   // Unlocked case, header in place
@@ -1848,7 +1848,7 @@ class ReleaseJavaMonitorsClosure: public MonitorClosure {
  public:
   ReleaseJavaMonitorsClosure(Thread* thread) : THREAD(thread) {}
   void do_monitor(ObjectMonitor* mid) {
-    if (mid->owner() == THREAD) {
+    if (mid->owner() == ((JavaThread *)THREAD)->get_cur_exec()) {
       if (ObjectMonitor::Knob_VerifyMatch != 0) {
         ResourceMark rm;
         Handle obj(THREAD, (oop) mid->object());

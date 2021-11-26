@@ -1141,6 +1141,7 @@ source_hpp %{
 #include "gc/shared/cardTableBarrierSet.hpp"
 #include "gc/shared/collectedHeap.hpp"
 #include "opto/addnode.hpp"
+#include "runtime/coroutine.hpp"
 
 class CallStubImpl {
 
@@ -3574,8 +3575,18 @@ encode %{
       //
       // Try to CAS m->owner from NULL to current thread.
       __ add(tmp, disp_hdr, (ObjectMonitor::owner_offset_in_bytes()-markOopDesc::monitor_value));
+#if INCLUDE_KONA_FIBER
+      if (YieldWithMonitor) {
+        __ ldr (rthread, Address(rthread, JavaThread::current_coro_offset()));
+      }
+#endif
     __ cmpxchg(tmp, zr, rthread, Assembler::xword, /*acquire*/ true,
                /*release*/ true, /*weak*/ false, noreg); // Sets flags for result
+#if INCLUDE_KONA_FIBER
+      if (YieldWithMonitor) {
+        __ ldr (rthread, Address(rthread, Coroutine::thread_offset()));
+      }
+#endif
 
       // Store a non-null value into the box to avoid looking like a re-entrant
       // lock. The fast-path monitor unlock code checks for
@@ -3640,7 +3651,17 @@ encode %{
       __ add(tmp, tmp, -markOopDesc::monitor_value); // monitor
       __ ldr(rscratch1, Address(tmp, ObjectMonitor::owner_offset_in_bytes()));
       __ ldr(disp_hdr, Address(tmp, ObjectMonitor::recursions_offset_in_bytes()));
+#if INCLUDE_KONA_FIBER
+      if (YieldWithMonitor) {
+        __ ldr (rthread, Address(rthread, JavaThread::current_coro_offset()));
+      }
+#endif
       __ eor(rscratch1, rscratch1, rthread); // Will be 0 if we are the owner.
+#if INCLUDE_KONA_FIBER
+      if (YieldWithMonitor) {
+        __ ldr (rthread, Address(rthread, Coroutine::thread_offset()));
+      }
+#endif
       __ orr(rscratch1, rscratch1, disp_hdr); // Will be 0 if there are 0 recursions
       __ cmp(rscratch1, zr); // Sets flags for result
       __ br(Assembler::NE, cont);

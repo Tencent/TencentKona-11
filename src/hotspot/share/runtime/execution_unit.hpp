@@ -23,20 +23,20 @@
 #ifndef SHARE_RUNTIME_EXECUTION_UNIT_HPP
 #define SHARE_RUNTIME_EXECUTION_UNIT_HPP
 
-#include "runtime/thread.hpp"
 #include "utilities/macros.hpp"
-#include "runtime/coroutine.hpp"
-#include "runtime/threadSMR.hpp"
+class ThreadsList;
 #if INCLUDE_KONA_FIBER
+class Coroutine;
 typedef Coroutine ExecutionType;
 #else
-#include "runtime/thread.hpp"
+class JavaThread;
 typedef JavaThread ExecutionType;
 #endif
 
 class ExecutionUnit: AllStatic {
 public:
   static ExecutionType* get_execution_unit(oop threadObj);
+  static ExecutionType* owning_thread_from_monitor_owner(ThreadsList* t_list, address owner);
 };
 
 class ExecutionUnitsIterator {
@@ -45,7 +45,8 @@ private:
   ExecutionType* _cur;
   size_t         _cur_bucket_index;
 #else
-  JavaThreadIterator _iter;
+  ThreadsList*   _list;
+  uint           _index;
 #endif
 public:
   ExecutionUnitsIterator(ThreadsList* t_list);

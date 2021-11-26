@@ -21,6 +21,7 @@
  */
 
 #include "precompiled.hpp"
+#include "runtime/coroutine.hpp"
 #include "runtime/execution_unit.hpp"
 #include "runtime/threadSMR.inline.hpp"
 #include "classfile/systemDictionary.hpp"
@@ -46,11 +47,29 @@ ExecutionType* ExecutionUnit::get_execution_unit(oop threadObj) {
 #endif
 }
 
-ExecutionUnitsIterator::ExecutionUnitsIterator(ThreadsList* t_list) : 
+ExecutionType* ExecutionUnit::owning_thread_from_monitor_owner(ThreadsList* t_list, address owner) {
+#if INCLUDE_KONA_FIBER
+  if (YieldWithMonitor) {
+    return Coroutine::owning_coro_from_monitor_owner(owner);
+  } else {
+    JavaThread* t = Threads::owning_thread_from_monitor_owner(t_list, owner);
+    if (t == NULL) {
+      return NULL;
+    } else {
+      return t->current_coroutine();
+    }
+  }
+#else
+  return Threads::owning_thread_from_monitor_owner(t_list, owner);
+#endif
+}
+
+ExecutionUnitsIterator::ExecutionUnitsIterator(ThreadsList* t_list) :
 #if INCLUDE_KONA_FIBER
   _cur(NULL)
 #else
-  _iter(t_list)
+  _list(t_list),
+  _index(0)
 #endif
 {
 }
@@ -67,7 +86,11 @@ ExecutionType* ExecutionUnitsIterator::first() {
   _cur = NULL;
   return NULL;
 #else
-  return _iter.first();
+  if (_list->length() == 0) {
+    return NULL;
+  }
+  _index = 1;
+  return _list->thread_at(0);
 #endif
 }
 
@@ -93,6 +116,9 @@ ExecutionType* ExecutionUnitsIterator::next() {
     return _cur;
   }
 #else
-  return _iter.next();
+  if (_index >= _list->length()) {
+    return NULL;
+  }
+  return _list->thread_at(_index++);
 #endif
 }
