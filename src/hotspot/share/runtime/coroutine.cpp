@@ -25,6 +25,7 @@
 #include "precompiled.hpp"
 #if INCLUDE_KONA_FIBER
 #include "runtime/coroutine.hpp"
+#include "runtime/execution_unit.hpp"
 #ifdef TARGET_ARCH_x86
 # include "vmreg_x86.inline.hpp"
 #endif
@@ -796,6 +797,14 @@ oop Coroutine::threadObj() const {
   return NULL;
 }
 
+bool Coroutine::is_attaching_via_jni() const {
+    if (_is_thread_coroutine) {
+      return _t->is_attaching_via_jni();
+    }
+
+    return false;
+}
+
 const char* Coroutine::get_thread_name() const {
   if (_is_thread_coroutine) {
     return _t->get_thread_name();
@@ -830,6 +839,40 @@ bool Coroutine::current_pending_monitor_is_from_java() {
     assert(_state == _current, "unexpected");
     return _thread->current_pending_monitor_is_from_java();
   }
+}
+
+Coroutine* Coroutine::owning_coro_from_monitor_owner(address owner) {
+
+  // NULL owner means not locked so we can skip the search
+  if (owner == NULL) return NULL;
+
+  {
+    size_t i = ContContainer::hash_code((Coroutine*)owner);
+    ContBucket* bucket = ContContainer::bucket(i);
+    if (bucket->head() != NULL) {
+      Coroutine* current = bucket->head();
+      do {
+        if (owner == (address)current) {
+          return current;
+        }
+        current = current->next();
+      } while (current != bucket->head());
+    }
+  }
+
+  // Cannot assert on lack of success here since this function may be
+  // used by code that is trying to report useful problem information
+  // like deadlock detection.
+  if (UseHeavyMonitors) return NULL;
+
+  Coroutine* the_owner = NULL;
+  ExecutionUnitsIterator jti(NULL);
+  for (ExecutionType* jt = jti.first(); jt != NULL; jt = jti.next()) {
+    if (jt->is_lock_owned(owner)) {
+      return jt;
+    }
+  }
+  return NULL;
 }
 
 void Coroutine::init_thread_stack(JavaThread* thread) {

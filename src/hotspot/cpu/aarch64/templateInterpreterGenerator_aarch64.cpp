@@ -838,7 +838,7 @@ void TemplateInterpreterGenerator::lock_method() {
   __ lock_object(c_rarg1);
 
 #if INCLUDE_KONA_FIBER
-  if (UseKonaFiber) {
+  if (!YieldWithMonitor) {
     __ ldrw(rscratch1, Address(rthread, in_bytes(Thread::locksAcquired_offset())));
     __ addw(rscratch1, rscratch1, 1);
     __ strw(rscratch1, Address(rthread, in_bytes(Thread::locksAcquired_offset())));
@@ -1526,7 +1526,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
       __ bind(unlock);
       __ unlock_object(c_rarg1);
 #if INCLUDE_KONA_FIBER
-      if (UseKonaFiber) {
+      if (!YieldWithMonitor) {
         __ ldrw(rscratch1, Address(rthread, in_bytes(Thread::locksAcquired_offset())));
         __ subw(rscratch1, rscratch1, 1);
         __ strw(rscratch1, Address(rthread, in_bytes(Thread::locksAcquired_offset())));

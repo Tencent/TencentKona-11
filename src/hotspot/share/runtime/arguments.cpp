@@ -3932,6 +3932,16 @@ jint Arguments::parse(const JavaVMInitArgs* initial_cmd_args) {
     return JNI_EINVAL;
   }
 
+#if INCLUDE_KONA_FIBER
+  if (YieldWithMonitor) {
+    if (UseBiasedLocking && FLAG_IS_CMDLINE(UseBiasedLocking)) {
+      warning("BiasedLocking is not supported while enable YieldWithMonitor"
+              "; ignoring UseBiasedLocking flag." );
+      UseBiasedLocking = false;
+    }
+  }
+#endif
+
   // Set object alignment values.
   set_object_alignment();
 

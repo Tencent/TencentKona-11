@@ -4711,6 +4711,15 @@ JavaThread *Threads::owning_thread_from_monitor_owner(ThreadsList * t_list,
 
   DO_JAVA_THREADS(t_list, p) {
     // first, see if owner is the address of a Java thread
+#if INCLUDE_KONA_FIBER
+     if (YieldWithMonitor) {
+       if (owner == (address)((JavaThread *)p)->current_coroutine()) {
+         return p;
+       } else {
+         continue;
+       }
+     }
+#endif
     if (owner == (address)p) return p;
   }
 
