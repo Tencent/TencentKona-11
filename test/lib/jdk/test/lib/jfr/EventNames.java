@@ -86,6 +86,10 @@ public class EventNames {
     public final static String BiasedLockRevocation = PREFIX + "BiasedLockRevocation";
     public final static String BiasedLockSelfRevocation = PREFIX + "BiasedLockSelfRevocation";
     public final static String BiasedLockClassRevocation = PREFIX + "BiasedLockClassRevocation";
+    public final static String JavaNativeAllocation = PREFIX + "JavaNativeAllocation";
+    public final static String JavaNativeFree = PREFIX + "JavaNativeFree";
+    public final static String JavaNativeReallocate = PREFIX + "JavaNativeReallocate";
+
 
     // GC
     public final static String GCHeapSummary = PREFIX + "GCHeapSummary";
