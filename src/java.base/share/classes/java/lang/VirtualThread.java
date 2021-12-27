@@ -32,6 +32,7 @@ import java.security.ProtectionDomain;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
@@ -44,12 +45,18 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Collectors;
 
 import jdk.internal.misc.InnocuousThread;
 import jdk.internal.misc.Unsafe;
 import sun.nio.ch.Interruptible;
 import sun.security.action.GetPropertyAction;
 import sun.security.util.SecurityConstants;
+
+import jdk.internal.event.VirtualThreadStartEvent;
+import jdk.internal.event.VirtualThreadEndEvent;
+import jdk.internal.event.VirtualThreadPinnedEvent;
+import jdk.internal.event.VirtualThreadSubmitFailedEvent;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -133,28 +140,6 @@ class VirtualThread extends Thread {
 
     private Continuation.PinnedAction pinnedAction;
 
-    /**
-     * Initialize thread local of virtual thread according to characteristics.
-     */  
-    private void initializeThreadLocal(int characteristics) {
-        /* In case characteristics has NO_THREAD_LOCALS and threadLocals has been used */
-        assert this.threadLocals == null;
-
-        // thread locals
-        if ((characteristics & NO_THREAD_LOCALS) != 0) {
-            this.threadLocals = ThreadLocal.ThreadLocalMap.NOT_SUPPORTED;
-            this.inheritableThreadLocals = ThreadLocal.ThreadLocalMap.NOT_SUPPORTED;
-        } else if ((characteristics & NO_INHERIT_THREAD_LOCALS) == 0) {
-            Thread parent = Thread.currentThread();
-            ThreadLocal.ThreadLocalMap parentMap = parent.inheritableThreadLocals;
-            if (parentMap != null
-                    && parentMap != ThreadLocal.ThreadLocalMap.NOT_SUPPORTED
-                    && parentMap.size() > 0) {
-                this.inheritableThreadLocals = ThreadLocal.createInheritedMap(parentMap);
-            }
-        }
-    }
-
     private class VTContinuation extends Continuation {
         VTContinuation(ContinuationScope scope, Runnable target) {
             super(scope, target);
@@ -193,8 +178,7 @@ class VirtualThread extends Thread {
      * @param task the task to execute
      */
     VirtualThread(Executor scheduler, String name, int characteristics, Runnable task) {
-        super(name == null ? "<unnamed>" : name, characteristics);
-        initializeThreadLocal(characteristics);
+        super(null, name == null ? "<unnamed>" : name, characteristics);
 
         Objects.requireNonNull(task);
         Runnable target = () -> {
@@ -235,6 +219,11 @@ class VirtualThread extends Thread {
             throw new IllegalThreadStateException("Already started");
         }
         try {
+            if (VirtualThreadStartEvent.isTurnedOn()) {
+                VirtualThreadStartEvent event = new VirtualThreadStartEvent();
+                event.javaThreadId = getId();
+                event.commit();
+            }
             ScheduleContinuation();
         } catch (RejectedExecutionException ree) {
             // assume executor has been shutdown
@@ -414,6 +403,12 @@ class VirtualThread extends Thread {
                 lock.unlock();
             }
         }
+        
+        if (VirtualThreadEndEvent.isTurnedOn()) {
+            VirtualThreadEndEvent event = new VirtualThreadEndEvent();
+            event.javaThreadId = getId();
+            event.commit();
+        }
     }
 
     /**
@@ -429,6 +424,8 @@ class VirtualThread extends Thread {
         carrier.setVirtualThread(null);
         final ReentrantLock lock = getLock();
         lock.lock();
+        VirtualThreadPinnedEvent pinnedEvent = new VirtualThreadPinnedEvent();
+        pinnedEvent.begin();
         try {
             assert state == PARKING;
             setState(PINNED);
@@ -463,6 +460,11 @@ class VirtualThread extends Thread {
         // restore interrupt status
         if (awaitInterrupted)
             Thread.currentThread().interrupt();
+
+        // commit event if enabled
+        if (pinnedEvent.isEnabled()) {
+            pinnedEvent.commit();
+        }
     }
 
     /**
@@ -1142,6 +1144,14 @@ class VirtualThread extends Thread {
      * pinned.
      */
     private static class PinnedThreadPrinter {
+        static final StackWalker STACK_WALKER;
+        static {
+            Set<StackWalker.Option> options = Set.of(StackWalker.Option.SHOW_REFLECT_FRAMES,
+                                                     StackWalker.Option.RETAIN_CLASS_REFERENCE);
+            PrivilegedAction<StackWalker> pa = () ->
+                LiveStackFrame.getStackWalker(options);
+            STACK_WALKER = AccessController.doPrivileged(pa);
+        }
         /**
          * Prints a stack trace of the current virtual thread to the standard output stream.
          * This method is synchronized to reduce interference in the output.
@@ -1152,15 +1162,23 @@ class VirtualThread extends Thread {
             assert !(Thread.currentThread() instanceof VirtualThread);
 
             System.out.println(Thread.currentThread());
-            StackTraceElement[] ste = virtualThreadStackTrace((new Exception()).getStackTrace());
-            boolean afterYield = false;
 
-            for (int i = 0; i < ste.length; i++) {
-                if (afterYield) {
-                    System.out.format("    %s%n", ste[i]);
-                } else if ("java.lang.Continuation".equals(ste[i].getClassName())
-                           && "yield".equals(ste[i].getMethodName())) {
-                    afterYield = true;
+            List<LiveStackFrame> stack = STACK_WALKER.walk(s ->
+                s.map(f -> (LiveStackFrame) f)
+                    .filter(f -> f.getDeclaringClass() != PinnedThreadPrinter.class)
+                    .collect(Collectors.toList())
+            );
+
+            // Different with Loom
+            // 1. loom check if native/monitor stack exist before print
+            // 2. loom cache same stack and skipping print duplicated stack
+            for (LiveStackFrame frame : stack) {
+                StackTraceElement ste = frame.toStackTraceElement();
+                int monitorCount = frame.getMonitors().length;
+                if (monitorCount > 0 || frame.isNativeMethod()) {
+                    System.out.format("    %s <== monitors:%d%n", ste, monitorCount);
+                } else {
+                    System.out.format("    %s%n", ste);
                 }
             }
         }
@@ -1198,10 +1216,22 @@ class VirtualThread extends Thread {
             if (vt != null) {
                 carrier.setVirtualThread(null);
             }
-        }
-        scheduler.execute(runContinuation);
-        if (vt != null) {
-            carrier.setVirtualThread(vt);
+        } 
+        try {
+            scheduler.execute(runContinuation);
+        } catch (RejectedExecutionException ree) {
+            // record event
+            VirtualThreadSubmitFailedEvent event = new VirtualThreadSubmitFailedEvent();
+            if (event.isEnabled()) {
+                event.javaThreadId = getId();
+                event.exceptionMessage = ree.getMessage();
+                event.commit();
+            }
+            throw ree;
+        } finally {
+            if (vt != null) {
+                carrier.setVirtualThread(vt);
+            }
         }
     }
 }

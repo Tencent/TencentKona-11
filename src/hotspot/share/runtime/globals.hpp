@@ -961,7 +961,7 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   product(bool, RestrictContended, true,                                    \
           "Restrict @Contended to trusted classes")                         \
                                                                             \
-  product(bool, UseBiasedLocking, true,                                     \
+  product(bool, UseBiasedLocking, false,                                    \
           "Enable biased locking in JVM")                                   \
                                                                             \
   product(intx, BiasedLockingStartupDelay, 0,                               \
@@ -2684,6 +2684,12 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
                                                                             \
   product(bool, UseKonaFiber, true,                                         \
           "Enable Kona Fiber")                                              \
+                                                                            \
+  product(bool, SkipMetaWalkByPreviousClassVersion, false,                  \
+          "Previous version class will not lead to metaspace walk")         \
+                                                                            \
+  product(bool, YieldWithMonitor, true,                                     \
+          "Enable Kona Fiber Yield With Monitor")                           \
                                                                             \
   product(uintx, DefaultCoroutineStackSize, 4*8*8*K,                        \
         "Default size of the stack that is associated with new coroutines") \

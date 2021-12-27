@@ -1956,10 +1956,21 @@ void MacroAssembler::fast_lock(Register objReg, Register boxReg, Register tmpReg
     movq(scrReg, tmpReg);
     xorq(tmpReg, tmpReg);
 
+#if INCLUDE_KONA_FIBER
+    if (YieldWithMonitor) {
+      movptr (r15_thread, Address(r15_thread, JavaThread::current_coro_offset()));
+    }
+#endif
+
     if (os::is_MP()) {
       lock();
     }
     cmpxchgptr(r15_thread, Address(scrReg, OM_OFFSET_NO_MONITOR_VALUE_TAG(owner)));
+#if INCLUDE_KONA_FIBER
+    if (YieldWithMonitor) {
+      movptr (r15_thread, Address(r15_thread, Coroutine::thread_offset()));
+    }
+#endif
     // Unconditionally set box->_displaced_header = markOopDesc::unused_mark().
     // Without cast to int32_t movptr will destroy r10 which is typically obj.
     movptr(Address(boxReg, 0), (int32_t)intptr_t(markOopDesc::unused_mark()));
@@ -2221,7 +2232,17 @@ void MacroAssembler::fast_unlock(Register objReg, Register boxReg, Register tmpR
       // default we don't bother. We also might consider predicating the
       // _owner==Self check on Xcheck:jni or running on a debug build.
       movptr(boxReg, Address(tmpReg, OM_OFFSET_NO_MONITOR_VALUE_TAG(owner)));
+#if INCLUDE_KONA_FIBER
+      if (YieldWithMonitor) {
+        movptr(r15_thread, Address(r15_thread, JavaThread::current_coro_offset()));
+      }
+#endif
       xorptr(boxReg, r15_thread);
+#if INCLUDE_KONA_FIBER
+      if (YieldWithMonitor) {
+        movptr (r15_thread, Address(r15_thread, Coroutine::thread_offset()));
+      }
+#endif
     } else {
       xorptr(boxReg, boxReg);
     }
@@ -2278,8 +2299,18 @@ void MacroAssembler::fast_unlock(Register objReg, Register boxReg, Register tmpR
 
       // box is really RAX -- the following CMPXCHG depends on that binding
       // cmpxchg R,[M] is equivalent to rax = CAS(M,rax,R)
+#if INCLUDE_KONA_FIBER
+      if (YieldWithMonitor) {
+        movptr (r15_thread, Address(r15_thread, JavaThread::current_coro_offset()));
+      }
+#endif
       if (os::is_MP()) { lock(); }
       cmpxchgptr(r15_thread, Address(tmpReg, OM_OFFSET_NO_MONITOR_VALUE_TAG(owner)));
+#if INCLUDE_KONA_FIBER
+      if (YieldWithMonitor) {
+        movptr (r15_thread, Address(r15_thread, Coroutine::thread_offset()));
+      }
+#endif
       // There's no successor so we tried to regrab the lock.
       // If that didn't work, then another thread grabbed the
       // lock so we're done (and exit was a success).

@@ -997,6 +997,12 @@ void JvmtiDeferredEvent::post_compiled_method_load_event(JvmtiEnv* env) {
   JvmtiExport::post_compiled_method_load(env, nm);
 }
 
+void JvmtiDeferredEvent::run_nmethod_entry_barriers() {
+  if (_type == TYPE_COMPILED_METHOD_LOAD) {
+    _event_data.compiled_method_load->run_nmethod_entry_barrier();
+  }
+}
+
 
 // Keep the nmethod for compiled_method_load from being unloaded.
 void JvmtiDeferredEvent::oops_do(OopClosure* f, CodeBlobClosure* cf) {
@@ -1069,6 +1075,13 @@ void JvmtiDeferredEventQueue::post(JvmtiEnv* env) {
      event.post_compiled_method_load_event(env);
   }
 }
+
+void JvmtiDeferredEventQueue::run_nmethod_entry_barriers() {
+  for(QueueNode* node = _queue_head; node != NULL; node = node->next()) {
+     node->event().run_nmethod_entry_barriers();
+  }
+}
+
 
 void JvmtiDeferredEventQueue::oops_do(OopClosure* f, CodeBlobClosure* cf) {
   for(QueueNode* node = _queue_head; node != NULL; node = node->next()) {

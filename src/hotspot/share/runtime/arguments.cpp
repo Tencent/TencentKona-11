@@ -3138,6 +3138,11 @@ jint Arguments::finalize_vm_init_args(bool patch_mod_javabase) {
     set_mode_flags(_int);
   }
 
+#ifdef ZERO
+  // Zero always runs in interpreted mode
+  set_mode_flags(_int);
+#endif
+
   // eventually fix up InitialTenuringThreshold if only MaxTenuringThreshold is set
   if (FLAG_IS_DEFAULT(InitialTenuringThreshold) && (InitialTenuringThreshold > MaxTenuringThreshold)) {
     FLAG_SET_ERGO(uintx, InitialTenuringThreshold, MaxTenuringThreshold);
@@ -3926,6 +3931,16 @@ jint Arguments::parse(const JavaVMInitArgs* initial_cmd_args) {
   if (!handle_deprecated_print_gc_flags()) {
     return JNI_EINVAL;
   }
+
+#if INCLUDE_KONA_FIBER
+  if (YieldWithMonitor) {
+    if (UseBiasedLocking && FLAG_IS_CMDLINE(UseBiasedLocking)) {
+      warning("BiasedLocking is not supported while enable YieldWithMonitor"
+              "; ignoring UseBiasedLocking flag." );
+      UseBiasedLocking = false;
+    }
+  }
+#endif
 
   // Set object alignment values.
   set_object_alignment();

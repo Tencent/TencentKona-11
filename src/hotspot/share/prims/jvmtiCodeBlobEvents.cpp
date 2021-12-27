@@ -237,6 +237,9 @@ jvmtiError JvmtiCodeBlobEvents::generate_compiled_method_load_events(JvmtiEnv* e
         current->post_compiled_method_load_event(state);
       }
     }
+
+    // Enter nmethod barrier code if present outside CodeCache_lock
+    state->run_nmethod_entry_barriers();
   }
 
   // Now post all the events outside the CodeCache_lock.
