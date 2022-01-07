@@ -4791,3 +4791,20 @@ GrowableArray<MemoryPool*> G1CollectedHeap::memory_pools() {
   memory_pools.append(_old_pool);
   return memory_pools;
 }
+
+void G1CollectedHeap::free_heap_physical_memory_after_fullgc() {
+  assert(SafepointSynchronize::is_at_safepoint(), "must be at a safepoint");
+  double start_sec = os::elapsedTime();
+  size_t num_free_regions = _hrm.num_free_regions();
+  size_t max_young_region_num = _g1_policy->young_list_target_length();
+  size_t current_young_region_num = heap()->eden_regions_count() + heap()->survivor_regions_count();
+  size_t diff = max_young_region_num - current_young_region_num;
+  size_t old_heap_region_num = num_free_regions - diff;
+  if (old_heap_region_num <= 0) {
+    return;
+  }
+  size_t reclaim_region_num = old_heap_region_num * G1FreeOldMemoryThresholdPercentAfterFullGC / 100;
+  size_t shrink_bytes = reclaim_region_num * HeapRegion::GrainBytes;
+  shrink(shrink_bytes);
+  log_debug(gc, heap)("Attempt heap shrinking, shrink_bytes: " SIZE_FORMAT " time: %6.3fs", shrink_bytes, os::elapsedTime() - start_sec);
+}

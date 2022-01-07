@@ -778,6 +778,9 @@ private:
   // statistics or updating free lists.
   void abandon_collection_set(G1CollectionSet* collection_set);
 
+  // Uncommit the heap memory after full gc
+  void free_heap_physical_memory_after_fullgc();
+
   // The concurrent marker (and the thread it runs in.)
   G1ConcurrentMark* _cm;
   G1ConcurrentMarkThread* _cm_thread;
