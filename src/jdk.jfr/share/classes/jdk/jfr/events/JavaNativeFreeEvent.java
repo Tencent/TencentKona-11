@@ -46,7 +46,7 @@ public final class JavaNativeFreeEvent extends AbstractJDKEvent {
             }
         };
 
-    @Label("addr")
+    @Label("Addr")
     public long addr;
 
     public void reset() {

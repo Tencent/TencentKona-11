@@ -46,10 +46,10 @@ public class JavaNativeReallocateEvent extends AbstractJDKEvent {
             }
         };
 
-    @Label("freeAddr")
+    @Label("Free Addr")
     public long freeAddr;
 
-    @Label("allocAddr")
+    @Label("Alloc Addr")
     public long allocAddr;
 
     @Label("Allocation Size")

@@ -46,7 +46,7 @@ public final class JavaNativeAllocationEvent extends AbstractJDKEvent {
             }
         };
 
-    @Label("addr")
+    @Label("Addr")
     public long addr;
 
     @Label("Allocation Size")
