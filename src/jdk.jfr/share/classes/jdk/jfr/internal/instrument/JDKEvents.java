@@ -37,6 +37,9 @@ import jdk.jfr.events.ExceptionThrownEvent;
 import jdk.jfr.events.FileForceEvent;
 import jdk.jfr.events.FileReadEvent;
 import jdk.jfr.events.FileWriteEvent;
+import jdk.jfr.events.JavaNativeAllocationEvent;
+import jdk.jfr.events.JavaNativeFreeEvent;
+import jdk.jfr.events.JavaNativeReallocateEvent;
 import jdk.jfr.events.SecurityPropertyModificationEvent;
 import jdk.jfr.events.SocketReadEvent;
 import jdk.jfr.events.SocketWriteEvent;
@@ -74,7 +77,12 @@ public final class JDKEvents {
         jdk.internal.event.SecurityPropertyModificationEvent.class,
         jdk.internal.event.TLSHandshakeEvent.class,
         jdk.internal.event.X509CertificateEvent.class,
-        jdk.internal.event.X509ValidationEvent.class
+        jdk.internal.event.X509ValidationEvent.class,
+
+
+        JavaNativeAllocationEvent.class,
+        JavaNativeFreeEvent.class,
+        JavaNativeReallocateEvent.class
     };
 
     // This is a list of the classes with instrumentation code that should be applied.
@@ -85,7 +93,8 @@ public final class JDKEvents {
         FileChannelImplInstrumentor.class,
         SocketInputStreamInstrumentor.class,
         SocketOutputStreamInstrumentor.class,
-        SocketChannelImplInstrumentor.class
+        SocketChannelImplInstrumentor.class,
+        UnsafeInstrumentor.class
     };
 
     private static final Class<?>[] targetClasses = new Class<?>[instrumentationClasses.length];

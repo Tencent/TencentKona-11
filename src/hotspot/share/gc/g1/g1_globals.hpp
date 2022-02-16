@@ -319,5 +319,8 @@
           "value of getloadavg() at which G1 triggers a periodic GC. A "    \
           "load above this value cancels a given periodic GC. A value of "  \
           "zero disables this check.")                                      \
+                                                                            \
+  manageable(uintx, G1FreeOldMemoryThresholdPercentAfterFullGC, 90,         \
+          "Target percent to free physical memory after FGC.")              \
 
 #endif // SHARE_VM_GC_G1_G1_GLOBALS_HPP
