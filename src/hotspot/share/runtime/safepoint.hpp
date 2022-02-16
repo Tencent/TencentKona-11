@@ -115,7 +115,7 @@ class SafepointSynchronize : AllStatic {
   // safepoint. The fact that Threads_lock is held throughout each pair of
   // increments (at the beginning and end of each safepoint) guarantees
   // race freedom.
-  static volatile uint64_t _safepoint_counter;
+  static volatile int _safepoint_counter;
 
 private:
   static long              _end_of_last_safepoint;     // Time of last safepoint in milliseconds
@@ -159,7 +159,7 @@ public:
   // Query
   inline static bool is_at_safepoint()       { return _state == _synchronized; }
   inline static bool is_synchronizing()      { return _state == _synchronizing; }
-  inline static uint64_t safepoint_counter() { return _safepoint_counter; }
+  inline static int safepoint_counter() { return _safepoint_counter; }
 
   inline static void increment_jni_active_count() {
     assert_locked_or_safepoint(Safepoint_lock);

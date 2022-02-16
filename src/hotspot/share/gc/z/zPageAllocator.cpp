@@ -23,6 +23,7 @@
 
 #include "precompiled.hpp"
 #include "gc/z/zAddress.inline.hpp"
+#include "gc/z/zArray.inline.hpp"
 #include "gc/z/zCollectedHeap.hpp"
 #include "gc/z/zFuture.inline.hpp"
 #include "gc/z/zGlobals.hpp"
@@ -463,14 +464,31 @@ void ZPageAllocator::detach_memory(const ZVirtualMemory& vmem, ZPhysicalMemory& 
   pmem.clear();
 }
 
-void ZPageAllocator::free_page(ZPage* page, bool reclaimed) {
-  ZLocker<ZLock> locker(&_lock);
-
+void ZPageAllocator::free_page_inner(ZPage* page, bool reclaimed) {
   // Update used statistics
   decrease_used(page->size(), reclaimed);
 
   // Cache page
   _cache.free_page(page);
+}
+
+void ZPageAllocator::free_pages(const ZArray<ZPage*>* pages, bool reclaimed) {
+  ZLocker<ZLock> locker(&_lock);
+
+  // Free pages
+  ZArrayIterator<ZPage*> iter(pages);
+  for (ZPage* page; iter.next(&page);) {
+    free_page_inner(page, reclaimed);
+  }
+
+  // Try satisfy stalled allocations
+  satisfy_alloc_queue();
+}
+
+void ZPageAllocator::free_page(ZPage* page, bool reclaimed) {
+  ZLocker<ZLock> locker(&_lock);
+
+  free_page_inner(page, reclaimed);
 
   // Try satisfy blocked allocations
   satisfy_alloc_queue();
