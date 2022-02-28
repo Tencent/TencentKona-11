@@ -5,7 +5,7 @@
  *
  * This code is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation. THL A29 Limited designates 
+ * published by the Free Software Foundation. THL A29 Limited designates
  * this particular file as subject to the "Classpath" exception as provided
  * by Oracle in the LICENSE file that accompanied this code.
  *
@@ -22,7 +22,7 @@
 
 /*
  * @test
- * @run testng ContinuationYieldTo 
+ * @run testng ContinuationYieldTo
  * @summary Basic test for continuation yieldTo api, test start/yieldTo/resume/stop
  */
 import org.testng.annotations.Test;
@@ -169,6 +169,68 @@ public class ContinuationYieldTo {
             thread.join();
         } catch (Exception e) {
         }
+    }
+
+    // yieldTo with default on pin action: throw exception
+    @Test
+    public static void test_yieldToWithPin() {
+        value = 0;
+        Continuation cont1 = new Continuation(scope, () -> {
+            System.out.println("running cont1 1");
+            Continuation.yield(scope);
+            System.out.println("running cont1 2");
+        });
+
+        Runnable r = () -> {
+            Continuation.pin();
+            System.out.println("before yield to cont1");
+            try {
+                Continuation.yieldTo(cont1);
+            } catch (IllegalStateException e) {
+                System.out.println("catch exception " + e);
+                value += 1;
+            }
+            System.out.println("unpin");
+            Continuation.unpin();
+            System.out.println("before yield to cont1 1");
+            Continuation.yieldTo(cont1);
+            value += 1;
+            System.out.println("before yield to cont1 2");
+            Continuation.yieldTo(cont1);
+            value += 1;
+        };
+        Continuation cont2 = new Continuation(scope, r);
+        Continuation.yieldTo(cont2);
+        Continuation.yieldTo(cont2);
+        Continuation.yieldTo(cont2);
+        assertEquals(value, 3);
+    }
+
+    // yieldTo thread with default on pin action: throw exception
+    @Test
+    public static void test_yieldToThreadWithPin() {
+        value = 0;
+        Runnable r = () -> {
+            Continuation.yield(scope);
+            value += 1;
+            Continuation.pin();
+            System.out.println("pin");
+            try {
+                Continuation.yield(scope);
+            } catch (IllegalStateException e) {
+                System.out.println("catch exception " + e);
+                value += 1;
+            }
+            Continuation.unpin();
+            System.out.println("unpin");
+            Continuation.yield(scope);
+            value += 1;
+        };
+        Continuation cont = new Continuation(scope, r);
+        Continuation.yieldTo(cont);  // normal
+        Continuation.yieldTo(cont);  // pin + normal
+        Continuation.yieldTo(cont);  // normal + exit
+        assertEquals(value, 3);
     }
 }
 
