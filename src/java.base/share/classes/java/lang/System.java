@@ -57,6 +57,7 @@ import java.util.Properties;
 import java.util.PropertyPermission;
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -2211,6 +2212,21 @@ public final class System {
 
             public Thread currentCarrierThread() {
                 return Thread.currentCarrierThread();
+            }
+
+            public <V> V executeOnCarrierThread(Callable<V> task) throws Exception {
+                Thread thread = Thread.currentThread();
+                if (thread.isVirtual()) {
+                    Thread carrier = Thread.currentCarrierThread();
+                    carrier.setVirtualThread(null);
+                    try {
+                        return task.call();
+                    } finally {
+                        carrier.setVirtualThread((VirtualThread)thread);
+                    }
+                } else {
+                    return task.call();
+                }
             }
 
             public <T> T getCarrierThreadLocal(ThreadLocal<T> local) {

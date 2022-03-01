@@ -225,6 +225,8 @@ public:
   // 5. Mutator thread wait if _coro_claim is 4 until it changes to _conc_claim_parity.
   static int              _conc_claim_parity;
 private:
+  static Method*  _try_compensate_method;
+  static Method*  _update_active_count_method;
   CoroutineState  _state;
   bool            _is_thread_coroutine;
   //for javacall stack reclaim
@@ -267,6 +269,9 @@ private:
   void add_stack_frame(void* frames, int* depth, javaVFrame* jvf);
   void print_stack_on(outputStream* st, void* frames, int* depth);
   const char* get_vt_name_string(char* buf = NULL, int buflen = 0) const;
+  static JavaThreadState update_thread_state(Thread *Self, JavaThreadState new_jts);
+  static void init_forkjoinpool_method(Method** init_method, Symbol* method_name, Symbol* signature);
+  static void call_forkjoinpool_method(Thread* Self, Method* target_method, JavaCallArguments* args, JavaValue* result);
 
 public:
   virtual ~Coroutine();
@@ -285,6 +290,8 @@ public:
   static JavaThread* main_thread() { return _main_thread; }
   static void set_main_thread(JavaThread* t) { _main_thread = t; }
   static Method* cont_start_method() { return _continuation_start; }
+  static int try_compensate(Thread* Self);
+  static void update_active_count(Thread* Self);
 
   void print_stack_on(outputStream* st);
   void print_stack_on(void* frames, int* depth);

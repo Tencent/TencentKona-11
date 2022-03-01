@@ -201,6 +201,7 @@ class OopStorage;
   do_klass(AbstractStackWalker_klass,                   java_lang_StackStreamFactory_AbstractStackWalker, Opt          ) \
   do_klass(StackFrameInfo_klass,                        java_lang_StackFrameInfo,                  Opt                 ) \
   do_klass(LiveStackFrameInfo_klass,                    java_lang_LiveStackFrameInfo,              Opt                 ) \
+  do_klass(java_util_concurrent_ForkJoinPool_klass,     java_util_concurrent_ForkJoinPool,         Opt                 ) \
                                                                                                                          \
   /* support for stack dump lock analysis */                                                                             \
   do_klass(java_util_concurrent_locks_AbstractOwnableSynchronizer_klass, java_util_concurrent_locks_AbstractOwnableSynchronizer, Pre ) \
