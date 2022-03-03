@@ -24,7 +24,7 @@
 
 /*
  * @test
- * @summary classes with major version < JDK_6 (50) should not be included in CDS
+ * @summary CDS support of old classes with major version < JDK_6 (50) for static archive
  * @requires vm.cds
  * @library /test/lib
  * @modules java.base/jdk.internal.org.objectweb.asm
@@ -63,25 +63,31 @@ public class OldClassTest implements Opcodes {
 
     // CASE 1: pre-JDK 6 compiled classes should be excluded from the dump
     OutputAnalyzer output = TestCommon.dump(jar, appClasses);
-    TestCommon.checkExecReturn(output, 0, true, "Pre JDK 6 class not supported by CDS");
+    TestCommon.checkExecReturn(output, 0, false, "Pre JDK 6 class not supported by CDS");
 
     TestCommon.run(
         "-cp", jar,
         "-verbose:class",
         "Hello")
-      .assertNormalExit("Hello Unicode world (Old)");
+      .assertNormalExit(out -> {
+          out.shouldContain("Hello Unicode world (Old)");
+          out.shouldContain("Hello source: shared objects file");
+      });
 
     // CASE 2: if we exlcude old version of this class, we should not pick up
     //         the newer version of this class in a subsequent classpath element.
     String classpath = jar + File.pathSeparator + jarSrcFile.getPath();
     output = TestCommon.dump(classpath, appClasses);
-    TestCommon.checkExecReturn(output, 0, true, "Pre JDK 6 class not supported by CDS");
+    TestCommon.checkExecReturn(output, 0, false, "Pre JDK 6 class not supported by CDS");
 
     TestCommon.run(
         "-cp", classpath,
         "-verbose:class",
         "Hello")
-      .assertNormalExit("Hello Unicode world (Old)");
+      .assertNormalExit(out -> {
+          out.shouldContain("Hello Unicode world (Old)");
+          out.shouldContain("Hello source: shared objects file");
+      });
   }
 
   static void createTestJarFile(File jarSrcFile, File jarFile) throws Exception {

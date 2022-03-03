@@ -2653,7 +2653,7 @@ AdapterHandlerEntry* AdapterHandlerLibrary::new_entry(AdapterFingerPrint* finger
 
 AdapterHandlerEntry* AdapterHandlerLibrary::get_adapter(const methodHandle& method) {
   AdapterHandlerEntry* entry = get_adapter0(method);
-  if (entry != NULL && method->is_shared()) {
+  if (entry != NULL && (method->is_shared() && method->method_holder()->verified_at_dump_time())) {
     // See comments around Method::link_method()
     MutexLocker mu(AdapterHandlerLibrary_lock);
     if (method->adapter() == NULL) {

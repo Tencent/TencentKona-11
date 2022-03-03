@@ -177,7 +177,8 @@ private:
   u2     _shared_class_flags;
   enum {
     _has_raw_archived_mirror = 1,
-    _has_signer_and_not_archived = 1 << 2
+    _has_signer_and_not_archived = 1 << 2,
+    _verified_at_dump_time = 8
   };
 #endif
   // The _archived_mirror is set at CDS dump time pointing to the cached mirror
@@ -325,6 +326,13 @@ protected:
     return (_shared_class_flags & _has_signer_and_not_archived) != 0;
   }
 #endif // INCLUDE_CDS
+  void set_verified_at_dump_time() {
+    CDS_ONLY(_shared_class_flags |= _verified_at_dump_time;)
+  }
+  bool verified_at_dump_time() const {
+    CDS_ONLY(return (_shared_class_flags & _verified_at_dump_time) != 0;)
+    NOT_CDS(return false;)
+  }
 
   // Obtain the module or package for this class
   virtual ModuleEntry* module() const = 0;

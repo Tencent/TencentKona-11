@@ -1327,7 +1327,7 @@ public:
   virtual void remove_unshareable_info();
   virtual void remove_java_mirror();
   virtual void restore_unshareable_info(ClassLoaderData* loader_data, Handle protection_domain, TRAPS);
-
+  bool can_be_verified_at_dumptime() const;
   // jvm support
   jint compute_modifier_flags(TRAPS) const;
 
