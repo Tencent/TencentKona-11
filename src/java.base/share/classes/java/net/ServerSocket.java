@@ -27,7 +27,9 @@ package java.net;
 
 import jdk.internal.misc.JavaNetSocketAccess;
 import jdk.internal.misc.SharedSecrets;
+import jdk.internal.misc.JavaLangAccess;
 import sun.security.util.SecurityConstants;
+import sun.nio.ch.VTSocketImpl;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -58,6 +60,8 @@ import java.util.Collections;
  */
 public
 class ServerSocket implements java.io.Closeable {
+    private static final JavaLangAccess JLA = SharedSecrets.getJavaLangAccess();
+
     /**
      * Various states of this socket.
      */
@@ -305,7 +309,7 @@ class ServerSocket implements java.io.Closeable {
         } else {
             // No need to do a checkOldImpl() here, we know it's an up to date
             // SocketImpl!
-            impl = new SocksSocketImpl();
+            impl = JLA.isVTSocketEnabled() ? new VTSocketImpl(true, true) : new SocksSocketImpl();
         }
         if (impl != null)
             impl.setServerSocket(this);

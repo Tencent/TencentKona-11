@@ -26,7 +26,7 @@
  * @bug 8190843
  * @summary can not set/get extendedOptions to ServerSocket
  * @modules jdk.net
- * @run main ExtOptionTest
+ * @run main/othervm -Djdk.internal.VTSocket=off ExtOptionTest
  */
 import java.io.IOException;
 import java.net.ServerSocket;
