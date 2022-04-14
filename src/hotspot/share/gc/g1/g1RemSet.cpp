@@ -743,7 +743,18 @@ void G1RemSet::print_periodic_summary_info(const char* header, uint period_count
     log.trace("%s", header);
     ResourceMark rm;
     LogStream ls(log.trace());
-    _prev_period_summary.print_on(&ls);
+    _prev_period_summary.print_on(&ls, false);
+
+    _prev_period_summary.set(&current);
+  } else if(G1EnableLightRSetLogInfo && log_is_enabled(Info, gc)) {
+    G1RemSetSummary current(this);
+    _prev_period_summary.subtract_from(&current);
+
+    Log(gc, remset) log;
+    log.info("%s", header);
+    ResourceMark rm;
+    LogStream ls(log.info());
+    _prev_period_summary.print_on(&ls, true);
 
     _prev_period_summary.set(&current);
   }
@@ -756,7 +767,7 @@ void G1RemSet::print_summary_info() {
     G1RemSetSummary current(this);
     ResourceMark rm;
     LogStream ls(log.trace());
-    current.print_on(&ls);
+    current.print_on(&ls, false);
   }
 }
 

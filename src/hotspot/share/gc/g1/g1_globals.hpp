@@ -322,5 +322,9 @@
                                                                             \
   manageable(uintx, G1FreeOldMemoryThresholdPercentAfterFullGC, 90,         \
           "Target percent to free physical memory after FGC.")              \
+                                                                            \
+  manageable(bool, G1EnableLightRSetLogInfo, false,                         \
+          "When true, print light weight rem set report during GC. It also "\
+          "requires that logging is enabled on the info level for gc.")     \
 
 #endif // SHARE_VM_GC_G1_G1_GLOBALS_HPP
