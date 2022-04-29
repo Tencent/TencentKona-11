@@ -266,7 +266,7 @@ class itableMethodEntry {
 
   void clear()             { _method = NULL; }
 
-  void initialize(Method* method);
+  void initialize(InstanceKlass* klass, Method* method);
 
   // Static size and offset accessors
   static int size()                         { return sizeof(itableMethodEntry) / wordSize; }  // size in words

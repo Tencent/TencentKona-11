@@ -555,7 +555,9 @@ static void rewrite_nofast_bytecodes_and_calculate_fingerprints() {
       InstanceKlass* ik = InstanceKlass::cast(k);
       for (int i = 0; i < ik->methods()->length(); i++) {
         Method* m = ik->methods()->at(i);
-        rewrite_nofast_bytecode(m);
+        if (ik->can_be_verified_at_dumptime()) {
+          rewrite_nofast_bytecode(m);
+        }
         Fingerprinter fp(m);
         // The side effect of this call sets method's fingerprint field.
         fp.fingerprint();
@@ -1591,10 +1593,12 @@ class LinkSharedClassesClosure : public KlassClosure {
       // Link the class to cause the bytecodes to be rewritten and the
       // cpcache to be created. Class verification is done according
       // to -Xverify setting.
-      _made_progress |= MetaspaceShared::try_link_class(ik, THREAD);
-      guarantee(!HAS_PENDING_EXCEPTION, "exception in link_class");
+      if (ik->can_be_verified_at_dumptime()) {
+        _made_progress |= MetaspaceShared::try_link_class(ik, THREAD);
+        guarantee(!HAS_PENDING_EXCEPTION, "exception in link_class");
 
-      ik->constants()->resolve_class_constants(THREAD);
+        ik->constants()->resolve_class_constants(THREAD);
+      }
     }
   }
 };
@@ -1771,7 +1775,7 @@ int MetaspaceShared::preload_classes(const char* class_list_path, TRAPS) {
 // Returns true if the class's status has changed
 bool MetaspaceShared::try_link_class(InstanceKlass* ik, TRAPS) {
   assert(DumpSharedSpaces, "should only be called during dumping");
-  if (ik->init_state() < InstanceKlass::linked) {
+  if (ik->init_state() < InstanceKlass::linked && ik->can_be_verified_at_dumptime()) {
     bool saved = BytecodeVerificationLocal;
     if (ik->loader_type() == 0 && ik->class_loader() == NULL) {
       // The verification decision is based on BytecodeVerificationRemote

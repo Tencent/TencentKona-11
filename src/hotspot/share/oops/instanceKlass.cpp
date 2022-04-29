@@ -1848,25 +1848,14 @@ Method* InstanceKlass::lookup_method_in_all_interfaces(Symbol* name,
   return NULL;
 }
 
-/* jni_id_for_impl for jfieldIds only */
-JNIid* InstanceKlass::jni_id_for_impl(int offset) {
-  MutexLocker ml(JfieldIdCreation_lock);
-  // Retry lookup after we got the lock
-  JNIid* probe = jni_ids() == NULL ? NULL : jni_ids()->find(offset);
-  if (probe == NULL) {
-    // Slow case, allocate new static field identifier
-    probe = new JNIid(this, offset, jni_ids());
-    set_jni_ids(probe);
-  }
-  return probe;
-}
-
-
 /* jni_id_for for jfieldIds only */
 JNIid* InstanceKlass::jni_id_for(int offset) {
+  MutexLocker ml(JfieldIdCreation_lock);
   JNIid* probe = jni_ids() == NULL ? NULL : jni_ids()->find(offset);
   if (probe == NULL) {
-    probe = jni_id_for_impl(offset);
+    // Allocate new static field identifier
+    probe = new JNIid(this, offset, jni_ids());
+    set_jni_ids(probe);
   }
   return probe;
 }
@@ -2266,13 +2255,21 @@ void InstanceKlass::metaspace_pointers_do(MetaspaceClosure* it) {
 
   it->push(&_annotations);
   it->push((Klass**)&_array_klasses);
-  it->push(&_constants);
+  if (!is_rewritten()) {
+    it->push(&_constants, MetaspaceClosure::_writable);
+  } else {
+    it->push(&_constants);
+  }
   it->push(&_inner_classes);
   it->push(&_array_name);
 #if INCLUDE_JVMTI
   it->push(&_previous_versions);
 #endif
-  it->push(&_methods);
+  if (!is_rewritten()) {
+    it->push(&_methods, MetaspaceClosure::_writable);
+  } else {
+    it->push(&_methods);
+  }
   it->push(&_default_methods);
   it->push(&_local_interfaces);
   it->push(&_transitive_interfaces);
@@ -2304,6 +2301,10 @@ void InstanceKlass::metaspace_pointers_do(MetaspaceClosure* it) {
 }
 
 void InstanceKlass::remove_unshareable_info() {
+  if (can_be_verified_at_dumptime()) {
+    // Remember this so we can avoid walking the hierarchy at runtime.
+    set_verified_at_dump_time();
+  }
   Klass::remove_unshareable_info();
 
   if (is_in_error_state()) {
@@ -2395,10 +2396,37 @@ void InstanceKlass::restore_unshareable_info(ClassLoaderData* loader_data, Handl
   constants()->restore_unshareable_info(CHECK);
 
   if (array_klasses() != NULL) {
+    // To get a consistent list of classes we need MultiArray_lock to ensure
+    // array classes aren't observed while they are being restored.
+    MutexLocker ml(MultiArray_lock);
     // Array classes have null protection domain.
     // --> see ArrayKlass::complete_create_array_klass()
     array_klasses()->restore_unshareable_info(ClassLoaderData::the_null_class_loader_data(), Handle(), CHECK);
   }
+}
+
+// Check if a class or any of its supertypes has a version older than 50.
+// CDS will not perform verification of old classes during dump time because
+// without changing the old verifier, the verification constraint cannot be
+// retrieved during dump time.
+// Verification of archived old classes will be performed during run time.
+bool InstanceKlass::can_be_verified_at_dumptime() const {
+  if (major_version() < 50 /*JAVA_6_VERSION*/) {
+    return false;
+  }
+  if (java_super() != NULL && !java_super()->can_be_verified_at_dumptime()) {
+    return false;
+  }
+  Array<Klass*>* interfaces = local_interfaces();
+  int len = interfaces->length();
+  for (int i = 0; i < len; i++) {
+    Klass* k = interfaces->at(i);
+    InstanceKlass* ik = InstanceKlass::cast(k);
+    if (!ik->can_be_verified_at_dumptime()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // returns true IFF is_in_error_state() has been changed as a result of this call.

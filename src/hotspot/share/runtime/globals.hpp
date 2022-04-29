@@ -668,6 +668,12 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   develop(bool, UseFakeTimers, false,                                       \
           "Tell whether the VM should use system time or a fake timer")     \
                                                                             \
+  manageable(intx, HeapDumpGzipLevel, 0,                                    \
+          "When HeapDumpOnOutOfMemoryError is on, the gzip compression "    \
+          "level of the dump file. 0 (the default) disables gzip "          \
+          "compression. Otherwise the level must be between 1 and 9.")      \
+          range(0, 9)                                                       \
+                                                                            \
   product(ccstr, NativeMemoryTracking, "off",                               \
           "Native memory tracking options")                                 \
                                                                             \

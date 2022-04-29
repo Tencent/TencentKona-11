@@ -405,8 +405,12 @@ void ConstMethod::copy_annotations_from(ClassLoaderData* loader_data, ConstMetho
 
 void ConstMethod::metaspace_pointers_do(MetaspaceClosure* it) {
   log_trace(cds)("Iter(ConstMethod): %p", this);
-
-  it->push(&_constants);
+  
+  if (!method()->method_holder()->is_rewritten()) {
+    it->push(&_constants, MetaspaceClosure::_writable);
+  } else {
+    it->push(&_constants);
+  }
   it->push(&_stackmap_data);
   if (has_method_annotations()) {
     it->push(method_annotations_addr());
@@ -539,4 +543,23 @@ void ConstMethod::verify_on(outputStream* st) {
   int gap = (intptr_t) uncompressed_table_start - (intptr_t) compressed_table_end;
   int max_gap = align_metadata_size(1)*BytesPerWord;
   guarantee(gap >= 0 && gap < max_gap, "invalid method layout");
+}
+
+AdapterHandlerEntry* ConstMethod::adapter() {
+  if (is_shared() && _constants->pool_holder()->verified_at_dump_time()) {
+    return *_adapter_trampoline;
+  } else {
+    return _adapter;
+  }
+}
+
+void ConstMethod::update_adapter_trampoline(AdapterHandlerEntry* adapter) {
+  assert(is_shared() && _constants->pool_holder()->verified_at_dump_time(), "must be");
+  *_adapter_trampoline = adapter;
+  assert(this->adapter() == adapter, "must be");
+}
+
+void ConstMethod::set_adapter_entry(AdapterHandlerEntry* adapter) {
+  assert(!(is_shared() && _constants->pool_holder()->verified_at_dump_time()), "shared methods have fixed adapter_trampoline");
+  _adapter = adapter;
 }
