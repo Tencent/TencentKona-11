@@ -50,7 +50,7 @@ inline InstanceKlass* klassVtable::ik() const {
 }
 
 bool klassVtable::is_preinitialized_vtable() {
-  return _klass->is_shared() && !MetaspaceShared::remapped_readwrite();
+  return _klass->is_shared() && !MetaspaceShared::remapped_readwrite() && _klass->verified_at_dump_time();
 }
 
 
@@ -1048,15 +1048,19 @@ bool klassVtable::is_initialized() {
 // Itable code
 
 // Initialize a itableMethodEntry
-void itableMethodEntry::initialize(Method* m) {
+void itableMethodEntry::initialize(InstanceKlass* klass, Method* m) {
   if (m == NULL) return;
 
 #ifdef ASSERT
   if (MetaspaceShared::is_in_shared_metaspace((void*)&_method) &&
-     !MetaspaceShared::remapped_readwrite()) {
+     !MetaspaceShared::remapped_readwrite() &&
+     m->method_holder()->verified_at_dump_time() &&
+     klass->verified_at_dump_time()) {
     // At runtime initialize_itable is rerun as part of link_class_impl()
     // for a shared class loaded by the non-boot loader.
     // The dumptime itable method entry should be the same as the runtime entry.
+    // For a shared old class which was not linked during dump time, we can't compare the dumptime
+    // itable method entry with the runtime entry.
     assert(_method == m, "sanity");
   }
 #endif
@@ -1235,7 +1239,7 @@ void klassItable::initialize_itable_for_interface(int method_table_offset, Klass
       if (!(target == NULL) && !target->is_public()) {
         // Stuff an IllegalAccessError throwing method in there instead.
         itableOffsetEntry::method_entry(_klass, method_table_offset)[m->itable_index()].
-            initialize(Universe::throw_illegal_access_error());
+            initialize(_klass, Universe::throw_illegal_access_error());
       }
     } else {
       // Entry did resolve, check loader constraints before initializing
@@ -1274,7 +1278,7 @@ void klassItable::initialize_itable_for_interface(int method_table_offset, Klass
       // ime may have moved during GC so recalculate address
       int ime_num = m->itable_index();
       assert(ime_num < ime_count, "oob");
-      itableOffsetEntry::method_entry(_klass, method_table_offset)[ime_num].initialize(target());
+      itableOffsetEntry::method_entry(_klass, method_table_offset)[ime_num].initialize(_klass, target());
       if (log_develop_is_enabled(Trace, itables)) {
         ResourceMark rm(THREAD);
         if (target() != NULL) {
@@ -1310,7 +1314,7 @@ void klassItable::adjust_method_entries(InstanceKlass* holder, bool * trace_name
     assert(new_method != NULL, "method_with_idnum() should not be NULL");
     assert(old_method != new_method, "sanity check");
 
-    ime->initialize(new_method);
+    ime->initialize(_klass, new_method);
 
     if (log_is_enabled(Info, redefine, class, update)) {
       ResourceMark rm;

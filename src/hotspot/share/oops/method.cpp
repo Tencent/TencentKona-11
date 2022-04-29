@@ -252,14 +252,11 @@ int Method::bci_from(address bcp) const {
   if (is_native() && bcp == 0) {
     return 0;
   }
-#ifdef ASSERT
-  {
-    ResourceMark rm;
-    assert(is_native() && bcp == code_base() || contains(bcp) || VMError::is_error_reported(),
-           "bcp doesn't belong to this method: bcp: " INTPTR_FORMAT ", method: %s",
-           p2i(bcp), name_and_sig_as_C_string());
-  }
-#endif
+  // Do not have a ResourceMark here because AsyncGetCallTrace stack walking code
+  // may call this after interrupting a nested ResourceMark.
+  assert(is_native() && bcp == code_base() || contains(bcp) || VMError::is_error_reported(),
+         "bcp doesn't belong to this method. bcp: " INTPTR_FORMAT, p2i(bcp));
+
   return bcp - code_base();
 }
 
@@ -319,7 +316,11 @@ Symbol* Method::klass_name() const {
 void Method::metaspace_pointers_do(MetaspaceClosure* it) {
   log_trace(cds)("Iter(Method): %p", this);
 
-  it->push(&_constMethod);
+  if (!method_holder()->is_rewritten()) {
+    it->push(&_constMethod, MetaspaceClosure::_writable);
+  } else {
+    it->push(&_constMethod);
+  }
   it->push(&_method_data);
   it->push(&_method_counters);
 }
@@ -334,7 +335,7 @@ void Method::remove_unshareable_info() {
 }
 
 void Method::set_vtable_index(int index) {
-  if (is_shared() && !MetaspaceShared::remapped_readwrite()) {
+  if (is_shared() && !MetaspaceShared::remapped_readwrite() && method_holder()->verified_at_dump_time()) {
     // At runtime initialize_vtable is rerun as part of link_class_impl()
     // for a shared class loaded by the non-boot loader to obtain the loader
     // constraints based on the runtime classloaders' context.
@@ -345,7 +346,7 @@ void Method::set_vtable_index(int index) {
 }
 
 void Method::set_itable_index(int index) {
-  if (is_shared() && !MetaspaceShared::remapped_readwrite()) {
+  if (is_shared() && !MetaspaceShared::remapped_readwrite() && method_holder()->verified_at_dump_time()) {
     // At runtime initialize_itable is rerun as part of link_class_impl()
     // for a shared class loaded by the non-boot loader to obtain the loader
     // constraints based on the runtime classloaders' context. The dumptime
@@ -986,8 +987,13 @@ void Method::unlink_method() {
   assert(DumpSharedSpaces, "dump time only");
   // Set the values to what they should be at run time. Note that
   // this Method can no longer be executed during dump time.
-  _i2i_entry = Interpreter::entry_for_cds_method(this);
-  _from_interpreted_entry = _i2i_entry;
+  if (method_holder()->verified_at_dump_time()) {
+    _i2i_entry = Interpreter::entry_for_cds_method(this);
+    _from_interpreted_entry = _i2i_entry;
+  } else {
+    _i2i_entry = NULL;
+    _from_interpreted_entry = NULL;
+  }
 
   if (is_native()) {
     *native_function_addr() = NULL;
@@ -995,11 +1001,14 @@ void Method::unlink_method() {
   }
   NOT_PRODUCT(set_compiled_invocation_count(0);)
 
-  CDSAdapterHandlerEntry* cds_adapter = (CDSAdapterHandlerEntry*)adapter();
-  constMethod()->set_adapter_trampoline(cds_adapter->get_adapter_trampoline());
-  _from_compiled_entry = cds_adapter->get_c2i_entry_trampoline();
-  assert(*((int*)_from_compiled_entry) == 0, "must be NULL during dump time, to be initialized at run time");
-
+  if (method_holder()->verified_at_dump_time()) {
+    CDSAdapterHandlerEntry* cds_adapter = (CDSAdapterHandlerEntry*)adapter();
+    constMethod()->set_adapter_trampoline(cds_adapter->get_adapter_trampoline());
+    _from_compiled_entry = cds_adapter->get_c2i_entry_trampoline();
+    assert(*((int*)_from_compiled_entry) == 0, "must be NULL during dump time, to be initialized at run time");
+  } else {
+    _from_interpreted_entry = NULL;
+  }
   set_method_data(NULL);
   clear_method_counters();
 }
@@ -1081,7 +1090,7 @@ void Method::unlink_method() {
 void Method::link_method(const methodHandle& h_method, TRAPS) {
   // If the code cache is full, we may reenter this function for the
   // leftover methods that weren't linked.
-  if (is_shared()) {
+  if (is_shared() && method_holder()->verified_at_dump_time()) {
     address entry = Interpreter::entry_for_cds_method(h_method);
     assert(entry != NULL && entry == _i2i_entry,
            "should be correctly set during dump time");
@@ -1098,7 +1107,7 @@ void Method::link_method(const methodHandle& h_method, TRAPS) {
   // Setup interpreter entrypoint
   assert(this == h_method(), "wrong h_method()" );
 
-  if (!is_shared()) {
+  if (!(is_shared() && method_holder()->verified_at_dump_time())) {
     assert(adapter() == NULL, "init'd to NULL");
     address entry = Interpreter::entry_for_method(h_method);
     assert(entry != NULL, "interpreter entry must be non-null");
@@ -1142,8 +1151,7 @@ address Method::make_adapters(const methodHandle& mh, TRAPS) {
       THROW_MSG_NULL(vmSymbols::java_lang_VirtualMachineError(), "Out of space in CodeCache for adapters");
     }
   }
-
-  if (mh->is_shared()) {
+  if (mh->is_shared() && mh->method_holder()->verified_at_dump_time()) {
     assert(mh->adapter() == adapter, "must be");
     assert(mh->_from_compiled_entry != NULL, "must be");
   } else {
@@ -1154,8 +1162,11 @@ address Method::make_adapters(const methodHandle& mh, TRAPS) {
 }
 
 void Method::restore_unshareable_info(TRAPS) {
-  assert(is_method() && is_valid_method(this), "ensure C++ vtable is restored");
+  if (!method_holder()->verified_at_dump_time()) {
+    return;
+  }
 
+  assert(is_method() && is_valid_method(this), "ensure C++ vtable is restored");
   // Since restore_unshareable_info can be called more than once for a method, don't
   // redo any work.
   if (adapter() == NULL) {

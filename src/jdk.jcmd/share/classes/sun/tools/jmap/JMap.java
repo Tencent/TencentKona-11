@@ -211,6 +211,7 @@ public class JMap {
         String subopts[] = options.split(",");
         String filename = null;
         String liveopt = "-all";
+        String compress_level = null;
 
         for (int i = 0; i < subopts.length; i++) {
             String subopt = subopts[i];
@@ -218,6 +219,12 @@ public class JMap {
                 liveopt = "-live";
             } else if (subopt.startsWith("file=")) {
                 filename = parseFileName(subopt);
+            } else if (subopt.startsWith("gz=")) {
+               compress_level = subopt.substring("gz=".length());
+               if (compress_level == null) {
+                    System.err.println("Fail: no number provided in option: '" + subopt + "'");
+                    usage(1);
+               }
             }
         }
 
@@ -227,7 +234,7 @@ public class JMap {
         }
 
         // dumpHeap is not the same as jcmd GC.heap_dump
-        executeCommandForPid(pid, "dumpheap", filename, liveopt);
+        executeCommandForPid(pid, "dumpheap", filename, liveopt, compress_level);
     }
 
     private static void checkForUnsupportedOptions(String[] args) {
@@ -297,6 +304,8 @@ public class JMap {
         System.err.println("                         parallel=1 disable parallel heap iteration");
         System.err.println("                         parallel=<N> use N threads for parallel heap iteration");
 
+        System.err.println("      gz=<number>  If specified, the heap dump is written in gzipped format using the given compression level.");
+        System.err.println("                   1 (recommended) is the fastest, 9 the strongest compression.");
         System.err.println("");
         System.err.println("    Example: jmap -dump:live,format=b,file=heap.bin <pid>");
         System.err.println("");

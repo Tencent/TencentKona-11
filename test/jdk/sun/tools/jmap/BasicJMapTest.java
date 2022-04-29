@@ -21,11 +21,14 @@
  * questions.
  */
 
-import static jdk.testlibrary.Asserts.assertTrue;
-import static jdk.testlibrary.Asserts.fail;
+import static jdk.test.lib.Asserts.assertTrue;
+import static jdk.test.lib.Asserts.assertFalse;
+import static jdk.test.lib.Asserts.fail;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.List;
 
 import jdk.test.lib.hprof.HprofParser;
 import jdk.testlibrary.JDKToolLauncher;
@@ -61,6 +64,7 @@ public class BasicJMapTest {
         testDump();
         testDumpLive();
         testDumpAll();
+        testDumpCompressed();
     }
 
     private static void testHisto() throws Exception {
@@ -154,19 +158,27 @@ public class BasicJMapTest {
 
     private static void testDumpAll() throws Exception {
         boolean explicitAll = true;
-        dump(false, explicitAll);
+        dump(false, explicitAll, false);
     }
 
     private static void dump(boolean live) throws Exception {
         boolean explicitAll = false;
-        dump(live, explicitAll);
+        dump(live, explicitAll, false);
     }
 
-    private static void dump(boolean live, boolean explicitAll) throws Exception {
+    private static void testDumpCompressed() throws Exception {
+        dump(true, false, true);
+    }
+
+    private static void dump(boolean live, boolean explicitAll, boolean compressed) throws Exception {
         if (live == true && explicitAll == true) {
           fail("Illegal argument setting for jmap -dump");
         }
-        File dump = new File("jmap.dump." + System.currentTimeMillis() + ".hprof");
+        String filePath = "jmap.dump" + System.currentTimeMillis() + ".hprof";
+        if (compressed) {
+            filePath = filePath + ".gz";
+        }
+        File dump = new File(filePath);
         if (dump.exists()) {
             dump.delete();
         }
@@ -175,9 +187,12 @@ public class BasicJMapTest {
             output = jmap("-dump:live,format=b,file=" + dump.getName());
         } else if (explicitAll == true) {
             output = jmap("-dump:all,format=b,file=" + dump.getName());
+        } else if (compressed == true) {
+            output = jmap("-dump:all,format=b,gz=1,file=" + dump.getName());
         } else {
             output = jmap("-dump:format=b,file=" + dump.getName());
         }
+
         output.shouldHaveExitValue(0);
         output.shouldContain("Heap dump file created");
         verifyDumpFile(dump);
@@ -187,7 +202,18 @@ public class BasicJMapTest {
     private static void verifyDumpFile(File dump) {
         assertTrue(dump.exists() && dump.isFile(), "Could not create dump file " + dump.getAbsolutePath());
         try {
-            HprofParser.parse(dump);
+            File out = HprofParser.parse(dump);
+
+            assertTrue(out != null && out.exists() && out.isFile(),
+                       "Could not find hprof parser output file");
+            List<String> lines = Files.readAllLines(out.toPath());
+            assertTrue(lines.size() > 0, "hprof parser output file is empty");
+            for (String line : lines) {
+                assertFalse(line.matches(".*WARNING(?!.*Failed to resolve " +
+                                         "object.*constantPoolOop.*).*"));
+            }
+
+            out.delete();
         } catch (Exception e) {
             e.printStackTrace();
             fail("Could not parse dump file " + dump.getAbsolutePath());

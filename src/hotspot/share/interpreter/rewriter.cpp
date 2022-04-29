@@ -566,8 +566,9 @@ void Rewriter::rewrite_bytecodes(TRAPS) {
 }
 
 void Rewriter::rewrite(InstanceKlass* klass, TRAPS) {
-  if (!DumpSharedSpaces) {
-    assert(!klass->is_shared(), "archive methods must not be rewritten at run time");
+  if (klass->is_shared()) {
+    assert(!klass->is_rewritten(), "rewritten shared classes cannot be rewritten again");
+    assert(!klass->can_be_verified_at_dumptime(), "only shared old classes aren't rewritten");
   }
   ResourceMark rm(THREAD);
   Rewriter     rw(klass, klass->constants(), klass->methods(), CHECK);
