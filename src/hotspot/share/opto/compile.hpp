@@ -97,8 +97,8 @@ enum LoopOptsMode {
   LoopOptsSkipSplitIf,
   LoopOptsVerify,
 #if INCLUDE_SHENANDOAHGC
-  ,LoopOptsShenandoahExpand,
-   LoopOptsShenandoahPostExpand
+  LoopOptsShenandoahExpand,
+  LoopOptsShenandoahPostExpand
 #endif
 };
 
