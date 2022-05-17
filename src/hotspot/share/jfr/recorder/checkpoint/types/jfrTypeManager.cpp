@@ -218,6 +218,8 @@ bool JfrTypeManager::initialize() {
   register_type(TYPE_CODEBLOBTYPE, false, true, new CodeBlobTypeConstant());
   register_type(TYPE_VMOPERATIONTYPE, false, true, new VMOperationTypeConstant());
   register_type(TYPE_THREADSTATE, false, true, new ThreadStateConstant());
+  register_type(TYPE_BYTECODE, false, true, new BytecodeConstant());
+  register_type(TYPE_COMPILERTYPE, false, true, new CompilerTypeConstant());
 
   // register safepointing type serialization
   register_type(TYPE_THREADGROUP, true, false, new JfrThreadGroupConstant());

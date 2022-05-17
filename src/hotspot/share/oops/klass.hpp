@@ -177,7 +177,8 @@ private:
   u2     _shared_class_flags;
   enum {
     _has_raw_archived_mirror = 1,
-    _has_signer_and_not_archived = 1 << 2
+    _has_signer_and_not_archived = 1 << 2,
+    _verified_at_dump_time = 8
   };
 #endif
   // The _archived_mirror is set at CDS dump time pointing to the cached mirror
@@ -325,6 +326,13 @@ protected:
     return (_shared_class_flags & _has_signer_and_not_archived) != 0;
   }
 #endif // INCLUDE_CDS
+  void set_verified_at_dump_time() {
+    CDS_ONLY(_shared_class_flags |= _verified_at_dump_time;)
+  }
+  bool verified_at_dump_time() const {
+    CDS_ONLY(return (_shared_class_flags & _verified_at_dump_time) != 0;)
+    NOT_CDS(return false;)
+  }
 
   // Obtain the module or package for this class
   virtual ModuleEntry* module() const = 0;
@@ -349,19 +357,17 @@ protected:
   static ByteSize access_flags_offset()          { return in_ByteSize(offset_of(Klass, _access_flags)); }
 
   // Unpacking layout_helper:
-  enum {
-    _lh_neutral_value           = 0,  // neutral non-array non-instance value
-    _lh_instance_slow_path_bit  = 0x01,
-    _lh_log2_element_size_shift = BitsPerByte*0,
-    _lh_log2_element_size_mask  = BitsPerLong-1,
-    _lh_element_type_shift      = BitsPerByte*1,
-    _lh_element_type_mask       = right_n_bits(BitsPerByte),  // shifted mask
-    _lh_header_size_shift       = BitsPerByte*2,
-    _lh_header_size_mask        = right_n_bits(BitsPerByte),  // shifted mask
-    _lh_array_tag_bits          = 2,
-    _lh_array_tag_shift         = BitsPerInt - _lh_array_tag_bits,
-    _lh_array_tag_obj_value     = ~0x01   // 0x80000000 >> 30
-  };
+  static const int _lh_neutral_value           = 0;  // neutral non-array non-instance value
+  static const int _lh_instance_slow_path_bit  = 0x01;
+  static const int _lh_log2_element_size_shift = BitsPerByte*0;
+  static const int _lh_log2_element_size_mask  = BitsPerLong-1;
+  static const int _lh_element_type_shift      = BitsPerByte*1;
+  static const int _lh_element_type_mask       = right_n_bits(BitsPerByte);  // shifted mask
+  static const int _lh_header_size_shift       = BitsPerByte*2;
+  static const int _lh_header_size_mask        = right_n_bits(BitsPerByte);  // shifted mask
+  static const int _lh_array_tag_bits          = 2;
+  static const int _lh_array_tag_shift         = BitsPerInt - _lh_array_tag_bits;
+  static const int _lh_array_tag_obj_value     = ~0x01;   // 0x80000000 >> 30
 
   static const unsigned int _lh_array_tag_type_value = 0Xffffffff; // ~0x00,  // 0xC0000000 >> 30
 

@@ -85,7 +85,7 @@ inline void ZArray<T>::clear() {
 }
 
 template <typename T, bool parallel>
-inline ZArrayIteratorImpl<T, parallel>::ZArrayIteratorImpl(ZArray<T>* array) :
+inline ZArrayIteratorImpl<T, parallel>::ZArrayIteratorImpl(const ZArray<T>* array) :
     _array(array),
     _next(0) {}
 

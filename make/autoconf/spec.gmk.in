@@ -46,6 +46,9 @@ COMMA:=,
 # What make to use for main processing, after bootstrapping top-level Makefile.
 MAKE := @MAKE@
 
+# Make sure all shell commands are executed with the C locale
+export LC_ALL := C
+
 # The default make arguments
 MAKE_ARGS = $(MAKE_LOG_FLAGS) -r -R -I $(TOPDIR)/make/common SPEC=$(SPEC) \
     MAKE_LOG_FLAGS="$(MAKE_LOG_FLAGS)" $(MAKE_LOG_VARS)
@@ -508,11 +511,6 @@ LDCXX:=@FIXPATH@ @LDCXX@
 LIBCXX:=@LIBCXX@
 
 # Compiler and linker flags used when building native tests
-CFLAGS_TESTLIB:=@CFLAGS_TESTLIB@
-CXXFLAGS_TESTLIB:=@CXXFLAGS_TESTLIB@
-CFLAGS_TESTEXE:=@CFLAGS_TESTEXE@
-CXXFLAGS_TESTEXE:=@CXXFLAGS_TESTEXE@
-LDFLAGS_TESTLIB:=@LDFLAGS_TESTLIB@
 LDFLAGS_TESTEXE:=@LDFLAGS_TESTEXE@
 
 # BUILD_CC/BUILD_LD is a compiler/linker that generates code that is runnable on the

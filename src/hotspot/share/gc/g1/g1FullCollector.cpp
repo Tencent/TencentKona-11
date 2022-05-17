@@ -197,6 +197,11 @@ void G1FullCollector::complete_collection() {
 
   _heap->verify_after_full_collection();
 
+  // try to uncommit heap memory
+  if (FreeHeapPhysicalMemory) {
+    _heap->free_heap_physical_memory_after_fullgc();
+  }
+
   _heap->print_heap_after_full_collection(scope()->heap_transition());
 }
 

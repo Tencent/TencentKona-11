@@ -240,6 +240,10 @@ private:
 
   size_t _max_code_root_mem_sz;
   HeapRegion* _max_code_root_mem_sz_region;
+  // OtherRegionTable's overall occupancy and PerRegionTable's freelist sizes
+  // will not be calculated or displayed under light mode. The expected cost of 
+  // printing rset info under light mode is approximately in the order of 1ms.
+  bool _is_light_mode;
 
   size_t total_code_root_mem_sz() const     { return _all.code_root_mem_size(); }
   size_t total_code_root_elems() const      { return _all.code_root_elems(); }
@@ -247,10 +251,12 @@ private:
   size_t max_code_root_mem_sz() const       { return _max_code_root_mem_sz; }
   HeapRegion* max_code_root_mem_sz_region() const { return _max_code_root_mem_sz_region; }
 
+  bool is_light_mode() const { return _is_light_mode; }
+
 public:
-  HRRSStatsIter() : _all("All"), _young("Young"), _humongous("Humongous"),
+  HRRSStatsIter(bool is_light_mode) : _all("All"), _young("Young"), _humongous("Humongous"),
     _free("Free"), _old("Old"), _max_code_root_mem_sz_region(NULL), _max_rs_mem_sz_region(NULL),
-    _max_rs_mem_sz(0), _max_code_root_mem_sz(0)
+    _max_rs_mem_sz(0), _max_code_root_mem_sz(0), _is_light_mode(is_light_mode)
   {}
 
   bool do_heap_region(HeapRegion* r) {
@@ -263,7 +269,12 @@ public:
       _max_rs_mem_sz = rs_mem_sz;
       _max_rs_mem_sz_region = r;
     }
-    size_t occupied_cards = hrrs->occupied();
+
+    size_t occupied_cards = 0;
+    if (!is_light_mode()) {
+      occupied_cards = hrrs->occupied();
+    }
+
     size_t code_root_mem_sz = hrrs->strong_code_roots_mem_size();
     if (code_root_mem_sz > max_code_root_mem_sz()) {
       _max_code_root_mem_sz = code_root_mem_sz;
@@ -303,17 +314,19 @@ public:
       (*current)->print_rs_mem_info_on(out, total_rs_mem_sz());
     }
 
-    out->print_cr("   Static structures = " SIZE_FORMAT "%s,"
+    if (!is_light_mode()) {
+      out->print_cr("   Static structures = " SIZE_FORMAT "%s,"
                   " free_lists = " SIZE_FORMAT "%s.",
                   byte_size_in_proper_unit(HeapRegionRemSet::static_mem_size()),
                   proper_unit_for_byte_size(HeapRegionRemSet::static_mem_size()),
                   byte_size_in_proper_unit(HeapRegionRemSet::fl_mem_size()),
                   proper_unit_for_byte_size(HeapRegionRemSet::fl_mem_size()));
 
-    out->print_cr("    " SIZE_FORMAT " occupied cards represented.",
+      out->print_cr("    " SIZE_FORMAT " occupied cards represented.",
                   total_cards_occupied());
-    for (RegionTypeCounter** current = &counters[0]; *current != NULL; current++) {
-      (*current)->print_cards_occupied_info_on(out, total_cards_occupied());
+      for (RegionTypeCounter** current = &counters[0]; *current != NULL; current++) {
+        (*current)->print_cards_occupied_info_on(out, total_cards_occupied());
+      }
     }
 
     // Largest sized rem set region statistics
@@ -352,7 +365,7 @@ public:
   }
 };
 
-void G1RemSetSummary::print_on(outputStream* out) {
+void G1RemSetSummary::print_on(outputStream* out, bool is_light_mode) {
   out->print_cr(" Recent concurrent refinement statistics");
   out->print_cr("  Processed " SIZE_FORMAT " cards concurrently", num_conc_refined_cards());
   out->print_cr("  Of " SIZE_FORMAT " completed buffers:", num_processed_buf_total());
@@ -372,7 +385,7 @@ void G1RemSetSummary::print_on(outputStream* out) {
   out->print_cr("  Concurrent sampling threads times (s)");
   out->print_cr("         %5.2f", sampling_thread_vtime());
 
-  HRRSStatsIter blk;
+  HRRSStatsIter blk(is_light_mode);
   G1CollectedHeap::heap()->heap_region_iterate(&blk);
   blk.print_summary_on(out);
 }
