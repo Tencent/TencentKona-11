@@ -328,8 +328,11 @@ void ContContainer::insert(Coroutine* cont) {
     ContBucket* bucket = ContContainer::bucket(index);
     MutexLockerEx ml(bucket->lock(), Mutex::_no_safepoint_check_flag);
     bucket->insert(cont);
-    Log(coroutine) log;
-    log.trace("[insert] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
+    if (log_is_enabled(Trace, coroutine)) {
+      ResourceMark rm;
+      Log(coroutine) log;
+      log.trace("[insert] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
+    }
   }
 }
 
@@ -340,8 +343,11 @@ void ContContainer::remove(Coroutine* cont) {
     ContBucket* bucket = ContContainer::bucket(index);
     MutexLockerEx ml(bucket->lock(), Mutex::_no_safepoint_check_flag);
     bucket->remove(cont);
-    Log(coroutine) log;
-    log.trace("[remove] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
+    if (log_is_enabled(Trace, coroutine)) {
+      ResourceMark rm;
+      Log(coroutine) log;
+      log.trace("[remove] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
+    }
   }
 }
 
@@ -457,13 +463,19 @@ void Coroutine::start_concurrent(ConcCoroStage stage) {
   if (_conc_claim_parity == 3) {
     _conc_claim_parity = 1;
   }
-  Log(gc) log;
-  log.trace("[Coroutine::start_concurrent] stage %d, parity %d", stage, _conc_claim_parity);
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(gc) log;
+    log.trace("[Coroutine::start_concurrent] stage %d, parity %d", stage, _conc_claim_parity);
+  }
 }
 
 void Coroutine::end_concurrent() {
-  Log(gc) log;
-  log.trace("[Coroutine::end_concurrent]");
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(gc) log;
+    log.trace("[Coroutine::end_concurrent]");
+  }
 }
 
 class ConcCoroutineCodeBlobClosure : public CodeBlobToOopClosure {
@@ -581,8 +593,11 @@ void Coroutine::Concurrent_Coroutine_slowpath(Coroutine* coro) {
 // check yield is from thread contianuation or to thread contianuation
 // check resource is not still hold by contianuation when yield back to thread contianuation
 void Coroutine::yield_verify(Coroutine* from, Coroutine* to, bool terminate) {
-  Log(coroutine) log;
-  log.trace("yield_verify from %p to %p", from, to);
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(coroutine) log;
+    log.trace("yield_verify from %p to %p", from, to);
+  }
   JavaThread* thread = from->_thread;
   guarantee(thread->reserved_stack_activation() == thread->stack_base(), "reserved overflow should have been processed");
   // check before change, check is need when yield from none thread to others
@@ -1097,8 +1112,11 @@ JVM_END
 JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, long stackSize)) {
   if (stackSize < 0) {
     guarantee(thread->current_coroutine()->is_thread_coroutine(), "current coroutine is not thread coroutine");
-    Log(coroutine) log;
-    log.trace("CONT_createContinuation: reuse main thread continuation %p", thread->current_coroutine());
+    if (log_is_enabled(Trace, coroutine)) {
+      ResourceMark rm; 
+      Log(coroutine) log;
+      log.trace("CONT_createContinuation: reuse main thread continuation %p", thread->current_coroutine());
+    }
     return (jlong)thread->current_coroutine();
   }
 
@@ -1128,8 +1146,11 @@ JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, long stackSi
     }
   }
   ContContainer::insert(coro);
-  Log(coroutine) log;
-  log.trace("CONT_createContinuation: create continuation %p", coro);
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(coroutine) log;
+    log.trace("CONT_createContinuation: create continuation %p", coro);
+  }
   return (jlong)coro;
 }
 JVM_END
