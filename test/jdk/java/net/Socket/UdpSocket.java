@@ -23,7 +23,7 @@
 
 /**
  * @test
- * @run main UdpSocket
+ * @run main/othervm -Djdk.internal.VTSocket=off UdpSocket
  * @summary Basic test for a Socket to a UDP socket
  */
 

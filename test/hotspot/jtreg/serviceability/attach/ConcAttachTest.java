@@ -98,7 +98,14 @@ public class ConcAttachTest implements Runnable {
                                       .filter(l -> l.contains("Attach Listener"))
                                       .count();
 
-        Asserts.assertEquals(1L, numOfAttachListener, "AttachListener should exist only 1 thread.");
+        Asserts.assertEquals(2L, numOfAttachListener, "AttachListener should exist only 1 thread and 1 coro.");
+
+        long CoroNumOfAttachListener = out.asLines()
+                                          .stream()
+                                          .filter(l -> l.contains("thread coroutine: Attach Listener"))
+                                          .count();
+
+        Asserts.assertEquals(1L, CoroNumOfAttachListener, "AttachListener should exist only 1 coro.");
     }
 
     public static void main(String... args) throws Exception {
