@@ -112,7 +112,7 @@ void Coroutine::init_forkjoinpool_method(Method** init_method, Symbol* method_na
 void ContReservedStack::init() {
   _lock = new Mutex(Mutex::leaf, "InitializedStack", false, Monitor::_safepoint_check_never);
 
-  free_array = new (ResourceObj::C_HEAP, mtInternal)GrowableArray<address>(CONT_RESERVED_PHYSICAL_MEM_MAX, true);
+  free_array = new (ResourceObj::C_HEAP, mtCoroutine)GrowableArray<address>(CONT_RESERVED_PHYSICAL_MEM_MAX, true);
   stack_size = DefaultCoroutineStackSize +
                JavaThread::stack_shadow_zone_size() +
                JavaThread::stack_reserved_zone_size() +
@@ -135,6 +135,7 @@ bool ContReservedStack::add_pre_mapped_stack() {
   }
 
   current_pre_mapped_stack = node;
+  MemTracker::record_virtual_memory_type((address)node->get_base_address() - reserved_size, mtCoroutineStack);
   return true;
 }
 
