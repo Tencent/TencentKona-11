@@ -172,7 +172,7 @@ class SocketChannelImpl
      * @throws ClosedChannelException if channel is closed (or closing)
      * @throws NotYetConnectedException if open and not connected
      */
-    private void ensureOpenAndConnected() throws ClosedChannelException {
+    void ensureOpenAndConnected() throws ClosedChannelException {
         int state = this.state;
         if (state < ST_CONNECTED) {
             throw new NotYetConnectedException();
