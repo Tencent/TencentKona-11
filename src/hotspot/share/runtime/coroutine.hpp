@@ -234,6 +234,9 @@ private:
 
   address         _stack_base;
   intptr_t        _stack_size;
+#if defined(_WINDOWS)
+  intptr_t        _guaranteed_stack_bytes;
+#endif
   address         _last_sp;
   address         _stack_overflow_limit;
 #ifndef CHECK_UNHANDLED_OOPS
@@ -284,6 +287,9 @@ public:
   // 2. claim success invoke _conc_cl on coroutine
 #if INCLUDE_ZGC
   static void Concurrent_Coroutine_slowpath(Coroutine* coro);
+#endif
+#if defined(_WINDOWS)
+  intptr_t get_guaranteed_stack_bytes() { return _guaranteed_stack_bytes; }
 #endif
 
   static void yield_verify(Coroutine* from, Coroutine* to, bool terminate);
@@ -356,6 +362,10 @@ public:
 
   static ByteSize stack_base_offset()         { return byte_offset_of(Coroutine, _stack_base); }
   static ByteSize stack_size_offset()         { return byte_offset_of(Coroutine, _stack_size); }
+#if defined(_WINDOWS)
+  static ByteSize guaranteed_stack_bytes_offset() { return byte_offset_of(Coroutine, _guaranteed_stack_bytes); }
+#endif
+
   static ByteSize last_sp_offset()            { return byte_offset_of(Coroutine, _last_sp); }
   static ByteSize stack_overflow_limit_offset() { return byte_offset_of(Coroutine, _stack_overflow_limit); }
 
