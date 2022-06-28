@@ -1125,6 +1125,9 @@ class JavaThread: public Thread {
   // We load it from here to simplify the stack overflow check in assembly.
   address          _stack_overflow_limit;
   address          _reserved_stack_activation;
+  address          _shadow_zone_safe_limit;
+  address          _shadow_zone_growth_watermark;
+  address          _shadow_zone_growth_native_watermark;
 
   // Compiler exception handling (NOTE: The _exception_oop is *NOT* the same as _pending_exception. It is
   // used to temp. parsing values into and out of the runtime system during exception handling for compiled
@@ -1669,6 +1672,10 @@ class JavaThread: public Thread {
     _stack_shadow_zone_size = s;
   }
 
+  address shadow_zone_safe_limit() const {
+    assert(_shadow_zone_safe_limit != NULL, "Don't call this before the field is initialized.");
+    return _shadow_zone_safe_limit;
+  }
   void create_stack_guard_pages();
   void remove_stack_guard_pages();
 
@@ -1709,6 +1716,12 @@ class JavaThread: public Thread {
       stack_end() + MAX2(JavaThread::stack_guard_zone_size(), JavaThread::stack_shadow_zone_size());
   }
 
+  void set_shadow_zone_limits() {
+    _shadow_zone_safe_limit =
+      stack_end() + JavaThread::stack_guard_zone_size() + JavaThread::stack_shadow_zone_size();
+    _shadow_zone_growth_watermark = JavaThread::stack_base();  
+    _shadow_zone_growth_native_watermark = JavaThread::stack_base();
+  }
   // Misc. accessors/mutators
   void set_do_not_unlock(void)                   { _do_not_unlock_if_synchronized = true; }
   void clr_do_not_unlock(void)                   { _do_not_unlock_if_synchronized = false; }
@@ -1758,6 +1771,9 @@ class JavaThread: public Thread {
   static ByteSize is_method_handle_return_offset() { return byte_offset_of(JavaThread, _is_method_handle_return); }
   static ByteSize stack_guard_state_offset()     { return byte_offset_of(JavaThread, _stack_guard_state); }
   static ByteSize reserved_stack_activation_offset() { return byte_offset_of(JavaThread, _reserved_stack_activation); }
+  static ByteSize shadow_zone_safe_limit_offset() { return byte_offset_of(JavaThread, _shadow_zone_safe_limit); }
+  static ByteSize shadow_zone_growth_watermark_offset() { return byte_offset_of(JavaThread, _shadow_zone_growth_watermark); }
+  static ByteSize shadow_zone_growth_native_watermark_offset() { return byte_offset_of(JavaThread, _shadow_zone_growth_native_watermark); }
   static ByteSize suspend_flags_offset()         { return byte_offset_of(JavaThread, _suspend_flags); }
 
   static ByteSize do_not_unlock_if_synchronized_offset() { return byte_offset_of(JavaThread, _do_not_unlock_if_synchronized); }

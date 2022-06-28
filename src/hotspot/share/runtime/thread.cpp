@@ -359,6 +359,7 @@ void Thread::record_stack_base_and_size() {
   // Set stack limits after thread is initialized.
   if (is_Java_thread()) {
     ((JavaThread*) this)->set_stack_overflow_limit();
+    ((JavaThread*) this)->set_shadow_zone_limits();
     ((JavaThread*) this)->set_reserved_stack_activation(stack_base());
   }
 }
@@ -1640,6 +1641,9 @@ void JavaThread::initialize() {
   }
 #endif // INCLUDE_JVMCI
   _reserved_stack_activation = NULL;  // stack base not known yet
+  _shadow_zone_safe_limit = NULL;
+  _shadow_zone_growth_watermark = NULL;
+  _shadow_zone_growth_native_watermark = NULL;
   (void)const_cast<oop&>(_exception_oop = oop(NULL));
   _exception_pc  = 0;
   _exception_handler_pc = 0;
