@@ -1325,6 +1325,7 @@ void CodeCache::flush_evol_dependents() {
 
   // Deoptimize all activations depending on marked nmethods
   Deoptimization::deoptimize_dependents();
+  log_info(redefine, class, nmethod)("Finish deoptimize dependents");
 
   // Make the dependent methods not entrant
   make_marked_nmethods_not_entrant();
