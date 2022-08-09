@@ -398,10 +398,10 @@ class Thread: public ThreadShadow {
     uint64_t contAlignedLong;                       // make locksAcquired and contJniFrames in 8 bytes aligned space
   };
   void inc_locks_acquired()                     {
-    if (UseKonaFiber) { locksAcquired++; assert(locksAcquired >= 1, "invalid state"); }
+    if (!YieldWithMonitor) { locksAcquired++; assert(locksAcquired >= 1, "invalid state"); }
   }
   void dec_locks_acquired()                     {
-    if (UseKonaFiber) { locksAcquired--; assert(locksAcquired >= 0, "invalid state"); }
+    if (!YieldWithMonitor) { locksAcquired--; assert(locksAcquired >= 0, "invalid state"); }
   }
   void inc_cont_jni_frames()                    { contJniFrames++; }
   void dec_cont_jni_frames()                    { contJniFrames--; assert(contJniFrames >= 0, "invalid state"); }
@@ -1124,6 +1124,11 @@ class JavaThread: public Thread {
   // Support for high precision, thread sensitive counters in JVMCI compiled code.
   jlong*    _jvmci_counters;
 
+  // Fast thread locals for use by JVMCI
+  intptr_t*  _jvmci_reserved0;
+  intptr_t*  _jvmci_reserved1;
+  oop        _jvmci_reserved_oop0;
+
  public:
   static jlong* _jvmci_old_thread_counters;
   static void collect_counters(typeArrayOop array);
@@ -1170,12 +1175,13 @@ class JavaThread: public Thread {
   Coroutine*        _coroutine_cache;
   uintx             _coroutine_cache_size;
   Coroutine*        _current_coroutine;
+  Coroutine*        _thread_coroutine;
 
  public:
   Coroutine* current_coroutine() const           { return _current_coroutine;}
+  Coroutine* thread_coroutine() const            { return _thread_coroutine;}
   Coroutine*& coroutine_cache()                  { return _coroutine_cache; }
   uintx& coroutine_cache_size()                  { return _coroutine_cache_size; }
-  
   void initialize_coroutine_support();
 
  private:
@@ -1373,6 +1379,17 @@ class JavaThread: public Thread {
   // transition into thread_in_Java mode so that it can potentially
   // block.
   static void check_special_condition_for_native_trans_and_transition(JavaThread *thread);
+
+  void *get_cur_exec() {
+    assert(this->is_Java_thread(), "must be Java Thread");
+#if INCLUDE_KONA_FIBER
+    if (YieldWithMonitor) {
+      return _current_coroutine;
+    }
+#endif
+    return this;
+}
+
 
   bool is_ext_suspend_completed(bool called_by_wait, int delay, uint32_t *bits);
   bool is_ext_suspend_completed_with_lock(uint32_t *bits) {

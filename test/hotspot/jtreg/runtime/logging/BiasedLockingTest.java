@@ -48,25 +48,29 @@ public class BiasedLockingTest {
     }
 
     public static void main(String[] args) throws Exception {
-        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder("-XX:+UseBiasedLocking",
+        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder("-XX:-YieldWithMonitor",
+                                                                  "-XX:+UseBiasedLocking",
                                                                   "-Xlog:biasedlocking",
                                                                   "-XX:BiasedLockingStartupDelay=0",
                                                                   InnerClass.class.getName());
         analyzeOutputOn(pb);
 
-        pb = ProcessTools.createJavaProcessBuilder("-XX:+UseBiasedLocking",
+        pb = ProcessTools.createJavaProcessBuilder("-XX:-YieldWithMonitor",
+                                                   "-XX:+UseBiasedLocking",
                                                    "-XX:+TraceBiasedLocking",
                                                    "-XX:BiasedLockingStartupDelay=0",
                                                    InnerClass.class.getName());
         analyzeOutputOn(pb);
 
-        pb = ProcessTools.createJavaProcessBuilder("-XX:+UseBiasedLocking",
+        pb = ProcessTools.createJavaProcessBuilder("-XX:-YieldWithMonitor",
+                                                   "-XX:+UseBiasedLocking",
                                                    "-Xlog:biasedlocking=off",
                                                    "-XX:BiasedLockingStartupDelay=0",
                                                    InnerClass.class.getName());
         analyzeOutputOff(pb);
 
-        pb = ProcessTools.createJavaProcessBuilder("-XX:+UseBiasedLocking",
+        pb = ProcessTools.createJavaProcessBuilder("-XX:-YieldWithMonitor",
+                                                   "-XX:+UseBiasedLocking",
                                                    "-XX:-TraceBiasedLocking",
                                                    "-XX:BiasedLockingStartupDelay=0",
                                                    InnerClass.class.getName());

@@ -167,6 +167,8 @@ public class ThreadLocal<T> {
      * thread-local variable.
      */
     T getCarrierThreadLocal() {
+        if (!ThreadBuilders.VirtualThreadBuilder.ENABLE_VIRTUAL_THREAD)
+            throw new Error("no carrier thread while disable virtual thread");
         return get(Thread.currentCarrierThread());
     }
 
@@ -235,6 +237,8 @@ public class ThreadLocal<T> {
     }
 
      void setCarrierThreadLocal(T value) {
+        if (!ThreadBuilders.VirtualThreadBuilder.ENABLE_VIRTUAL_THREAD)
+            throw new Error("no carrier thread while disable virtual thread");
         set(Thread.currentCarrierThread(), value);
     }
 

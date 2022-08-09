@@ -1022,7 +1022,7 @@ void InterpreterMacroAssembler::remove_activation(
   bind(unlock);
   unlock_object(robj);
 #if INCLUDE_KONA_FIBER
-  if (UseKonaFiber) {
+  if (!YieldWithMonitor) {
     LP64_ONLY(subl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
   }
 #endif
@@ -1071,7 +1071,7 @@ void InterpreterMacroAssembler::remove_activation(
       mov(robj, rmon);   // nop if robj and rmon are the same
       unlock_object(robj);
 #if INCLUDE_KONA_FIBER
-      if (UseKonaFiber) {
+      if (!YieldWithMonitor) {
         LP64_ONLY(subl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
       }
 #endif

@@ -730,7 +730,9 @@ Node* PhaseMacroExpand::generate_arraycopy(ArrayCopyNode *ac, AllocateArrayNode*
   }
 
   _igvn.replace_node(_memproj_fallthrough, out_mem);
-  _igvn.replace_node(_ioproj_fallthrough, *io);
+  if (_ioproj_fallthrough != NULL) {
+    _igvn.replace_node(_ioproj_fallthrough, *io);
+  }
   _igvn.replace_node(_fallthroughcatchproj, *ctrl);
 
 #ifdef ASSERT
@@ -995,8 +997,14 @@ MergeMemNode* PhaseMacroExpand::generate_slow_arraycopy(ArrayCopyNode *ac,
   }
   transform_later(out_mem);
 
-  *io = _ioproj_fallthrough->clone();
-  transform_later(*io);
+  // When src is negative and arraycopy is before an infinite loop, _ioproj_fallthrough
+  // could be NULL. Skip clone and update NULL _ioproj_fallthrough.
+  if (_ioproj_fallthrough != NULL) {
+    *io = _ioproj_fallthrough->clone();
+    transform_later(*io);
+  } else {
+    *io = NULL;
+  }
 
   return out_mem;
 }
@@ -1215,7 +1223,9 @@ void PhaseMacroExpand::expand_arraycopy_node(ArrayCopyNode *ac) {
     }
 
     _igvn.replace_node(_memproj_fallthrough, merge_mem);
-    _igvn.replace_node(_ioproj_fallthrough, io);
+    if (_ioproj_fallthrough != NULL) {
+      _igvn.replace_node(_ioproj_fallthrough, io);
+    }
     _igvn.replace_node(_fallthroughcatchproj, ctrl);
     return;
   }

@@ -25,8 +25,12 @@
 #include "precompiled.hpp"
 #if INCLUDE_KONA_FIBER
 #include "runtime/coroutine.hpp"
+#include "runtime/execution_unit.hpp"
 #ifdef TARGET_ARCH_x86
 # include "vmreg_x86.inline.hpp"
+#endif
+#ifdef TARGET_ARCH_aarch64
+# include "vmreg_aarch64.inline.hpp"
 #endif
 #include "services/threadService.hpp"
 #include "gc/cms/concurrentMarkSweepThread.hpp"
@@ -325,7 +329,7 @@ void Coroutine::add_stack_frame(void* frames, int* depth, javaVFrame* jvf) {
 
 #if defined(LINUX) || defined(_ALLBSD_SOURCE) || defined(_WINDOWS)
 void coroutine_start(void* dummy, const void* coroutineObjAddr) {
-#ifndef AMD64
+#if !defined(AMD64) && !defined(AARCH64)
   fatal("Corotuine not supported on current platform");
 #endif
   JavaThread* thread = JavaThread::current();
@@ -368,7 +372,9 @@ void Coroutine::TerminateCoroutineObj(jobject coroutine) {
   Coroutine* coro = (Coroutine*)java_lang_Continuation::data(old_oop);
   assert(coro != NULL, "NULL old coroutine in switchToAndTerminate");
   java_lang_Continuation::set_data(old_oop, 0);
-  coro->_continuation = NULL;
+  if (!coro->is_thread_coroutine()) {
+    coro->_continuation = NULL;
+  }
   TerminateCoroutine(coro);
 }
 
@@ -453,6 +459,9 @@ void Coroutine::cont_metadata_do(void f(Metadata*)) {
 Coroutine::Coroutine() {
   _has_javacall = false;
   _continuation = NULL;
+#ifdef CHECK_UNHANDLED_OOPS
+  _t = NULL;
+#endif
 }
 
 Coroutine::~Coroutine() {
@@ -580,6 +589,7 @@ Coroutine* Coroutine::create_thread_coroutine(JavaThread* thread) {
   coro->_coro_claim = _conc_claim_parity;
   coro->init_thread_stack(thread);
   coro->_has_javacall = true;
+  coro->_t = thread;
 #ifdef ASSERT
   coro->_java_call_counter = 0;
 #endif
@@ -607,6 +617,11 @@ void Coroutine::init_coroutine(Coroutine* coro, JavaThread* thread) {
   for (int32_t i = 0; i < 7; i++) {
     *(--d) = NULL;
   }
+#if defined TARGET_ARCH_aarch64
+  // aarch64 pops 2 slots when doing coroutine switch
+  // must keep frame pointer align to 16 bytes
+  *(--d) = NULL;
+#endif
   *(--d) = (intptr_t*)coroutine_start;
   *(--d) = NULL;
 
@@ -741,9 +756,129 @@ bool Coroutine::is_disposable() {
 }
 
 
+ObjectMonitor* Coroutine::current_pending_monitor() {
+  // if coroutine is detached(_onstack), it doesn't pend on monitor
+  // if coroutine is attached(_current), its pending monitor is thread's pending monitor
+  if (_state == _onstack) {
+    return NULL;
+  } else {
+    assert(_state == _current, "unexpected");
+    return _thread->current_pending_monitor();
+  }
+}
+
+oop Coroutine::current_park_blocker() {
+  // get continuation_oop->virtualthread_oop->java_lang_Thread::park_blocker(virtualthread_oop)
+  if (_is_thread_coroutine) {
+    return _t->current_park_blocker();
+  }
+  if (_continuation == NULL
+      || _continuation->klass() != SystemDictionary::VTcontinuation_klass()) {
+    return NULL;
+  }
+  oop vt = java_lang_VTContinuation::VT(_continuation);
+  if (vt != NULL &&
+      JDK_Version::current().supports_thread_park_blocker()) {
+    return java_lang_Thread::park_blocker(vt);
+  }
+  return NULL;
+}
+
+oop Coroutine::threadObj() const {
+  if (_is_thread_coroutine) {
+    return _t->threadObj();
+  } else if (_continuation != NULL) {
+    if (_continuation->klass() != SystemDictionary::VTcontinuation_klass()) {
+      return NULL;
+    }
+    oop vt = java_lang_VTContinuation::VT(_continuation);
+    return vt;
+  }
+  return NULL;
+}
+
+bool Coroutine::is_attaching_via_jni() const {
+    if (_is_thread_coroutine) {
+      return _t->is_attaching_via_jni();
+    }
+
+    return false;
+}
+
+const char* Coroutine::get_thread_name() const {
+  if (_is_thread_coroutine) {
+    return _t->get_thread_name();
+  } else {
+    return get_vt_name_string();
+  }
+}
+
+const char* Coroutine::get_vt_name_string(char* buf, int buflen) const {
+  const char* name_str;
+  oop vt_obj = threadObj();
+  if (vt_obj != NULL) {
+    oop name = java_lang_Thread::name(vt_obj);
+    assert(name != NULL, "vt must have default name");
+    if (buf == NULL) {
+      name_str = java_lang_String::as_utf8_string(name);
+    } else {
+      name_str = java_lang_String::as_utf8_string(name, buf, buflen);
+    }
+  } else {
+    name_str = "unknown_vt";
+  }
+  assert(name_str != NULL, "unexpected NULL thread name");
+  return name_str;
+}
+
+bool Coroutine::current_pending_monitor_is_from_java() {
+  // pending on monitor, must be thread's _current coroutine
+  if (_state == _onstack) {
+    return true; // not in jni pending
+  } else {
+    assert(_state == _current, "unexpected");
+    return _thread->current_pending_monitor_is_from_java();
+  }
+}
+
+Coroutine* Coroutine::owning_coro_from_monitor_owner(address owner) {
+
+  // NULL owner means not locked so we can skip the search
+  if (owner == NULL) return NULL;
+
+  {
+    size_t i = ContContainer::hash_code((Coroutine*)owner);
+    ContBucket* bucket = ContContainer::bucket(i);
+    if (bucket->head() != NULL) {
+      Coroutine* current = bucket->head();
+      do {
+        if (owner == (address)current) {
+          return current;
+        }
+        current = current->next();
+      } while (current != bucket->head());
+    }
+  }
+
+  // Cannot assert on lack of success here since this function may be
+  // used by code that is trying to report useful problem information
+  // like deadlock detection.
+  if (UseHeavyMonitors) return NULL;
+
+  Coroutine* the_owner = NULL;
+  ExecutionUnitsIterator jti(NULL);
+  for (ExecutionType* jt = jti.first(); jt != NULL; jt = jti.next()) {
+    if (jt->is_lock_owned(owner)) {
+      return jt;
+    }
+  }
+  return NULL;
+}
+
 void Coroutine::init_thread_stack(JavaThread* thread) {
   _stack_base = thread->stack_base();
   _stack_size = thread->stack_size();
+  _stack_overflow_limit = thread->stack_overflow_limit();
   _last_sp = NULL;
 }
 
@@ -753,6 +888,7 @@ bool Coroutine::init_stack(JavaThread* thread) {
     return false;
   }
   _stack_size = ContReservedStack::stack_size;
+  _stack_overflow_limit = _stack_base - _stack_size + MAX2(JavaThread::stack_guard_zone_size(), JavaThread::stack_shadow_zone_size());
   _last_sp = NULL;
   return true;
 }
@@ -787,8 +923,9 @@ static const char* virtual_thread_get_state_name(int state) {
 // 2. Get VT from continuation
 // 3. Print VT name and state
 void Coroutine::print_VT_info(outputStream* st) {
-  if (_continuation == NULL) {
-    guarantee(is_thread_coroutine(), "null continuation oop when print");
+  if (is_thread_coroutine()) {
+    ResourceMark rm;
+    st->print_cr("thread coroutine: %s", _t->get_thread_name());
     return;
   }
   Klass* k = _continuation->klass();
@@ -810,6 +947,14 @@ void Coroutine::print_VT_info(outputStream* st) {
   }
 }
 
+#if defined TARGET_ARCH_x86
+#define FRAME_POINTER rbp
+#elif defined TARGET_ARCH_aarch64
+#define FRAME_POINTER rfp
+#else
+#error "Arch is not supported."
+#endif
+
 void Coroutine::print_stack_on(outputStream* st, void* frames, int* depth) {
   if (_last_sp == NULL) return;
   address pc = ((address*)_last_sp)[1];
@@ -818,7 +963,7 @@ void Coroutine::print_stack_on(outputStream* st, void* frames, int* depth) {
     intptr_t* sp = ((intptr_t*)_last_sp) + 2;
 
     RegisterMap _reg_map(_thread, true);
-    _reg_map.set_location(rbp->as_VMReg(), (address)_last_sp);
+    _reg_map.set_location(FRAME_POINTER->as_VMReg(), (address)_last_sp);
     _reg_map.set_include_argument_oops(false);
     frame f(sp, fp, pc);
     vframe* start_vf = NULL;
@@ -866,7 +1011,7 @@ void Coroutine::on_stack_frames_do(FrameClosure* fc, bool isThreadCoroutine) {
     intptr_t* sp = ((intptr_t*)_last_sp) + 2;
     frame fr(sp, fp, pc);
     StackFrameStream fst(_thread, fr);
-    fst.register_map()->set_location(rbp->as_VMReg(), (address)_last_sp);
+    fst.register_map()->set_location(FRAME_POINTER->as_VMReg(), (address)_last_sp);
     fst.register_map()->set_include_argument_oops(false);
     for(; !fst.is_done(); fst.next()) {
       fc->frames_do(fst.current(), fst.register_map());

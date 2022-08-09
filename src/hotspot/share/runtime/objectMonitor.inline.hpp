@@ -26,7 +26,7 @@
 #define SHARE_VM_RUNTIME_OBJECTMONITOR_INLINE_HPP
 
 inline intptr_t ObjectMonitor::is_entered(TRAPS) const {
-  if (THREAD == _owner || THREAD->is_lock_owned((address) _owner)) {
+  if (((JavaThread *)THREAD)->get_cur_exec() == _owner || THREAD->is_lock_owned((address) _owner)) {
     return 1;
   }
   return 0;
@@ -83,9 +83,10 @@ inline void ObjectMonitor::set_object(void* obj) {
 }
 
 inline bool ObjectMonitor::check(TRAPS) {
-  if (THREAD != _owner) {
+  void *cur_exec = ((JavaThread *)THREAD)->get_cur_exec();
+  if (cur_exec != _owner) {
     if (THREAD->is_lock_owned((address) _owner)) {
-      _owner = THREAD;  // regain ownership of inflated monitor
+      _owner = cur_exec;  // regain ownership of inflated monitor
       assert (_recursions == 0, "invariant") ;
     } else {
       check_slow(THREAD);
