@@ -659,6 +659,7 @@
   template(cont_start_method_name,                     "start")                                                   \
   template(reflect_method_signature,                   "Ljava/lang/reflect/Method;")                              \
   template(VT_signature,                               "Ljava/lang/VirtualThread;")                               \
+  template(Cont_signature,                             "Ljava/lang/Continuation;")                                \
                                                                                                                   \
   /* jfr signatures */                                                                                            \
   JFR_TEMPLATES(template)                                                                                         \

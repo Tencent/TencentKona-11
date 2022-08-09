@@ -304,10 +304,6 @@ public:
     static oop resolve(oop obj) {
       return Raw::resolve(obj);
     }
-
-    static bool equals(oop o1, oop o2) {
-      return Raw::equals(o1, o2);
-    }
   };
 };
 

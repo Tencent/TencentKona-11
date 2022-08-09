@@ -56,7 +56,7 @@ public class TracePinStack {
     }
 
     public static void main(String[] args) throws Throwable {
-        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder("-Djdk.tracePinnedThreads=full", TestParkWithMonitor.class.getName());
+        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder("-Djdk.tracePinnedThreads=full", "-XX:-YieldWithMonitor", TestParkWithMonitor.class.getName());
         OutputAnalyzer output = new OutputAnalyzer(pb.start());
         int exitValue = output.getExitValue();
         if (exitValue != 0) {
@@ -67,7 +67,6 @@ public class TracePinStack {
         System.out.println(output.getOutput());
         output.shouldContain("jdk.internal.misc.VirtualThreads.park");
         output.shouldContain("TracePinStack$TestParkWithMonitor$1.run");
-        output.shouldNotContain("java.lang.Continuation.yield");
 
         System.out.println("PASSED");
     }

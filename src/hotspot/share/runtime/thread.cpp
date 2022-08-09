@@ -1629,6 +1629,9 @@ void JavaThread::initialize() {
   _adjusting_comp_level = false;
   _jvmci._alternate_call_target = NULL;
   assert(_jvmci._implicit_exception_pc == NULL, "must be");
+  _jvmci_reserved0 = NULL;
+  _jvmci_reserved1 = NULL;
+  _jvmci_reserved_oop0 = NULL;
   if (JVMCICounterSize > 0) {
     _jvmci_counters = NEW_C_HEAP_ARRAY(jlong, JVMCICounterSize, mtInternal);
     memset(_jvmci_counters, 0, sizeof(jlong) * JVMCICounterSize);
@@ -1648,6 +1651,7 @@ void JavaThread::initialize() {
   _pending_async_exception = NULL;
 #if INCLUDE_KONA_FIBER
   _current_coroutine = NULL;
+  _thread_coroutine = NULL;
   if (UseKonaFiber) {
     _coroutine_cache = NULL;
     _coroutine_cache_size = 0;
@@ -2963,6 +2967,9 @@ void JavaThread::oops_do(OopClosure* f, CodeBlobClosure* cf) {
   f->do_oop((oop*) &_vm_result);
   f->do_oop((oop*) &_exception_oop);
   f->do_oop((oop*) &_pending_async_exception);
+#if INCLUDE_JVMCI
+  f->do_oop((oop*) &_jvmci_reserved_oop0);
+#endif
 
   if (jvmti_thread_state() != NULL) {
     jvmti_thread_state()->oops_do(f, cf);
@@ -4704,6 +4711,15 @@ JavaThread *Threads::owning_thread_from_monitor_owner(ThreadsList * t_list,
 
   DO_JAVA_THREADS(t_list, p) {
     // first, see if owner is the address of a Java thread
+#if INCLUDE_KONA_FIBER
+     if (YieldWithMonitor) {
+       if (owner == (address)((JavaThread *)p)->current_coroutine()) {
+         return p;
+       } else {
+         continue;
+       }
+     }
+#endif
     if (owner == (address)p) return p;
   }
 
@@ -5167,7 +5183,7 @@ void Threads::verify() {
 void JavaThread::initialize_coroutine_support() {
   // no lock in thread initialization
   Coroutine* coro = Coroutine::create_thread_coroutine(this);
-  _current_coroutine = coro;
+  _thread_coroutine = _current_coroutine = coro;
   OrderAccess::release();
 }
 #endif

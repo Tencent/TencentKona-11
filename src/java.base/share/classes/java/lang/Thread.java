@@ -474,13 +474,9 @@ class Thread implements Runnable {
             this.contextClassLoader = parent.getContextClassLoader();
         else
             this.contextClassLoader = parent.contextClassLoader;
-        if (!isVirtual()) {
-            this.inheritedAccessControlContext =
-                acc != null ? acc : AccessController.getContext();
-        } else {
-            this.inheritedAccessControlContext = VirtualThreads.ACCESS_CONTROL_CONTEXT;
-        }
         
+        this.inheritedAccessControlContext =
+                acc != null ? acc : AccessController.getContext();
         this.target = target;
         setPriority(priority);
         if (inheritThreadLocals && parent.inheritableThreadLocals != null)
@@ -580,18 +576,57 @@ class Thread implements Runnable {
         this(null, null, name, 0);
     }
 
-    /*
+    /**
      * If the thread is a parent class of virtual thread, the inheritableThreadLocals
      * should not be initialized.
      * This is not a public constructor.
+     * @param  target
+     *         the object whose {@code run} method is invoked when this thread
+     *         is started.
      * @param   name
      *          the name of the new thread
      * @param   characteristics not used now
      */
-    Thread(String name, int characteristics) {
-        this(null, null, name, 0, null, false);
+    Thread(Runnable target, String name, int characteristics) {
+        this(null, target, name == null ? "<unnamed>" : name, 0, null, false);
+        setDaemon(true);
+        setPriority(NORM_PRIORITY);
+        this.group = VirtualThreads.THREAD_GROUP;
+        this.contextClassLoader = null;
+
+        // thread locals
+        if ((characteristics & NO_THREAD_LOCALS) != 0) {
+            this.threadLocals = ThreadLocal.ThreadLocalMap.NOT_SUPPORTED;
+            this.inheritableThreadLocals = ThreadLocal.ThreadLocalMap.NOT_SUPPORTED;
+            this.contextClassLoader = ClassLoaders.NOT_SUPPORTED;
+        } else if ((characteristics & NO_INHERIT_THREAD_LOCALS) == 0) {
+            Thread parent = Thread.currentThread();
+            ThreadLocal.ThreadLocalMap parentMap = parent.inheritableThreadLocals;
+            if (parentMap != null
+                    && parentMap != ThreadLocal.ThreadLocalMap.NOT_SUPPORTED
+                    && parentMap.size() > 0) {
+                this.inheritableThreadLocals = ThreadLocal.createInheritedMap(parentMap);
+            }
+            ClassLoader parentLoader = parent.getContextClassLoader();
+            if (parentLoader != ClassLoaders.NOT_SUPPORTED) {
+                this.contextClassLoader = parentLoader;
+            }
+        }
     }
 
+    @SuppressWarnings("removal")
+    private static class ClassLoaders {
+        static final ClassLoader NOT_SUPPORTED;
+        static {
+            PrivilegedAction<ClassLoader> pa = new PrivilegedAction<ClassLoader>() {
+                @Override
+                public ClassLoader run() {
+                    return new ClassLoader(null) { };
+                }
+            };
+            NOT_SUPPORTED = AccessController.doPrivileged(pa);
+        }
+    }
     /**
      * Allocates a new {@code Thread} object. This constructor has the same
      * effect as {@linkplain #Thread(ThreadGroup,Runnable,String) Thread}
@@ -1581,14 +1616,17 @@ class Thread implements Runnable {
      */
     @CallerSensitive
     public ClassLoader getContextClassLoader() {
-        if (contextClassLoader == null)
+        ClassLoader cl = this.contextClassLoader;
+        if (cl == null)
             return null;
+        if (cl == ClassLoaders.NOT_SUPPORTED)
+            cl = ClassLoader.getSystemClassLoader();
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             ClassLoader.checkClassLoaderPermission(contextClassLoader,
                                                    Reflection.getCallerClass());
         }
-        return contextClassLoader;
+        return cl;
     }
 
     /**
@@ -1617,6 +1655,10 @@ class Thread implements Runnable {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             sm.checkPermission(new RuntimePermission("setContextClassLoader"));
+        }
+        if (contextClassLoader == ClassLoaders.NOT_SUPPORTED) {
+            throw new UnsupportedOperationException(
+                "Thread is not allowed to set values for its copy of thread-local variables");
         }
         contextClassLoader = cl;
     }
@@ -2371,7 +2413,12 @@ class Thread implements Runnable {
      */
     public static Thread startVirtualThread(Runnable task) {
         Objects.requireNonNull(task);
-        VirtualThread thread = new VirtualThread(null, null, 0, task);
+        Thread thread;
+        if (ThreadBuilders.VirtualThreadBuilder.ENABLE_VIRTUAL_THREAD) {
+            thread = new VirtualThread(null, null, 0, task);
+        } else {
+            thread = new Thread(task, null, 0);
+        }
         thread.start();
         return thread;
     }

@@ -295,8 +295,8 @@ AC_DEFUN_ONCE([HOTSPOT_ENABLE_DISABLE_FIBER],
     AC_MSG_ERROR([Invalid value for --enable-fiber: $enable_fiber])
   fi
 
-  # Disable Fiber on none X64 platform.
-  if test "x$OPENJDK_TARGET_CPU" != "xx86_64" ; then
+  # Disable Fiber on platform other than X64 and aarch64.
+  if test "x$OPENJDK_TARGET_CPU" != "xx86_64" && test "x$OPENJDK_TARGET_CPU" != "xaarch64"; then
     ENABLE_FIBER="false"
     if test "x$enable_fiber" = "xyes"; then
       AC_MSG_ERROR([Fiber is currently not supported on none X64 platform. Remove --enable-fiber.])
