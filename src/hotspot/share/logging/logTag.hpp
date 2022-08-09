@@ -57,6 +57,7 @@
   LOG_TAG(constantpool) \
   LOG_TAG(container) \
   LOG_TAG(coops) \
+  LOG_TAG(coroutine) \
   LOG_TAG(cpu) \
   LOG_TAG(cset) \
   LOG_TAG(data) \

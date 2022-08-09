@@ -59,6 +59,9 @@
 #include "runtime/vmOperations.hpp"
 #include "services/memoryService.hpp"
 #include "utilities/stack.inline.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 HeapWord*                     PSScavenge::_to_space_top_before_gc = NULL;
 int                           PSScavenge::_consecutive_skipped_scavenges = 0;
@@ -372,6 +375,11 @@ bool PSScavenge::invoke_no_policy() {
       // We scan the thread roots in parallel
       PSAddThreadRootsTaskClosure cl(q);
       Threads::java_threads_and_vm_thread_do(&cl);
+#if INCLUDE_KONA_FIBER
+      if (UseKonaFiber) {
+        ContBucket::create_cont_bucket_roots_tasks(q);
+      }
+#endif
       q->enqueue(new ScavengeRootsTask(ScavengeRootsTask::object_synchronizer));
       q->enqueue(new ScavengeRootsTask(ScavengeRootsTask::management));
       q->enqueue(new ScavengeRootsTask(ScavengeRootsTask::system_dictionary));

@@ -91,6 +91,9 @@
 
 #include <errno.h>
 #include <jfr/recorder/jfrRecorder.hpp>
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 /*
   NOTE about use of any ctor or function call that can trigger a safepoint/GC:
@@ -3783,4 +3786,13 @@ JVM_END
 
 JVM_ENTRY_NO_ENV(jint, JVM_FindSignal(const char *name))
   return os::get_signal_number(name);
+JVM_END
+
+// java.lang.Continuation /////////////////////////////////////////////////////
+JVM_ENTRY(void, JVM_RegisterContinuationMethods(JNIEnv *env, jclass cls))
+#if INCLUDE_KONA_FIBER
+  CONT_RegisterNativeMethods(env, cls, thread);
+#else
+  fatal("can not regist continuation methods when using --disable-kona-fiber");
+#endif
 JVM_END

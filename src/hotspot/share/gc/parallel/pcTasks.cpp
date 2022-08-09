@@ -45,6 +45,9 @@
 #include "runtime/vmThread.hpp"
 #include "services/management.hpp"
 #include "utilities/stack.inline.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 //
 // ThreadRootsMarkingTask
@@ -67,6 +70,32 @@ void ThreadRootsMarkingTask::do_it(GCTaskManager* manager, uint which) {
   cm->follow_marking_stacks();
 }
 
+//
+// ContBucketRootsMarkingTask
+//
+#if INCLUDE_KONA_FIBER
+void ContBucketRootsMarkingTask::do_it(GCTaskManager* manager, uint which) {
+  assert(Universe::heap()->is_gc_active(), "called outside gc");
+  assert(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+  guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+
+  ResourceMark rm;
+
+  ParCompactionManager* cm =
+    ParCompactionManager::gc_thread_compaction_manager(which);
+
+  ParCompactionManager::MarkAndPushClosure mark_and_push_closure(cm);
+  MarkingCodeBlobClosure mark_and_push_in_blobs(&mark_and_push_closure, !CodeBlobToOopClosure::FixRelocations);
+
+  ContBucket* bucket = ContContainer::bucket(_bucket_index);
+  {
+    bucket->oops_do(&mark_and_push_closure, &mark_and_push_in_blobs);
+  }
+
+  // Do the real work
+  cm->follow_marking_stacks();
+}
+#endif
 
 void MarkFromRootsTask::do_it(GCTaskManager* manager, uint which) {
   assert(ParallelScavengeHeap::heap()->is_gc_active(), "called outside gc");

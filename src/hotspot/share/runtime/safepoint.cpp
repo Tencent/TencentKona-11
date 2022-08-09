@@ -68,7 +68,9 @@
 #ifdef COMPILER1
 #include "c1/c1_globals.hpp"
 #endif
-
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 template <typename E>
 static void set_current_safepoint_id(E* event, int adjustment = 0) {
   assert(event != NULL, "invariant");
@@ -627,6 +629,11 @@ public:
       jt->nmethods_do(_nmethod_cl);
     }
   }
+#if INCLUDE_KONA_FIBER
+  CodeBlobClosure* nmethod_cl() const {
+    return _nmethod_cl;
+  }
+#endif
 };
 
 class ParallelSPCleanupTask : public AbstractGangTask {
@@ -646,6 +653,21 @@ public:
   void work(uint worker_id) {
     // All threads deflate monitors and mark nmethods (if necessary).
     Threads::possibly_parallel_threads_do(true, &_cleanup_threads_cl);
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+      CodeBlobClosure* cb_cl = _cleanup_threads_cl.nmethod_cl();
+      int cp = Threads::thread_claim_parity();
+      for (size_t i = 0; i < CONT_CONTAINER_SIZE; i++) {
+        ContBucket* bucket = ContContainer::bucket(i);
+        if (bucket->claim_oops_do(true, cp)) {
+          if (cb_cl != NULL) {
+            bucket->nmethods_do(cb_cl);
+          }
+        }
+      }
+    }
+#endif
 
     if (!_subtasks.is_task_claimed(SafepointSynchronize::SAFEPOINT_CLEANUP_DEFLATE_MONITORS)) {
       const char* name = "deflating idle monitors";
@@ -1204,6 +1226,9 @@ void ThreadSafepointState::handle_polling_page_exception() {
   if( nm->is_at_poll_return(real_return_addr) ) {
     // See if return type is an oop.
     bool return_oop = nm->method()->is_returning_oop();
+#if INCLUDE_KONA_FIBER 
+    HandleMark hm;
+#endif
     Handle return_value;
     if (return_oop) {
       // The oop result has been saved on the stack together with all

@@ -77,6 +77,9 @@
 #include "utilities/formatBuffer.hpp"
 #include "utilities/macros.hpp"
 #include "utilities/stack.inline.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 #include <math.h>
 
@@ -2095,6 +2098,11 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
     // We scan the thread roots in parallel
     PCAddThreadRootsMarkingTaskClosure cl(q);
     Threads::java_threads_and_vm_thread_do(&cl);
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      ContBucket::create_cont_bucket_roots_marking_tasks(q);
+    }
+#endif
     q->enqueue(new MarkFromRootsTask(MarkFromRootsTask::object_synchronizer));
     q->enqueue(new MarkFromRootsTask(MarkFromRootsTask::management));
     q->enqueue(new MarkFromRootsTask(MarkFromRootsTask::system_dictionary));
@@ -2184,6 +2192,11 @@ void PSParallelCompact::adjust_roots(ParCompactionManager* cm) {
   Universe::oops_do(&oop_closure);
   JNIHandles::oops_do(&oop_closure);   // Global (strong) JNI handles
   Threads::oops_do(&oop_closure, NULL);
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    ContContainer::oops_do(&oop_closure, NULL);
+  }
+#endif
   ObjectSynchronizer::oops_do(&oop_closure);
   Management::oops_do(&oop_closure);
   JvmtiExport::oops_do(&oop_closure);

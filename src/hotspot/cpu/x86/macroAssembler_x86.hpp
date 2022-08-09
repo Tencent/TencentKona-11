@@ -612,6 +612,13 @@ class MacroAssembler: public Assembler {
   // prints msg and continues
   void warn(const char* msg);
 
+#if INCLUDE_KONA_FIBER
+  void VerifyCoroutineState(Register old_coroutine, Register target_coroutine, bool terminate);
+#if INCLUDE_ZGC
+  void Concurrent_Coroutine_slowpath(Register target_coroutine);
+#endif
+#endif
+
   // dumps registers and other state
   void print_state();
 

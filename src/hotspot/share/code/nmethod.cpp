@@ -1494,8 +1494,12 @@ void nmethod::post_compiled_method_load_event(JvmtiThreadState* state) {
     // (which is a real Java thread) post the event
     JvmtiDeferredEvent event = JvmtiDeferredEvent::compiled_method_load_event(this);
     if (state == NULL) {
+      // Execute any barrier code for this nmethod as if it's called, since
+      // keeping it alive looks like stack walking.
+      run_nmethod_entry_barrier();
       ServiceThread::enqueue_deferred_event(&event);
     } else {
+      // This enters the nmethod barrier outside in the caller.
       state->enqueue_event(&event);
     }
   }

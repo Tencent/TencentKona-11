@@ -50,4 +50,19 @@ public:
   virtual void work() = 0;
 };
 
+#if INCLUDE_KONA_FIBER
+class ZConcurrentCoroutineTask : public ZTask {
+private:
+  OopClosure* _cl;
+  int         _claim;
+
+public:
+  ZConcurrentCoroutineTask(OopClosure* cl) :
+    ZTask("ZConcurrentCoroutineTask"),
+    _cl(cl),
+    _claim(0) {}
+
+  virtual void work();
+};
+#endif
 #endif // SHARE_GC_Z_ZTASK_HPP

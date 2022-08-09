@@ -114,6 +114,9 @@ private:
   bool eliminate_locking_node(AbstractLockNode *alock);
   void expand_lock_node(LockNode *lock);
   void expand_unlock_node(UnlockNode *unlock);
+#if INCLUDE_KONA_FIBER
+  Node *updateLockCounter(Node *ctrl, Node *mem, bool inc);
+#endif
 
   // More helper methods modeled after GraphKit for array copy
   void insert_mem_bar(Node** ctrl, Node** mem, int opcode, Node* precedent = NULL);

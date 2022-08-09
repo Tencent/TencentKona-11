@@ -47,6 +47,7 @@
 #if INCLUDE_SHENANDOAHGC
 #include "gc/shenandoah/c2/shenandoahBarrierSetC2.hpp"
 #endif
+#include "utilities/bitMap.inline.hpp"
 
 //----------------------------GraphKit-----------------------------------------
 // Main utility constructor.

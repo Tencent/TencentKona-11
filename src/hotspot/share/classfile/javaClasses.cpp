@@ -4275,7 +4275,9 @@ int java_nio_Buffer::_limit_offset;
 int java_util_concurrent_locks_AbstractOwnableSynchronizer::_owner_offset;
 int reflect_ConstantPool::_oop_offset;
 int reflect_UnsafeStaticFieldAccessorImpl::_base_offset;
-
+int java_lang_Continuation::_data_offset;
+int java_lang_VTContinuation::_VT_offset;
+int java_lang_VT::_state_offset;
 
 #define STACKTRACEELEMENT_FIELDS_DO(macro) \
   macro(declaringClassObject_offset,  k, "declaringClassObject", class_signature, false); \
@@ -4413,6 +4415,48 @@ void java_nio_Buffer::compute_offsets() {
 #if INCLUDE_CDS
 void java_nio_Buffer::serialize_offsets(SerializeClosure* f) {
   BUFFER_FIELDS_DO(FIELD_SERIALIZE_OFFSET);
+}
+#endif
+
+/* stack manipulation */
+#define CONTINUATION_FIELDS_DO(macro) \
+  macro(_data_offset, k, "data", long_signature, false)
+
+void java_lang_Continuation::compute_offsets() {
+  InstanceKlass* k = SystemDictionary::continuation_klass();
+  assert(k != NULL, "");
+  CONTINUATION_FIELDS_DO(FIELD_COMPUTE_OFFSET);
+}
+
+#define VTCONTINUATION_FIELDS_DO(macro) \
+  macro(_VT_offset, k, "this$0", VT_signature, false)
+
+void java_lang_VTContinuation::compute_offsets() {
+  InstanceKlass* k = SystemDictionary::VTcontinuation_klass();
+  assert(k != NULL, "");
+  VTCONTINUATION_FIELDS_DO(FIELD_COMPUTE_OFFSET);
+}
+
+#define VT_FIELDS_DO(macro) \
+  macro(_state_offset, k, "state", int_signature, false)
+
+void java_lang_VT::compute_offsets() {
+  InstanceKlass* k = SystemDictionary::VT_klass();
+  assert(k != NULL, "");
+  VT_FIELDS_DO(FIELD_COMPUTE_OFFSET);
+}
+
+#if INCLUDE_CDS
+void java_lang_Continuation::serialize_offsets(SerializeClosure* f) {
+  CONTINUATION_FIELDS_DO(FIELD_SERIALIZE_OFFSET);
+}
+
+void java_lang_VTContinuation::serialize_offsets(SerializeClosure* f) {
+  VTCONTINUATION_FIELDS_DO(FIELD_SERIALIZE_OFFSET);
+}
+
+void java_lang_VT::serialize_offsets(SerializeClosure* f) {
+  VT_FIELDS_DO(FIELD_SERIALIZE_OFFSET);
 }
 #endif
 
