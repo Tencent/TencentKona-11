@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -194,11 +194,23 @@ Java_sun_nio_ch_Net_connect0(JNIEnv *env, jclass clazz, jboolean preferIPv6, job
 {
     SOCKETADDRESS sa;
     int rv;
+    int so_rv;
     int sa_len = 0;
     SOCKET s = (SOCKET)fdval(env, fdo);
+    int type = 0, optlen = sizeof(type);
 
     if (NET_InetAddressToSockaddr(env, iao, port, &sa, &sa_len, preferIPv6) != 0) {
         return IOS_THROWN;
+    }
+
+    so_rv = getsockopt(s, SOL_SOCKET, SO_TYPE, (char*)&type, &optlen);
+
+    /**
+     * Windows has a very long socket connect timeout of 2 seconds.
+     * If it's the loopback adapter we can shorten the wait interval.
+     */
+    if (so_rv == 0 && type == SOCK_STREAM && IS_LOOPBACK_ADDRESS(&sa)) {
+        NET_EnableFastTcpLoopbackConnect((jint)s);
     }
 
     rv = connect(s, &sa.sa, sa_len);
@@ -211,9 +223,7 @@ Java_sun_nio_ch_Net_connect0(JNIEnv *env, jclass clazz, jboolean preferIPv6, job
         return IOS_THROWN;
     } else {
         /* Enable WSAECONNRESET errors when a UDP socket is connected */
-        int type = 0, optlen = sizeof(type);
-        rv = getsockopt(s, SOL_SOCKET, SO_TYPE, (char*)&type, &optlen);
-        if (rv == 0 && type == SOCK_DGRAM) {
+        if (so_rv == 0 && type == SOCK_DGRAM) {
             setConnectionReset(s, TRUE);
         }
     }
@@ -548,6 +558,17 @@ Java_sun_nio_ch_Net_shutdown(JNIEnv *env, jclass cl, jobject fdo, jint jhow) {
     if (shutdown(fdval(env, fdo), how) == SOCKET_ERROR) {
         NET_ThrowNew(env, WSAGetLastError(), "shutdown");
     }
+}
+
+JNIEXPORT jint JNICALL
+Java_sun_nio_ch_Net_available(JNIEnv *env, jclass cl, jobject fdo)
+{
+    int count = 0;
+    if (NET_SocketAvailable(fdval(env, fdo), &count) != 0) {
+        handleSocketError(env, WSAGetLastError());
+        return IOS_THROWN;
+    }
+    return (jint) count;
 }
 
 JNIEXPORT jint JNICALL

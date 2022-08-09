@@ -22,7 +22,7 @@
 
 /*
  * @test
- * @run testng VTCompensate
+ * @run testng/othervm -XX:-YieldWithMonitor VTCompensate
  * @summary Basic test for ForkJoinPool to compensate when all threads are pinned.
  */
 

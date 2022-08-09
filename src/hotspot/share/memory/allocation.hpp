@@ -135,6 +135,8 @@ enum MemoryType {
   mtModule,            // memory for module processing
   mtSynchronizer,      // memory for synchronization primitives
   mtSafepoint,         // memory for safepoint support
+  mtCoroutineStack,    // memory used by Fiber Coroutine Stack Space
+  mtCoroutine,         // memory used by Fiber Coroutine Wrapper
   mtNone,              // undefined
   mt_number_of_types   // number of memory types (mtDontTrack
                        // is not included as validate type)

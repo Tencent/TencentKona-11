@@ -99,7 +99,7 @@ class DependencyContext : public StackObj {
   // Safepoints are forbidden during DC lifetime. GC can invalidate
   // _dependency_context_addr if it relocates the holder
   // (e.g. CallSiteContext Java object).
-  uint64_t _safepoint_counter;
+  int _safepoint_counter;
 
   DependencyContext(nmethodBucket* volatile* bucket_addr, volatile uint64_t* last_cleanup_addr)
     : _dependency_context_addr(bucket_addr),

@@ -289,28 +289,14 @@ public:
   bool has_stackmap_table() const { return _stackmap_data != NULL; }
 
   // adapter
-  void set_adapter_entry(AdapterHandlerEntry* adapter) {
-    assert(!is_shared(), "shared methods have fixed adapter_trampoline");
-    _adapter = adapter;
-  }
+  void set_adapter_entry(AdapterHandlerEntry* adapter);
   void set_adapter_trampoline(AdapterHandlerEntry** trampoline) {
     assert(DumpSharedSpaces, "must be");
     assert(*trampoline == NULL, "must be NULL during dump time, to be initialized at run time");
     _adapter_trampoline = trampoline;
   }
-  void update_adapter_trampoline(AdapterHandlerEntry* adapter) {
-    assert(is_shared(), "must be");
-    *_adapter_trampoline = adapter;
-    assert(this->adapter() == adapter, "must be");
-  }
-  AdapterHandlerEntry* adapter() {
-    if (is_shared()) {
-      return *_adapter_trampoline;
-    } else {
-      return _adapter;
-    }
-  }
-
+  void update_adapter_trampoline(AdapterHandlerEntry* adapter);
+  AdapterHandlerEntry* adapter();
   void init_fingerprint() {
     const uint64_t initval = UCONST64(0x8000000000000000);
     _fingerprint = initval;

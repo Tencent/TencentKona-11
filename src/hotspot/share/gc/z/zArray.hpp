@@ -56,11 +56,11 @@ public:
 template <typename T, bool parallel>
 class ZArrayIteratorImpl : public StackObj {
 private:
-  ZArray<T>* const _array;
+  const ZArray<T>* _array;
   size_t           _next;
 
 public:
-  ZArrayIteratorImpl(ZArray<T>* array);
+  ZArrayIteratorImpl(const ZArray<T>* array);
 
   bool next(T* elem);
 };
@@ -72,14 +72,14 @@ public:
 template <typename T>
 class ZArrayIterator : public ZArrayIteratorImpl<T, ZARRAY_SERIAL> {
 public:
-  ZArrayIterator(ZArray<T>* array) :
+  ZArrayIterator(const ZArray<T>* array) :
       ZArrayIteratorImpl<T, ZARRAY_SERIAL>(array) {}
 };
 
 template <typename T>
 class ZArrayParallelIterator : public ZArrayIteratorImpl<T, ZARRAY_PARALLEL> {
 public:
-  ZArrayParallelIterator(ZArray<T>* array) :
+  ZArrayParallelIterator(const ZArray<T>* array) :
       ZArrayIteratorImpl<T, ZARRAY_PARALLEL>(array) {}
 };
 

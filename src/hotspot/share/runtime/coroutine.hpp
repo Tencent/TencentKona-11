@@ -50,7 +50,7 @@ const int CONT_PIN_JNI                   = 2;
 const int CONT_PIN_MONITOR               = 3;
 
 /* Mapping numbers of stacks and set its permission as PROT_READ | PROT_WRITE */
-class ContPreMappedStack : public CHeapObj<mtThread> {
+class ContPreMappedStack : public CHeapObj<mtCoroutine> {
 private:
   ReservedSpace _reserved_space;
   VirtualSpace _virtual_space;
@@ -113,7 +113,7 @@ public:
   static void insert_stack(address node);
 };
 
-class ContBucket : public CHeapObj<mtThread> {
+class ContBucket : public CHeapObj<mtCoroutine> {
 private:
   Mutex      _lock;
   Coroutine* _head;
@@ -194,7 +194,7 @@ public:
   virtual void frames_do(frame* fr, RegisterMap* map) = 0;
 };
 
-class CoroutineVerify: public CHeapObj<mtThread> {
+class CoroutineVerify: public CHeapObj<mtCoroutine> {
 public:
   // for verify check
   JNIHandleBlock* saved_active_handles;
@@ -203,7 +203,7 @@ public:
   char* saved_resource_area_hwm;
 };
 
-class Coroutine: public CHeapObj<mtThread>, public DoublyLinkedList<Coroutine> {
+class Coroutine: public CHeapObj<mtCoroutine>, public DoublyLinkedList<Coroutine> {
 public:
   enum CoroutineState {
     _onstack    = 0x00000001,
@@ -225,6 +225,8 @@ public:
   // 5. Mutator thread wait if _coro_claim is 4 until it changes to _conc_claim_parity.
   static int              _conc_claim_parity;
 private:
+  static Method*  _try_compensate_method;
+  static Method*  _update_active_count_method;
   CoroutineState  _state;
   bool            _is_thread_coroutine;
   //for javacall stack reclaim
@@ -232,6 +234,9 @@ private:
 
   address         _stack_base;
   intptr_t        _stack_size;
+#if defined(_WINDOWS)
+  intptr_t        _guaranteed_stack_bytes;
+#endif
   address         _last_sp;
   address         _stack_overflow_limit;
 #ifndef CHECK_UNHANDLED_OOPS
@@ -267,6 +272,9 @@ private:
   void add_stack_frame(void* frames, int* depth, javaVFrame* jvf);
   void print_stack_on(outputStream* st, void* frames, int* depth);
   const char* get_vt_name_string(char* buf = NULL, int buflen = 0) const;
+  static JavaThreadState update_thread_state(Thread *Self, JavaThreadState new_jts);
+  static void init_forkjoinpool_method(Method** init_method, Symbol* method_name, Symbol* signature);
+  static void call_forkjoinpool_method(Thread* Self, Method* target_method, JavaCallArguments* args, JavaValue* result);
 
 public:
   virtual ~Coroutine();
@@ -280,11 +288,16 @@ public:
 #if INCLUDE_ZGC
   static void Concurrent_Coroutine_slowpath(Coroutine* coro);
 #endif
+#if defined(_WINDOWS)
+  intptr_t get_guaranteed_stack_bytes() { return _guaranteed_stack_bytes; }
+#endif
 
   static void yield_verify(Coroutine* from, Coroutine* to, bool terminate);
   static JavaThread* main_thread() { return _main_thread; }
   static void set_main_thread(JavaThread* t) { _main_thread = t; }
   static Method* cont_start_method() { return _continuation_start; }
+  static int try_compensate(Thread* Self);
+  static void update_active_count(Thread* Self);
 
   void print_stack_on(outputStream* st);
   void print_stack_on(void* frames, int* depth);
@@ -349,6 +362,10 @@ public:
 
   static ByteSize stack_base_offset()         { return byte_offset_of(Coroutine, _stack_base); }
   static ByteSize stack_size_offset()         { return byte_offset_of(Coroutine, _stack_size); }
+#if defined(_WINDOWS)
+  static ByteSize guaranteed_stack_bytes_offset() { return byte_offset_of(Coroutine, _guaranteed_stack_bytes); }
+#endif
+
   static ByteSize last_sp_offset()            { return byte_offset_of(Coroutine, _last_sp); }
   static ByteSize stack_overflow_limit_offset() { return byte_offset_of(Coroutine, _stack_overflow_limit); }
 

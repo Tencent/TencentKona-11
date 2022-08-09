@@ -46,6 +46,8 @@ const char* NMTUtil::_memory_type_names[] = {
   "Module",
   "Synchronizer",
   "Safepoint",
+  "CoroutineStack",
+  "Coroutine",
   "Unknown"
 };
 

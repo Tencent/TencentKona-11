@@ -25,6 +25,7 @@
 
 package java.net;
 
+import sun.nio.ch.VTSocketImpl;
 import sun.security.util.SecurityConstants;
 
 import java.io.InputStream;
@@ -36,6 +37,8 @@ import java.security.PrivilegedExceptionAction;
 import java.security.PrivilegedAction;
 import java.util.Set;
 import java.util.Collections;
+import jdk.internal.misc.JavaLangAccess;
+import jdk.internal.misc.SharedSecrets;
 
 /**
  * This class implements client sockets (also called just
@@ -56,6 +59,8 @@ import java.util.Collections;
  */
 public
 class Socket implements java.io.Closeable {
+    private static final JavaLangAccess JLA = SharedSecrets.getJavaLangAccess();
+
     /**
      * Various states of this socket.
      */
@@ -145,7 +150,7 @@ class Socket implements java.io.Closeable {
         } else {
             if (p == Proxy.NO_PROXY) {
                 if (factory == null) {
-                    impl = new PlainSocketImpl();
+                    impl = JLA.isVTSocketEnabled() ? new VTSocketImpl(false, false) : new PlainSocketImpl();
                     impl.setSocket(this);
                 } else
                     setImpl();
@@ -441,6 +446,9 @@ class Socket implements java.io.Closeable {
 
     private Socket(SocketAddress address, SocketAddress localAddr,
                    boolean stream) throws IOException {
+        if (JLA.isVTSocketEnabled() && !stream) {
+            throw new UnsupportedOperationException();
+        }
         setImpl();
 
         // backward compatibility
@@ -518,9 +526,13 @@ class Socket implements java.io.Closeable {
             impl = factory.createSocketImpl();
             checkOldImpl();
         } else {
-            // No need to do a checkOldImpl() here, we know it's an up to date
-            // SocketImpl!
-            impl = new SocksSocketImpl();
+            if (JLA.isVTSocketEnabled()) {
+                impl = new VTSocketImpl(false, true);
+            } else {
+                // No need to do a checkOldImpl() here, we know it's an up to date
+                // SocketImpl!
+                impl = new SocksSocketImpl();
+            }
         }
         if (impl != null)
             impl.setSocket(this);

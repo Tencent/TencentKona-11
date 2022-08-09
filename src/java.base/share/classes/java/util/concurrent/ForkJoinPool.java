@@ -50,6 +50,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.concurrent.locks.LockSupport;
+import jdk.internal.misc.SharedSecrets;
 
 /**
  * An {@link ExecutorService} for running {@link ForkJoinTask}s.
@@ -1666,6 +1667,50 @@ public class ForkJoinPool extends AbstractExecutorService {
             }
         }
         return false;
+    }
+
+
+    /**
+     * Release or create a carrier thread, this function
+     * is called from native now.
+     *
+     *  @return true means have extra runnable worker thread
+     */
+    private static final int tryCompensate() {
+        ForkJoinPool p;
+        ForkJoinWorkerThread wt;
+        Thread t = Thread.currentCarrierThread();
+        int block = -1;
+        Thread vt = null;
+        if (Thread.currentThread().isVirtual() &&
+            (t instanceof ForkJoinWorkerThread) &&
+            (p = (wt = (ForkJoinWorkerThread)t).pool) != null) {
+            try {
+                block = SharedSecrets.getJavaLangAccess().executeOnCarrierThread(() ->
+                    p.tryCompensate(wt.workQueue)
+                );
+            } catch (Exception e) {
+                throw new InternalError(e);
+            }
+        }
+ 
+        return block;
+    }
+ 
+
+ 
+    /**
+     * Update active count, this function is called from native.
+     */ 
+    private static final void updateActiveCount() {
+        ForkJoinPool p;
+        Thread t = Thread.currentCarrierThread();
+        if (!Thread.currentThread().isVirtual() ||
+            !(t instanceof ForkJoinWorkerThread) ||
+            (p = ((ForkJoinWorkerThread)t).pool) == null) {
+            return;
+        }
+        CTL.getAndAdd(p, RC_UNIT);
     }
 
     /**

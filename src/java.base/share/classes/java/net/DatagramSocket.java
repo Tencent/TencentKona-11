@@ -31,6 +31,9 @@ import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 import java.util.Set;
 import java.util.Collections;
+import jdk.internal.misc.JavaLangAccess;
+import jdk.internal.misc.SharedSecrets;
+import sun.nio.ch.VTDatagramSocketImpl;
 
 /**
  * This class represents a socket for sending and receiving datagram packets.
@@ -67,6 +70,7 @@ import java.util.Collections;
  */
 public
 class DatagramSocket implements java.io.Closeable {
+    private static final JavaLangAccess JLA = SharedSecrets.getJavaLangAccess();
     /**
      * Various states of this socket.
      */
@@ -330,7 +334,7 @@ class DatagramSocket implements java.io.Closeable {
                 checkOldImpl();
             } else {
                 boolean isMulticast = (this instanceof MulticastSocket) ? true : false;
-                impl = DefaultDatagramSocketImplFactory.createDatagramSocketImpl(isMulticast);
+                impl = (JLA.isVTSocketEnabled() && !isMulticast) ? new VTDatagramSocketImpl() : DefaultDatagramSocketImplFactory.createDatagramSocketImpl(isMulticast);
 
                 checkOldImpl();
             }
@@ -728,6 +732,10 @@ class DatagramSocket implements java.io.Closeable {
      * @spec JSR-51
      */
     public synchronized void receive(DatagramPacket p) throws IOException {
+        if (getImpl() instanceof VTDatagramSocketImpl) {
+            p.length = ((VTDatagramSocketImpl)getImpl()).receive(p, p.bufLength);
+            return;
+        }
         synchronized (p) {
             if (!isBound())
                 bind(new InetSocketAddress(0));
