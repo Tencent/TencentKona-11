@@ -385,7 +385,7 @@
   template(contextClassLoader_name,                   "contextClassLoader")                       \
   template(inheritedAccessControlContext_name,        "inheritedAccessControlContext")            \
   template(getClassContext_name,                      "getClassContext")                          \
-  template(wait_name,                                 "wait")                                     \
+  template(wait_name,                                 "wait0")                                    \
   template(checkPackageAccess_name,                   "checkPackageAccess")                       \
   template(newInstance0_name,                         "newInstance0")                             \
   template(forName_name,                              "forName")                                  \
@@ -656,6 +656,9 @@
   template(java_lang_Continuation,                     "java/lang/Continuation")                                  \
   template(java_lang_VTContinuation,                   "java/lang/VirtualThread$VTContinuation")                  \
   template(java_lang_VT,                               "java/lang/VirtualThread")                                 \
+  template(java_util_concurrent_ForkJoinPool,          "java/util/concurrent/ForkJoinPool")                       \
+  template(tryCompensate_name,                         "tryCompensate")                                           \
+  template(updateActiveCount_name,                     "updateActiveCount")                                       \
   template(cont_start_method_name,                     "start")                                                   \
   template(reflect_method_signature,                   "Ljava/lang/reflect/Method;")                              \
   template(VT_signature,                               "Ljava/lang/VirtualThread;")                               \

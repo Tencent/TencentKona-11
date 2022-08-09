@@ -169,7 +169,8 @@ ZRelocationSetSelector::ZRelocationSetSelector() :
     _medium("Medium", ZPageSizeMedium, ZObjectSizeLimitMedium),
     _live(0),
     _garbage(0),
-    _fragmentation(0) {}
+    _fragmentation(0),
+    _garbage_pages() {}
 
 void ZRelocationSetSelector::register_live_page(const ZPage* page) {
   const uint8_t type = page->type();
@@ -188,8 +189,11 @@ void ZRelocationSetSelector::register_live_page(const ZPage* page) {
   _garbage += garbage;
 }
 
-void ZRelocationSetSelector::register_garbage_page(const ZPage* page) {
+void ZRelocationSetSelector::register_garbage_page(ZPage* page) {
   _garbage += page->size();
+  if (page->dec_refcount()) {
+    _garbage_pages.add(page);
+  }
 }
 
 void ZRelocationSetSelector::select(ZRelocationSet* relocation_set) {

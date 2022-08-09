@@ -580,22 +580,22 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
           "Print malloc/free statistics")                                   \
                                                                             \
   develop(bool, ZapResourceArea, trueInDebug,                               \
-          "Zap freed resource/arena space with 0xABABABAB")                 \
+          "Zap freed resource/arena space")                                 \
                                                                             \
   notproduct(bool, ZapVMHandleArea, trueInDebug,                            \
-          "Zap freed VM handle space with 0xBCBCBCBC")                      \
+          "Zap freed VM handle space")                                      \
                                                                             \
   notproduct(bool, ZapStackSegments, trueInDebug,                           \
-          "Zap allocated/freed stack segments with 0xFADFADED")             \
+          "Zap allocated/freed stack segments")                             \
                                                                             \
   develop(bool, ZapUnusedHeapArea, trueInDebug,                             \
-          "Zap unused heap space with 0xBAADBABE")                          \
+          "Zap unused heap space")                                          \
                                                                             \
   develop(bool, CheckZapUnusedHeapArea, false,                              \
           "Check zapping of unused heap space")                             \
                                                                             \
   develop(bool, ZapFillerObjects, trueInDebug,                              \
-          "Zap filler objects with 0xDEAFBABE")                             \
+          "Zap filler objects")                                             \
                                                                             \
   develop(bool, PrintVMMessages, true,                                      \
           "Print VM messages on console")                                   \
@@ -668,6 +668,12 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   develop(bool, UseFakeTimers, false,                                       \
           "Tell whether the VM should use system time or a fake timer")     \
                                                                             \
+  manageable(intx, HeapDumpGzipLevel, 0,                                    \
+          "When HeapDumpOnOutOfMemoryError is on, the gzip compression "    \
+          "level of the dump file. 0 (the default) disables gzip "          \
+          "compression. Otherwise the level must be between 1 and 9.")      \
+          range(0, 9)                                                       \
+                                                                            \
   product(ccstr, NativeMemoryTracking, "off",                               \
           "Native memory tracking options")                                 \
                                                                             \
@@ -677,7 +683,7 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   diagnostic(bool, LogCompilation, false,                                   \
           "Log compilation activity in detail to LogFile")                  \
                                                                             \
-  product(bool, PrintCompilation, false,                                    \
+  manageable(bool, PrintCompilation, false,                                 \
           "Print compilations")                                             \
                                                                             \
   product(bool, PrintExtendedThreadInfo, true,                             \
@@ -1824,6 +1830,9 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
           "class pointers are used")                                        \
           range(1*M, 3*G)                                                   \
                                                                             \
+  diagnostic(bool, PrintMetaspaceStatisticsAtExit, false,                   \
+          "Print metaspace statistics upon VM exit.")                       \
+                                                                            \
   manageable(uintx, MinHeapFreeRatio, 40,                                   \
           "The minimum percentage of heap free after GC to avoid expansion."\
           " For most GCs this applies to the old generation. In G1 and"     \
@@ -2698,7 +2707,10 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
           "The number of free coroutine stacks a thread can keep")          \
                                                                             \
   diagnostic(bool, VerifyCoroutineStateOnYield, false,                      \
-          "Verify coroutine state after yield success")
+          "Verify coroutine state after yield success")                     \
+                                                                            \
+  manageable(bool, FreeHeapPhysicalMemory, false,                           \
+          "Free physical memory after fullgc or shrink operation")          \
 
 #define VM_FLAGS(develop,                                                   \
                  develop_pd,                                                \

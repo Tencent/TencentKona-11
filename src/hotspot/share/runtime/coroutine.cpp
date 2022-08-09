@@ -55,21 +55,75 @@ GrowableArray<address>* ContReservedStack::free_array = NULL;
 ContPreMappedStack* ContReservedStack::current_pre_mapped_stack = NULL;
 uintx ContReservedStack::stack_size = 0;
 int ContReservedStack::free_array_uncommit_index = 0;
+Method* Coroutine::_try_compensate_method = NULL;
+Method* Coroutine::_update_active_count_method = NULL;
+
+JavaThreadState Coroutine::update_thread_state(Thread *Self, JavaThreadState new_jts) {
+  JavaThreadState old_jts = ((JavaThread *)Self)->thread_state();
+  ThreadStateTransition::transition((JavaThread *)Self, old_jts, new_jts);
+
+  return old_jts;
+}
+
+void Coroutine::call_forkjoinpool_method(Thread* Self, Method* target_method, JavaCallArguments* args, JavaValue* result) {
+  JavaThreadState saved_jts = update_thread_state(Self, _thread_in_vm);
+
+  JavaCalls::call(result, methodHandle(target_method), args, (JavaThread *)Self);
+
+  update_thread_state(Self, saved_jts);
+}
+
+int Coroutine::try_compensate(Thread* Self) {
+  if (!YieldWithMonitor || _try_compensate_method == NULL) {
+    return -1;
+  }
+
+  JavaCallArguments args; // No arguments
+  JavaValue result(T_INT);
+  call_forkjoinpool_method(Self, _try_compensate_method, &args, &result);
+
+  return result.get_jint();
+}
+
+void Coroutine::update_active_count(Thread* Self) {
+  if (!YieldWithMonitor || _update_active_count_method == NULL) {
+    return;
+  }
+
+  JavaCallArguments args; // No arguments
+  JavaValue result(T_VOID);
+
+  call_forkjoinpool_method(Self, _update_active_count_method, &args, &result);
+}
+
+void Coroutine::init_forkjoinpool_method(Method** init_method, Symbol* method_name, Symbol* signature) {
+  guarantee(*init_method == NULL, "java call method already initialized");
+
+  CallInfo callinfo;
+  LinkInfo link_info(SystemDictionary::java_util_concurrent_ForkJoinPool_klass(), method_name, signature);
+  LinkResolver::resolve_static_call(callinfo, link_info, true, Thread::current());
+  methodHandle method = callinfo.selected_method();
+  assert(method.not_null(), "should have thrown exception");
+
+  *init_method = method();
+  guarantee(*init_method != NULL, "java call method not resolveds");
+}
 
 void ContReservedStack::init() {
   _lock = new Mutex(Mutex::leaf, "InitializedStack", false, Monitor::_safepoint_check_never);
 
-  free_array = new (ResourceObj::C_HEAP, mtInternal)GrowableArray<address>(CONT_RESERVED_PHYSICAL_MEM_MAX, true);
-  stack_size = DefaultCoroutineStackSize +
+  free_array = new (ResourceObj::C_HEAP, mtCoroutine)GrowableArray<address>(CONT_RESERVED_PHYSICAL_MEM_MAX, true);
+  stack_size = align_up(DefaultCoroutineStackSize +
                JavaThread::stack_shadow_zone_size() +
                JavaThread::stack_reserved_zone_size() +
                JavaThread::stack_yellow_zone_size() +
-               JavaThread::stack_red_zone_size();
+               JavaThread::stack_red_zone_size()
+               , os::vm_page_size());
 }
 
 bool ContReservedStack::add_pre_mapped_stack() {
   uintx alloc_real_stack_size = stack_size * CONT_PREMAPPED_STACK_NUM;
-  uintx reserved_size = align_up(stack_size * CONT_PREMAPPED_STACK_NUM, os::vm_page_size());
+  uintx reserved_size = align_up(alloc_real_stack_size, os::vm_allocation_granularity());
 
   ContPreMappedStack* node = new ContPreMappedStack(reserved_size, current_pre_mapped_stack);
   if (node == NULL) {
@@ -82,6 +136,7 @@ bool ContReservedStack::add_pre_mapped_stack() {
   }
 
   current_pre_mapped_stack = node;
+  MemTracker::record_virtual_memory_type((address)node->get_base_address() - reserved_size, mtCoroutineStack);
   return true;
 }
 
@@ -275,8 +330,11 @@ void ContContainer::insert(Coroutine* cont) {
     ContBucket* bucket = ContContainer::bucket(index);
     MutexLockerEx ml(bucket->lock(), Mutex::_no_safepoint_check_flag);
     bucket->insert(cont);
-    Log(coroutine) log;
-    log.trace("[insert] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
+    if (log_is_enabled(Trace, coroutine)) {
+      ResourceMark rm;
+      Log(coroutine) log;
+      log.trace("[insert] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
+    }
   }
 }
 
@@ -287,8 +345,11 @@ void ContContainer::remove(Coroutine* cont) {
     ContBucket* bucket = ContContainer::bucket(index);
     MutexLockerEx ml(bucket->lock(), Mutex::_no_safepoint_check_flag);
     bucket->remove(cont);
-    Log(coroutine) log;
-    log.trace("[remove] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
+    if (log_is_enabled(Trace, coroutine)) {
+      ResourceMark rm;
+      Log(coroutine) log;
+      log.trace("[remove] cont: %p, index: %d, count : %d", cont, (int)index, bucket->count());
+    }
   }
 }
 
@@ -387,6 +448,13 @@ void Coroutine::Initialize() {
   methodHandle method = LinkResolver::linktime_resolve_virtual_method_or_null(link_info);
   _continuation_start = method();
   guarantee(_continuation_start != NULL, "continuation start not resolveds");
+
+  if (YieldWithMonitor) {
+    init_forkjoinpool_method(&_try_compensate_method, 
+      vmSymbols::tryCompensate_name(), vmSymbols::void_int_signature());
+    init_forkjoinpool_method(&_update_active_count_method,
+      vmSymbols::updateActiveCount_name(), vmSymbols::void_method_signature());
+  }
 }
 
 void Coroutine::start_concurrent(ConcCoroStage stage) {
@@ -397,13 +465,19 @@ void Coroutine::start_concurrent(ConcCoroStage stage) {
   if (_conc_claim_parity == 3) {
     _conc_claim_parity = 1;
   }
-  Log(gc) log;
-  log.trace("[Coroutine::start_concurrent] stage %d, parity %d", stage, _conc_claim_parity);
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(gc) log;
+    log.trace("[Coroutine::start_concurrent] stage %d, parity %d", stage, _conc_claim_parity);
+  }
 }
 
 void Coroutine::end_concurrent() {
-  Log(gc) log;
-  log.trace("[Coroutine::end_concurrent]");
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(gc) log;
+    log.trace("[Coroutine::end_concurrent]");
+  }
 }
 
 class ConcCoroutineCodeBlobClosure : public CodeBlobToOopClosure {
@@ -459,6 +533,9 @@ void Coroutine::cont_metadata_do(void f(Metadata*)) {
 Coroutine::Coroutine() {
   _has_javacall = false;
   _continuation = NULL;
+#if defined(_WINDOWS)
+  _guaranteed_stack_bytes = 0;
+#endif
 #ifdef CHECK_UNHANDLED_OOPS
   _t = NULL;
 #endif
@@ -521,8 +598,11 @@ void Coroutine::Concurrent_Coroutine_slowpath(Coroutine* coro) {
 // check yield is from thread contianuation or to thread contianuation
 // check resource is not still hold by contianuation when yield back to thread contianuation
 void Coroutine::yield_verify(Coroutine* from, Coroutine* to, bool terminate) {
-  Log(coroutine) log;
-  log.trace("yield_verify from %p to %p", from, to);
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(coroutine) log;
+    log.trace("yield_verify from %p to %p", from, to);
+  }
   JavaThread* thread = from->_thread;
   guarantee(thread->reserved_stack_activation() == thread->stack_base(), "reserved overflow should have been processed");
   // check before change, check is need when yield from none thread to others
@@ -554,6 +634,10 @@ void Coroutine::yield_verify(Coroutine* from, Coroutine* to, bool terminate) {
     to->_verify_state->saved_resource_area_hwm = thread->resource_area()->hwm();
     to->_verify_state->saved_handle_area_hwm = thread->handle_area()->hwm();
   }
+#if defined(_WINDOWS)
+  guarantee(from->get_guaranteed_stack_bytes() == 0, "guaranteed stack bytes of old coroutine should be zero");
+  guarantee(to->get_guaranteed_stack_bytes() == 0, "guaranteed stack bytes of target coroutine should be zero");
+#endif
 }
 
 void Coroutine::print_stack_on(void* frames, int* depth) {
@@ -1037,8 +1121,11 @@ JVM_END
 JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, long stackSize)) {
   if (stackSize < 0) {
     guarantee(thread->current_coroutine()->is_thread_coroutine(), "current coroutine is not thread coroutine");
-    Log(coroutine) log;
-    log.trace("CONT_createContinuation: reuse main thread continuation %p", thread->current_coroutine());
+    if (log_is_enabled(Trace, coroutine)) {
+      ResourceMark rm; 
+      Log(coroutine) log;
+      log.trace("CONT_createContinuation: reuse main thread continuation %p", thread->current_coroutine());
+    }
     return (jlong)thread->current_coroutine();
   }
 
@@ -1068,8 +1155,11 @@ JVM_ENTRY(jlong, CONT_createContinuation(JNIEnv* env, jclass klass, long stackSi
     }
   }
   ContContainer::insert(coro);
-  Log(coroutine) log;
-  log.trace("CONT_createContinuation: create continuation %p", coro);
+  if (log_is_enabled(Trace, coroutine)) {
+    ResourceMark rm;
+    Log(coroutine) log;
+    log.trace("CONT_createContinuation: create continuation %p", coro);
+  }
   return (jlong)coro;
 }
 JVM_END
@@ -1131,16 +1221,18 @@ void CONT_RegisterNativeMethods(JNIEnv *env, jclass cls, JavaThread* thread) {
       fatal("UseKonaFiber is off");
     }
     assert(thread->is_Java_thread(), "");
-    ThreadToNativeFromVM trans((JavaThread*)thread);
-    int status = env->RegisterNatives(cls, CONT_methods, sizeof(CONT_methods)/sizeof(JNINativeMethod));
-    guarantee(status == JNI_OK && !env->ExceptionOccurred(), "register java.lang.Continuation natives");
+    {
+      ThreadToNativeFromVM trans((JavaThread*)thread);
+      int status = env->RegisterNatives(cls, CONT_methods, sizeof(CONT_methods)/sizeof(JNINativeMethod));
+      guarantee(status == JNI_OK && !env->ExceptionOccurred(), "register java.lang.Continuation natives");
 #ifdef ASSERT
-    if (FLAG_IS_DEFAULT(VerifyCoroutineStateOnYield)) {
-      FLAG_SET_DEFAULT(VerifyCoroutineStateOnYield, true);
-    }
+      if (FLAG_IS_DEFAULT(VerifyCoroutineStateOnYield)) {
+        FLAG_SET_DEFAULT(VerifyCoroutineStateOnYield, true);
+      }
 #endif
-    initializeForceWrapper(env, cls, thread, switchToIndex);
-    initializeForceWrapper(env, cls, thread, switchToAndTerminateIndex);
+      initializeForceWrapper(env, cls, thread, switchToIndex);
+      initializeForceWrapper(env, cls, thread, switchToAndTerminateIndex);
+    }
     Coroutine::Initialize();
 }
 #endif// INCLUDE_KONA_FIBER

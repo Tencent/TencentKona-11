@@ -37,6 +37,7 @@ import java.security.ProtectionDomain;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -313,6 +314,18 @@ public interface JavaLangAccess {
      * @return carrier Thread object
      */
     Thread currentCarrierThread();
+
+    /**
+     * Executes the given value returning task on the current carrier thread.
+     */
+    <V> V executeOnCarrierThread(Callable<V> task) throws Exception;
+
+    /**
+     * Returns whether socket of virtual thread is enabled.
+     *
+     * @return true if socket of virtual thread is enabled, otherwise false
+     */
+    boolean isVTSocketEnabled();
 
     /**
      * Returns the value of the current carrier thread's copy of a thread-local.

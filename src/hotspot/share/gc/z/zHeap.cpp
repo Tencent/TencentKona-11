@@ -24,6 +24,7 @@
 #include "precompiled.hpp"
 #include "gc/shared/oopStorage.hpp"
 #include "gc/z/zAddress.hpp"
+#include "gc/z/zArray.inline.hpp"
 #include "gc/z/zGlobals.hpp"
 #include "gc/z/zHeap.inline.hpp"
 #include "gc/z/zHeapIterator.hpp"
@@ -253,6 +254,11 @@ void ZHeap::release_page(ZPage* page, bool reclaimed) {
   }
 }
 
+void ZHeap::free_pages(const ZArray<ZPage*>* pages, bool reclaimed) {
+  // Free pages
+  _page_allocator.free_pages(pages, reclaimed);
+}
+
 void ZHeap::before_flip() {
   if (ZVerifyViews) {
     // Unmap all pages
@@ -385,6 +391,16 @@ void ZHeap::process_non_strong_references() {
   _reference_processor.enqueue_references();
 }
 
+void ZHeap::free_garbage_pages(ZRelocationSetSelector* selector, int bulk) {
+  // Freeing garbage pages in bulk is an optimization to avoid grabbing
+  // the page allocator lock, and trying to satisfy stalled allocations
+  // too frequently.
+  if (selector->should_free_garbage_pages(bulk)) {
+    free_pages(selector->garbage_pages(), true /* reclaimed */);
+    selector->clear_garbage_pages();
+  }
+}
+
 void ZHeap::destroy_detached_pages() {
   ZList<ZPage> list;
 
@@ -416,10 +432,12 @@ void ZHeap::select_relocation_set() {
       // Register garbage page
       selector.register_garbage_page(page);
 
-      // Reclaim page immediately
-      release_page(page, true /* reclaimed */);
+      // Reclaim garbage pages in bulk
+      free_garbage_pages(&selector, 64 /* bulk */);
     }
   }
+
+  free_garbage_pages(&selector, 0);
 
   // Select pages to relocate
   selector.select(&_relocation_set);

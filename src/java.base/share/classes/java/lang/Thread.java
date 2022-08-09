@@ -43,6 +43,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.Objects;
 
 import jdk.internal.misc.TerminatingThreadLocal;
+import jdk.internal.misc.VM;
 import sun.nio.ch.Interruptible;
 import jdk.internal.reflect.CallerSensitive;
 import jdk.internal.reflect.Reflection;
@@ -588,7 +589,7 @@ class Thread implements Runnable {
      * @param   characteristics not used now
      */
     Thread(Runnable target, String name, int characteristics) {
-        this(null, target, name == null ? "<unnamed>" : name, 0, null, false);
+        this(null, target, name == null ? "" : name, 0, null, false);
         setDaemon(true);
         setPriority(NORM_PRIORITY);
         this.group = VirtualThreads.THREAD_GROUP;
@@ -608,9 +609,15 @@ class Thread implements Runnable {
                 this.inheritableThreadLocals = ThreadLocal.createInheritedMap(parentMap);
             }
             ClassLoader parentLoader = parent.getContextClassLoader();
-            if (parentLoader != ClassLoaders.NOT_SUPPORTED) {
+            if (VM.isBooted() && parentLoader == ClassLoaders.NOT_SUPPORTED) {
+                //parent does not support thread locals so no CCL to inherit
+                this.contextClassLoader = ClassLoader.getSystemClassLoader();
+            } else {
                 this.contextClassLoader = parentLoader;
             }
+        } else if (VM.isBooted()) {
+            //default CCL to the system class loader when not inheriting
+            this.contextClassLoader = ClassLoader.getSystemClassLoader();
         }
     }
 
@@ -2108,8 +2115,12 @@ class Thread implements Runnable {
      * @return the uncaught exception handler for this thread
      */
     public UncaughtExceptionHandler getUncaughtExceptionHandler() {
-        return uncaughtExceptionHandler != null ?
-            uncaughtExceptionHandler : getThreadGroup();
+        if (isVirtual() && getState() == State.TERMINATED) {
+            return null;
+        } else {
+            return uncaughtExceptionHandler != null ?
+                uncaughtExceptionHandler : getThreadGroup();
+        }
     }
 
     /**

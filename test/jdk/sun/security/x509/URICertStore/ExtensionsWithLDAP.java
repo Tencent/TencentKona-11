@@ -27,11 +27,11 @@
  * @test
  * @bug 8134708
  * @summary Check if LDAP resources from CRLDP and AIA extensions can be loaded
- * @run main/othervm -Djdk.net.hosts.file=${test.src}/CRLDP
+ * @run main/othervm -Djdk.internal.VTSocket=off -Djdk.net.hosts.file=${test.src}/CRLDP
  *      -Dcom.sun.security.enableCRLDP=true
  *      ExtensionsWithLDAP CRLDP ldap.host.for.crldp
  * @modules jdk.security.auth
- * @run main/othervm -Djdk.net.hosts.file=${test.src}/AIA
+ * @run main/othervm -Djdk.internal.VTSocket=off -Djdk.net.hosts.file=${test.src}/AIA
  *      -Dcom.sun.security.enableAIAcaIssuers=true
  *      ExtensionsWithLDAP AIA ldap.host.for.aia
  */

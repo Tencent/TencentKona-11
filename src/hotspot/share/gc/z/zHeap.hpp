@@ -46,6 +46,8 @@
 #include "memory/allocation.hpp"
 
 class ThreadClosure;
+class ZPage;
+class ZRelocationSetSelector;
 
 class ZHeap {
   friend class VMStructs;
@@ -74,9 +76,9 @@ private:
 
   void flip_to_marked();
   void flip_to_remapped();
+  void free_garbage_pages(ZRelocationSetSelector* selector, int bulk);
 
   void out_of_memory();
-  void flip_views();
 
 public:
   static ZHeap* heap();
@@ -128,6 +130,7 @@ public:
   void undo_alloc_page(ZPage* page);
   bool retain_page(ZPage* page);
   void release_page(ZPage* page, bool reclaimed);
+  void free_pages(const ZArray<ZPage*>* pages, bool reclaimed);
 
   // Object allocation
   uintptr_t alloc_tlab(size_t size);

@@ -38,9 +38,9 @@
 #include "runtime/objectMonitor.inline.hpp"
 #include "runtime/orderAccess.hpp"
 #include "runtime/osThread.hpp"
+#include "runtime/safefetch.inline.hpp"
 #include "runtime/safepointMechanism.inline.hpp"
 #include "runtime/sharedRuntime.hpp"
-#include "runtime/stubRoutines.hpp"
 #include "runtime/thread.inline.hpp"
 #include "services/threadService.hpp"
 #include "utilities/dtrace.hpp"
@@ -292,6 +292,13 @@ void ObjectMonitor::enter(TRAPS) {
     return;
   }
 
+#if INCLUDE_KONA_FIBER
+  int block;
+  Atomic::inc(&_count); //Prevent deflation at STW-time.
+  while ((block = Coroutine::try_compensate(Self)) == 0);
+  Atomic::dec(&_count);
+#endif
+
   // We've encountered genuine contention.
   assert(Self->_Stalled == 0, "invariant");
   Self->_Stalled = intptr_t(this);
@@ -306,6 +313,10 @@ void ObjectMonitor::enter(TRAPS) {
     assert(_recursions == 0, "invariant");
     assert(((oop)(object()))->mark() == markOopDesc::encode(this), "invariant");
     Self->_Stalled = 0;
+#if INCLUDE_KONA_FIBER
+    if (block > 0)
+      Coroutine::update_active_count(Self);
+#endif
     return;
   }
 
@@ -418,6 +429,10 @@ void ObjectMonitor::enter(TRAPS) {
     event.commit();
   }
   OM_PERFDATA_OP(ContendedLockAttempts, inc());
+#if INCLUDE_KONA_FIBER
+  if (block > 0)
+    Coroutine::update_active_count(Self);
+#endif
 }
 
 // Caveat: TryLock() is not necessarily serializing if it returns failure.
@@ -715,6 +730,12 @@ void ObjectMonitor::ReenterI(Thread * Self, ObjectWaiter * SelfNode) {
 
     TEVENT(Wait Reentry - parking);
 
+#if INCLUDE_KONA_FIBER
+    int block;
+    if ((block = Coroutine::try_compensate(Self)) == 0) {
+      continue;
+    }
+#endif
     // State transition wrappers around park() ...
     // ReenterI() wisely defers state transitions until
     // it's clear we must park the thread.
@@ -730,7 +751,10 @@ void ObjectMonitor::ReenterI(Thread * Self, ObjectWaiter * SelfNode) {
       } else {
         Self->_ParkEvent->park();
       }
-
+#if INCLUDE_KONA_FIBER
+      if (block > 0)
+        Coroutine::update_active_count(Self);
+#endif
       // were we externally suspended while we were waiting?
       for (;;) {
         if (!ExitSuspendEquivalent(jt)) break;
@@ -1460,6 +1484,12 @@ void ObjectMonitor::wait(jlong millis, bool interruptible, TRAPS) {
 
   TEVENT(Wait);
 
+#if INCLUDE_KONA_FIBER
+   int block;
+   _waiters++; // Prevent deflation at STW-time.
+   while ((block = Coroutine::try_compensate(Self)) == 0);
+   _waiters--;
+#endif
   assert(Self->_Stalled == 0, "invariant");
   Self->_Stalled = intptr_t(this);
   jt->set_current_waiting_monitor(this);
@@ -1520,6 +1550,10 @@ void ObjectMonitor::wait(jlong millis, bool interruptible, TRAPS) {
         }
       }
 
+#if INCLUDE_KONA_FIBER
+      if (block > 0)
+        Coroutine::update_active_count(Self);
+#endif
       // were we externally suspended while we were waiting?
       if (ExitSuspendEquivalent (jt)) {
         // TODO-FIXME: add -- if succ == Self then succ = null.

@@ -405,7 +405,7 @@ AC_DEFUN_ONCE([BASIC_INIT],
   # Save the path variable before it gets changed
   ORIGINAL_PATH="$PATH"
   AC_SUBST(ORIGINAL_PATH)
-  DATE_WHEN_CONFIGURED=`LANG=C date`
+  DATE_WHEN_CONFIGURED=`date`
   AC_SUBST(DATE_WHEN_CONFIGURED)
   AC_MSG_NOTICE([Configuration created at $DATE_WHEN_CONFIGURED.])
 ])
@@ -669,6 +669,16 @@ AC_DEFUN([BASIC_EVAL_DEVKIT_VARIABLE],
 [
   if test "x[$]$1" = x; then
     eval $1="\${$1_${OPENJDK_TARGET_CPU}}"
+  fi
+])
+
+###############################################################################
+# Evaluates platform specific overrides for build devkit variables.
+# $1: Name of variable
+AC_DEFUN([BASIC_EVAL_BUILD_DEVKIT_VARIABLE],
+[
+  if test "x[$]$1" = x; then
+    eval $1="\${$1_${OPENJDK_BUILD_CPU}}"
   fi
 ])
 

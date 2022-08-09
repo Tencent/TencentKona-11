@@ -297,7 +297,7 @@ void MacroAssembler::safepoint_poll(Label& slow_path) {
     ldr(rscratch1, Address(rthread, Thread::polling_page_offset()));
     tbnz(rscratch1, exact_log2(SafepointMechanism::poll_bit()), slow_path);
   } else {
-    unsigned long offset;
+    uint64_t offset;
     adrp(rscratch1, ExternalAddress(SafepointSynchronize::address_of_state()), offset);
     ldrw(rscratch1, Address(rscratch1, offset));
     assert(SafepointSynchronize::_not_synchronized == 0, "rewrite this code");
@@ -405,7 +405,7 @@ void MacroAssembler::far_call(Address entry, CodeBuffer *cbuf, Register tmp) {
   assert(CodeCache::find_blob(entry.target()) != NULL,
          "destination of far call not found in code cache");
   if (far_branches()) {
-    uintptr_t offset;
+    uint64_t offset;
     // We can use ADRP here because we know that the total size of
     // the code cache cannot exceed 2Gb.
     adrp(tmp, entry, offset);
@@ -423,7 +423,7 @@ void MacroAssembler::far_jump(Address entry, CodeBuffer *cbuf, Register tmp) {
   assert(CodeCache::find_blob(entry.target()) != NULL,
          "destination of far call not found in code cache");
   if (far_branches()) {
-    uintptr_t offset;
+    uint64_t offset;
     // We can use ADRP here because we know that the total size of
     // the code cache cannot exceed 2Gb.
     adrp(tmp, entry, offset);
@@ -1492,7 +1492,7 @@ void MacroAssembler::movptr(Register r, uintptr_t imm64) {
 #ifndef PRODUCT
   {
     char buffer[64];
-    snprintf(buffer, sizeof(buffer), "0x%"PRIX64, imm64);
+    snprintf(buffer, sizeof(buffer), "0x%" PRIX64, (uint64_t)imm64);
     block_comment(buffer);
   }
 #endif
@@ -1555,7 +1555,7 @@ void MacroAssembler::mov_immediate64(Register dst, uint64_t imm64)
 #ifndef PRODUCT
   {
     char buffer[64];
-    snprintf(buffer, sizeof(buffer), "0x%"PRIX64, imm64);
+    snprintf(buffer, sizeof(buffer), "0x%" PRIX64, imm64);
     block_comment(buffer);
   }
 #endif
@@ -1668,7 +1668,7 @@ void MacroAssembler::mov_immediate32(Register dst, uint32_t imm32)
 #ifndef PRODUCT
     {
       char buffer[64];
-      snprintf(buffer, sizeof(buffer), "0x%"PRIX32, imm32);
+      snprintf(buffer, sizeof(buffer), "0x%" PRIX32, imm32);
       block_comment(buffer);
     }
 #endif
@@ -1832,7 +1832,7 @@ bool MacroAssembler::try_merge_ldst(Register rt, const Address &adr, size_t size
     return true;
   } else {
     assert(size_in_bytes == 8 || size_in_bytes == 4, "only 8 bytes or 4 bytes load/store is supported.");
-    const unsigned mask = size_in_bytes - 1;
+    const uint64_t mask = size_in_bytes - 1;
     if (adr.getMode() == Address::base_plus_offset &&
         (adr.offset() & mask) == 0) { // only supports base_plus_offset.
       code()->set_last_insn(pc());
@@ -2040,11 +2040,17 @@ void MacroAssembler::increment(Address dst, int value)
 
 
 void MacroAssembler::pusha() {
-  push(0x7fffffff, sp);
+  push(RegSet::range(r0, r30), sp);
 }
 
 void MacroAssembler::popa() {
-  pop(0x7fffffff, sp);
+  pop(RegSet::range(r0, r17), sp);
+#ifdef R18_RESERVED
+  ldp(zr, r19, Address(post(sp, 2 * wordSize)));
+  pop(RegSet::range(r20, r30), sp);
+#else
+  pop(RegSet::range(r18_tls, r30), sp);
+#endif
 }
 
 // Push lots of registers in the bit set supplied.  Don't push sp.
@@ -2613,43 +2619,43 @@ void MacroAssembler::debug64(char* msg, int64_t pc, int64_t regs[])
 #endif
     if (os::message_box(msg, "Execution stopped, print registers?")) {
       ttyLocker ttyl;
-      tty->print_cr(" pc = 0x%016lx", pc);
+      tty->print_cr(" pc = 0x%016" PRIx64, pc);
 #ifndef PRODUCT
       tty->cr();
       findpc(pc);
       tty->cr();
 #endif
-      tty->print_cr(" r0 = 0x%016lx", regs[0]);
-      tty->print_cr(" r1 = 0x%016lx", regs[1]);
-      tty->print_cr(" r2 = 0x%016lx", regs[2]);
-      tty->print_cr(" r3 = 0x%016lx", regs[3]);
-      tty->print_cr(" r4 = 0x%016lx", regs[4]);
-      tty->print_cr(" r5 = 0x%016lx", regs[5]);
-      tty->print_cr(" r6 = 0x%016lx", regs[6]);
-      tty->print_cr(" r7 = 0x%016lx", regs[7]);
-      tty->print_cr(" r8 = 0x%016lx", regs[8]);
-      tty->print_cr(" r9 = 0x%016lx", regs[9]);
-      tty->print_cr("r10 = 0x%016lx", regs[10]);
-      tty->print_cr("r11 = 0x%016lx", regs[11]);
-      tty->print_cr("r12 = 0x%016lx", regs[12]);
-      tty->print_cr("r13 = 0x%016lx", regs[13]);
-      tty->print_cr("r14 = 0x%016lx", regs[14]);
-      tty->print_cr("r15 = 0x%016lx", regs[15]);
-      tty->print_cr("r16 = 0x%016lx", regs[16]);
-      tty->print_cr("r17 = 0x%016lx", regs[17]);
-      tty->print_cr("r18 = 0x%016lx", regs[18]);
-      tty->print_cr("r19 = 0x%016lx", regs[19]);
-      tty->print_cr("r20 = 0x%016lx", regs[20]);
-      tty->print_cr("r21 = 0x%016lx", regs[21]);
-      tty->print_cr("r22 = 0x%016lx", regs[22]);
-      tty->print_cr("r23 = 0x%016lx", regs[23]);
-      tty->print_cr("r24 = 0x%016lx", regs[24]);
-      tty->print_cr("r25 = 0x%016lx", regs[25]);
-      tty->print_cr("r26 = 0x%016lx", regs[26]);
-      tty->print_cr("r27 = 0x%016lx", regs[27]);
-      tty->print_cr("r28 = 0x%016lx", regs[28]);
-      tty->print_cr("r30 = 0x%016lx", regs[30]);
-      tty->print_cr("r31 = 0x%016lx", regs[31]);
+      tty->print_cr(" r0 = 0x%016" PRIx64, regs[0]);
+      tty->print_cr(" r1 = 0x%016" PRIx64, regs[1]);
+      tty->print_cr(" r2 = 0x%016" PRIx64, regs[2]);
+      tty->print_cr(" r3 = 0x%016" PRIx64, regs[3]);
+      tty->print_cr(" r4 = 0x%016" PRIx64, regs[4]);
+      tty->print_cr(" r5 = 0x%016" PRIx64, regs[5]);
+      tty->print_cr(" r6 = 0x%016" PRIx64, regs[6]);
+      tty->print_cr(" r7 = 0x%016" PRIx64, regs[7]);
+      tty->print_cr(" r8 = 0x%016" PRIx64, regs[8]);
+      tty->print_cr(" r9 = 0x%016" PRIx64, regs[9]);
+      tty->print_cr("r10 = 0x%016" PRIx64, regs[10]);
+      tty->print_cr("r11 = 0x%016" PRIx64, regs[11]);
+      tty->print_cr("r12 = 0x%016" PRIx64, regs[12]);
+      tty->print_cr("r13 = 0x%016" PRIx64, regs[13]);
+      tty->print_cr("r14 = 0x%016" PRIx64, regs[14]);
+      tty->print_cr("r15 = 0x%016" PRIx64, regs[15]);
+      tty->print_cr("r16 = 0x%016" PRIx64, regs[16]);
+      tty->print_cr("r17 = 0x%016" PRIx64, regs[17]);
+      tty->print_cr("r18 = 0x%016" PRIx64, regs[18]);
+      tty->print_cr("r19 = 0x%016" PRIx64, regs[19]);
+      tty->print_cr("r20 = 0x%016" PRIx64, regs[20]);
+      tty->print_cr("r21 = 0x%016" PRIx64, regs[21]);
+      tty->print_cr("r22 = 0x%016" PRIx64, regs[22]);
+      tty->print_cr("r23 = 0x%016" PRIx64, regs[23]);
+      tty->print_cr("r24 = 0x%016" PRIx64, regs[24]);
+      tty->print_cr("r25 = 0x%016" PRIx64, regs[25]);
+      tty->print_cr("r26 = 0x%016" PRIx64, regs[26]);
+      tty->print_cr("r27 = 0x%016" PRIx64, regs[27]);
+      tty->print_cr("r28 = 0x%016" PRIx64, regs[28]);
+      tty->print_cr("r30 = 0x%016" PRIx64, regs[30]);
+      tty->print_cr("r31 = 0x%016" PRIx64, regs[31]);
       BREAKPOINT;
     }
     ThreadStateTransition::transition(thread, _thread_in_vm, saved_state);
@@ -2661,9 +2667,17 @@ void MacroAssembler::debug64(char* msg, int64_t pc, int64_t regs[])
   }
 }
 
+RegSet MacroAssembler::call_clobbered_registers() {
+  RegSet regs = RegSet::range(r0, r17) - RegSet::of(rscratch1, rscratch2);
+#ifndef R18_RESERVED
+  regs += r18_tls;
+#endif
+  return regs;
+}
+
 void MacroAssembler::push_call_clobbered_registers() {
   int step = 4 * wordSize;
-  push(RegSet::range(r0, r18) - RegSet::of(rscratch1, rscratch2), sp);
+  push(call_clobbered_registers(), sp);
   sub(sp, sp, step);
   mov(rscratch1, -step);
   // Push v0-v7, v16-v31.
@@ -2683,12 +2697,12 @@ void MacroAssembler::pop_call_clobbered_registers() {
           as_FloatRegister(i+3), T1D, Address(post(sp, 4 * wordSize)));
   }
 
-  pop(RegSet::range(r0, r18) - RegSet::of(rscratch1, rscratch2), sp);
+  pop(call_clobbered_registers() - RegSet::of(rscratch1, rscratch2), sp);
 }
 
 void MacroAssembler::push_CPU_state(bool save_vectors) {
   int step = (save_vectors ? 8 : 4) * wordSize;
-  push(0x3fffffff, sp);         // integer registers except lr & sp
+  push(RegSet::range(r0, r29), sp);         // integer registers except lr & sp
   mov(rscratch1, -step);
   sub(sp, sp, step);
   for (int i = 28; i >= 4; i -= 4) {
@@ -2703,7 +2717,15 @@ void MacroAssembler::pop_CPU_state(bool restore_vectors) {
   for (int i = 0; i <= 28; i += 4)
     ld1(as_FloatRegister(i), as_FloatRegister(i+1), as_FloatRegister(i+2),
         as_FloatRegister(i+3), restore_vectors ? T2D : T1D, Address(post(sp, step)));
-  pop(0x3fffffff, sp);         // integer registers except lr & sp
+
+  // integer registers except lr & sp
+  pop(RegSet::range(r0, r17), sp);
+#ifdef R18_RESERVED
+  ldp(zr, r19, Address(post(sp, 2 * wordSize)));
+  pop(RegSet::range(r20, r29), sp);
+#else
+  pop(RegSet::range(r18_tls, r29), sp);
+#endif
 }
 
 /**
@@ -2869,7 +2891,7 @@ void MacroAssembler::merge_ldst(Register rt,
   // Overwrite previous generated binary.
   code_section()->set_end(prev);
 
-  const int sz = prev_ldst->size_in_bytes();
+  const size_t sz = prev_ldst->size_in_bytes();
   assert(sz == 8 || sz == 4, "only supports 64/32bit merging.");
   if (!is_store) {
     BLOCK_COMMENT("merged ldr pair");
@@ -4325,7 +4347,7 @@ void MacroAssembler::get_polling_page(Register dest, address page, relocInfo::re
   if (SafepointMechanism::uses_thread_local_poll()) {
     ldr(dest, Address(rthread, Thread::polling_page_offset()));
   } else {
-    unsigned long off;
+    uint64_t off;
     adrp(dest, Address(page, rtype), off);
     assert(off == 0, "polling page must be page aligned");
   }
@@ -4923,7 +4945,7 @@ void MacroAssembler::string_compare(Register str1, Register str2,
     Register cnt1, Register cnt2, Register result, Register tmp1, Register tmp2,
     FloatRegister vtmp1, FloatRegister vtmp2, FloatRegister vtmp3, int ae) {
   Label DONE, SHORT_LOOP, SHORT_STRING, SHORT_LAST, TAIL, STUB,
-      DIFFERENCE, NEXT_WORD, SHORT_LOOP_TAIL, SHORT_LAST2, SHORT_LAST_INIT,
+      DIFF, NEXT_WORD, SHORT_LOOP_TAIL, SHORT_LAST2, SHORT_LAST_INIT,
       SHORT_LOOP_START, TAIL_CHECK;
 
   const int STUB_THRESHOLD = 64 + 8;
@@ -5010,7 +5032,7 @@ void MacroAssembler::string_compare(Register str1, Register str2,
     adds(cnt2, cnt2, isUL ? 4 : 8);
     br(GE, TAIL);
     eor(rscratch2, tmp1, tmp2);
-    cbnz(rscratch2, DIFFERENCE);
+    cbnz(rscratch2, DIFF);
     // main loop
     bind(NEXT_WORD);
     if (str1_isL == str2_isL) {
@@ -5036,10 +5058,10 @@ void MacroAssembler::string_compare(Register str1, Register str2,
 
     eor(rscratch2, tmp1, tmp2);
     cbz(rscratch2, NEXT_WORD);
-    b(DIFFERENCE);
+    b(DIFF);
     bind(TAIL);
     eor(rscratch2, tmp1, tmp2);
-    cbnz(rscratch2, DIFFERENCE);
+    cbnz(rscratch2, DIFF);
     // Last longword.  In the case where length == 4 we compare the
     // same longword twice, but that's still faster than another
     // conditional branch.
@@ -5063,7 +5085,7 @@ void MacroAssembler::string_compare(Register str1, Register str2,
 
     // Find the first different characters in the longwords and
     // compute their difference.
-    bind(DIFFERENCE);
+    bind(DIFF);
     rev(rscratch2, rscratch2);
     clz(rscratch2, rscratch2);
     andr(rscratch2, rscratch2, isLL ? -8 : -16);

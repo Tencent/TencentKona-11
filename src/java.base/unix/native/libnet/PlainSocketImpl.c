@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -46,8 +46,6 @@ jfieldID psi_trafficClassID;
 jfieldID psi_serverSocketID;
 jfieldID psi_fdLockID;
 jfieldID psi_closePendingID;
-
-extern void setDefaultScopeID(JNIEnv *env, struct sockaddr *him);
 
 /*
  * file descriptor used for dup2
@@ -264,7 +262,6 @@ Java_java_net_PlainSocketImpl_socketConnect(JNIEnv *env, jobject this,
                                   JNI_TRUE) != 0) {
         return;
     }
-    setDefaultScopeID(env, &sa.sa);
 
     if (trafficClass != 0 && ipv6_available()) {
         NET_SetTrafficClass(&sa, trafficClass);
@@ -512,7 +509,6 @@ Java_java_net_PlainSocketImpl_socketBind(JNIEnv *env, jobject this,
                                   &len, JNI_TRUE) != 0) {
         return;
     }
-    setDefaultScopeID(env, &sa.sa);
 
     if (NET_Bind(fd, &sa, len) < 0) {
         if (errno == EADDRINUSE || errno == EADDRNOTAVAIL ||
@@ -740,8 +736,7 @@ Java_java_net_PlainSocketImpl_socketAccept(JNIEnv *env, jobject this,
  */
 JNIEXPORT jint JNICALL
 Java_java_net_PlainSocketImpl_socketAvailable(JNIEnv *env, jobject this) {
-
-    jint ret = -1;
+    int count = 0;
     jobject fdObj = (*env)->GetObjectField(env, this, psi_fdID);
     jint fd;
 
@@ -752,8 +747,7 @@ Java_java_net_PlainSocketImpl_socketAvailable(JNIEnv *env, jobject this) {
     } else {
         fd = (*env)->GetIntField(env, fdObj, IO_fd_fdID);
     }
-    /* NET_SocketAvailable returns 0 for failure, 1 for success */
-    if (NET_SocketAvailable(fd, &ret) == 0){
+    if (NET_SocketAvailable(fd, &count) != 0) {
         if (errno == ECONNRESET) {
             JNU_ThrowByName(env, "sun/net/ConnectionResetException", "");
         } else {
@@ -761,7 +755,7 @@ Java_java_net_PlainSocketImpl_socketAvailable(JNIEnv *env, jobject this) {
                 (env, JNU_JAVANETPKG "SocketException", "ioctl FIONREAD failed");
         }
     }
-    return ret;
+    return (jint) count;
 }
 
 /*
