@@ -700,6 +700,9 @@ JRT_BLOCK_ENTRY(void, Runtime1::monitorenter(JavaThread* thread, oopDesc* obj, B
     }
   }
   SharedRuntime::monitor_enter_helper(obj, lock->lock(), thread, UseFastLocking);
+#if INCLUDE_KONA_FIBER
+  thread->inc_locks_acquired();
+#endif
 JRT_END
 
 

@@ -50,6 +50,9 @@
 #include "runtime/vmThread.hpp"
 #include "utilities/events.hpp"
 #include "utilities/xmlstream.hpp"
+#if INCLUDE_KONA_FIBER
+#include "runtime/coroutine.hpp"
+#endif
 
 #ifdef ASSERT
 
@@ -212,6 +215,9 @@ public:
       jt->nmethods_do(_cl);
     }
   }
+#if INCLUDE_KONA_FIBER
+  CodeBlobClosure* cb_cl() const { return _cl; }
+#endif
 };
 
 class NMethodMarkingTask : public AbstractGangTask {
@@ -230,6 +236,19 @@ public:
 
   void work(uint worker_id) {
     Threads::possibly_parallel_threads_do(true, _cl);
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      guarantee(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
+      int cp = Threads::thread_claim_parity();
+      CodeBlobClosure *cb_cl = _cl->cb_cl();
+      for (size_t i = 0; i < CONT_CONTAINER_SIZE; i++) {
+        ContBucket* bucket = ContContainer::bucket(i);
+        if (bucket->claim_oops_do(true, cp)) {
+          bucket->nmethods_do(cb_cl);
+        }
+      }
+    }
+#endif
   }
 };
 
@@ -254,7 +273,11 @@ void NMethodSweeper::mark_active_nmethods() {
 
 CodeBlobClosure* NMethodSweeper::prepare_mark_active_nmethods() {
 #ifdef ASSERT
-  if (ThreadLocalHandshakes) {
+  if (ThreadLocalHandshakes
+#if INCLUDE_KONA_FIBER
+      && !UseKonaFiber
+#endif
+  ) {
     assert(Thread::current()->is_Code_cache_sweeper_thread(), "must be executed under CodeCache_lock and in sweeper thread");
     assert_lock_strong(CodeCache_lock);
   } else {
@@ -321,7 +344,11 @@ CodeBlobClosure* NMethodSweeper::prepare_reset_hotness_counters() {
 void NMethodSweeper::do_stack_scanning() {
   assert(!CodeCache_lock->owned_by_self(), "just checking");
   if (wait_for_stack_scanning()) {
-    if (ThreadLocalHandshakes) {
+    if (ThreadLocalHandshakes
+#if INCLUDE_KONA_FIBER
+        && !UseKonaFiber
+#endif
+    ) {
       CodeBlobClosure* code_cl;
       {
         MutexLockerEx ccl(CodeCache_lock, Mutex::_no_safepoint_check_flag);

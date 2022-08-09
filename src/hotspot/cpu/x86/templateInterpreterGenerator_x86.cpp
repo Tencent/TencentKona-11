@@ -645,6 +645,11 @@ void TemplateInterpreterGenerator::lock_method() {
   const Register lockreg = NOT_LP64(rdx) LP64_ONLY(c_rarg1);
   __ movptr(lockreg, rsp); // object address
   __ lock_object(lockreg);
+#if INCLUDE_KONA_FIBER
+  if (UseKonaFiber) {
+    LP64_ONLY(__ addl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
+  }
+#endif
 }
 
 // Generate a fixed interpreter frame. This is identical setup for
@@ -1270,6 +1275,11 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
       __ bind(unlock);
       __ unlock_object(regmon);
+#if INCLUDE_KONA_FIBER
+      if (UseKonaFiber) {
+        LP64_ONLY(__ subl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
+      }
+#endif
     }
     __ bind(L);
   }

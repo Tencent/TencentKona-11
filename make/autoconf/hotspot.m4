@@ -26,7 +26,7 @@
 # All valid JVM features, regardless of platform
 VALID_JVM_FEATURES="compiler1 compiler2 zero minimal dtrace jvmti jvmci \
     graal vm-structs jni-check services management cmsgc epsilongc g1gc parallelgc serialgc shenandoahgc zgc nmt cds \
-    static-build link-time-opt aot jfr"
+    static-build link-time-opt aot jfr fiber"
 
 # Deprecated JVM features (these are ignored, but with a warning)
 DEPRECATED_JVM_FEATURES="trace"
@@ -277,6 +277,36 @@ AC_DEFUN_ONCE([HOTSPOT_ENABLE_DISABLE_CDS],
   AC_SUBST(ENABLE_CDS)
 ])
 
+################################################################################
+# Allow to disable fiber
+#
+AC_DEFUN_ONCE([HOTSPOT_ENABLE_DISABLE_FIBER],
+[
+  AC_ARG_ENABLE([fiber], [AS_HELP_STRING([--enable-fiber@<:@=yes/no/auto@:>@],
+      [Default is auto, where fiber is enabled if supported on the platform.])])
+
+  if test "x$enable_fiber" = "x" || test "x$enable_fiber" = "xauto"; then
+    ENABLE_FIBER="true"
+  elif test "x$enable_fiber" = "xyes"; then
+    ENABLE_FIBER="true"
+  elif test "x$enable_fiber" = "xno"; then
+    ENABLE_FIBER="false"
+  else
+    AC_MSG_ERROR([Invalid value for --enable-fiber: $enable_fiber])
+  fi
+
+  # Disable Fiber on none X64 platform.
+  if test "x$OPENJDK_TARGET_CPU" != "xx86_64" ; then
+    ENABLE_FIBER="false"
+    if test "x$enable_fiber" = "xyes"; then
+      AC_MSG_ERROR([Fiber is currently not supported on none X64 platform. Remove --enable-fiber.])
+    fi
+  fi
+
+  AC_SUBST(ENABLE_FIBER)
+])
+
+
 ###############################################################################
 # Set up all JVM features for each JVM variant.
 #
@@ -367,7 +397,8 @@ AC_DEFUN_ONCE([HOTSPOT_SETUP_JVM_FEATURES],
 
   # Only enable ZGC on supported platforms
   AC_MSG_CHECKING([if zgc can be built])
-  if test "x$OPENJDK_TARGET_OS" = "xlinux" && test "x$OPENJDK_TARGET_CPU" = "xx86_64"; then
+  if (test "x$OPENJDK_TARGET_OS" = "xlinux" && test "x$OPENJDK_TARGET_CPU" = "xx86_64") || \
+     (test "x$OPENJDK_TARGET_OS" = "xlinux" && test "x$OPENJDK_TARGET_CPU" = "xaarch64"); then
     AC_MSG_RESULT([yes])
   else
     DISABLED_JVM_FEATURES="$DISABLED_JVM_FEATURES zgc"
@@ -519,6 +550,22 @@ AC_DEFUN_ONCE([HOTSPOT_SETUP_JVM_FEATURES],
     NON_MINIMAL_FEATURES="$NON_MINIMAL_FEATURES cds"
   else
     if test "x$enable_cds" = "xno"; then
+      AC_MSG_RESULT([no, forced])
+    else
+      AC_MSG_RESULT([no])
+    fi
+  fi
+
+ AC_MSG_CHECKING([if fiber should be enabled])
+  if test "x$ENABLE_FIBER" = "xtrue"; then
+    if test "x$enable_fiber" = "xyes"; then
+      AC_MSG_RESULT([yes, forced])
+    else
+      AC_MSG_RESULT([yes])
+    fi
+    NON_MINIMAL_FEATURES="$NON_MINIMAL_FEATURES fiber"
+  else
+    if test "x$enable_fiber" = "xno"; then
       AC_MSG_RESULT([no, forced])
     else
       AC_MSG_RESULT([no])

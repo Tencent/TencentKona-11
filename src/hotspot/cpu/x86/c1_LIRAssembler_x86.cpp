@@ -451,6 +451,11 @@ int LIR_Assembler::emit_unwind_handler() {
     stub = new MonitorExitStub(FrameMap::rax_opr, true, 0);
     __ unlock_object(rdi, rsi, rax, *stub->entry());
     __ bind(*stub->continuation());
+#if INCLUDE_KONA_FIBER
+    if (UseKonaFiber) {
+      LP64_ONLY(__ addl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), -1));
+    }
+#endif
   }
 
   if (compilation()->env()->dtrace_method_probes()) {
@@ -3509,7 +3514,20 @@ void LIR_Assembler::emit_lock(LIR_OpLock* op) {
   } else {
     Unimplemented();
   }
+#if INCLUDE_KONA_FIBER
+  // Deoptimization might happen in Runtime1::monitorenter
+  // inc only in fast path, slow path update lock acquire count in Runtime1::monitorenter
+  if (UseKonaFiber && op->code() == lir_lock) {
+    LP64_ONLY(__ addl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), 1));
+  }
+#endif
   __ bind(*op->stub()->continuation());
+#if INCLUDE_KONA_FIBER
+  // dec after all path
+  if (UseKonaFiber && op->code() == lir_unlock) {
+    LP64_ONLY(__ addl(Address(r15_thread, in_bytes(Thread::locksAcquired_offset())), -1));
+  }
+#endif
 }
 
 

@@ -2209,6 +2209,38 @@ public final class System {
                 return StringCoding.getBytesUTF8NoRepl(s);
             }
 
+            public Thread currentCarrierThread() {
+                return Thread.currentCarrierThread();
+            }
+
+            public <T> T getCarrierThreadLocal(ThreadLocal<T> local) {
+                return local.getCarrierThreadLocal();
+            }
+
+            public <T> void setCarrierThreadLocal(ThreadLocal<T> local, T value) {
+                local.setCarrierThreadLocal(value);
+            }
+
+            public void parkVirtualThread() {
+                VirtualThread.park();
+            }
+
+            public void parkVirtualThread(long nanos) {
+                VirtualThread.parkNanos(nanos);
+            }
+
+            public void unparkVirtualThread(Thread thread) {
+                ((VirtualThread) thread).unpark();
+            }
+
+            public boolean isVirtualThreadParking(Thread thread) {
+                return ((VirtualThread) thread).isParking();
+            }
+
+            public void setVirtualThreadPinnedAction(Thread thread, Continuation.PinnedAction pinnedAction) {
+                ((VirtualThread) thread).setPinnedAction(pinnedAction);
+            }
+
         });
     }
 }
