@@ -298,7 +298,6 @@ public:
   virtual bool flatten_gc_alias_type(const TypePtr*& adr_type) const { return false; }
 #ifdef ASSERT
   virtual bool verify_gc_alias_type(const TypePtr* adr_type, int offset) const { return false; }
-  virtual void verify_gc_barriers(Compile* compile, CompilePhase phase) const {}
 #endif
 
   virtual bool final_graph_reshaping(Compile* compile, Node* n, uint opcode) const { return false; }

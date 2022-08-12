@@ -403,6 +403,9 @@ public:
 
   bool peek();
   uint tasks() const;
+#if INCLUDE_SHENANDOAHGC
+  size_t tasks();
+#endif
 
   uint size() const { return _n; }
 };

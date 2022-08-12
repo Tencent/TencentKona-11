@@ -359,6 +359,7 @@ void Thread::record_stack_base_and_size() {
   // Set stack limits after thread is initialized.
   if (is_Java_thread()) {
     ((JavaThread*) this)->set_stack_overflow_limit();
+    ((JavaThread*) this)->set_shadow_zone_limits();
     ((JavaThread*) this)->set_reserved_stack_activation(stack_base());
   }
 }
@@ -1640,6 +1641,9 @@ void JavaThread::initialize() {
   }
 #endif // INCLUDE_JVMCI
   _reserved_stack_activation = NULL;  // stack base not known yet
+  _shadow_zone_safe_limit = NULL;
+  _shadow_zone_growth_watermark = NULL;
+  _shadow_zone_growth_native_watermark = NULL;
   (void)const_cast<oop&>(_exception_oop = oop(NULL));
   _exception_pc  = 0;
   _exception_handler_pc = 0;
@@ -3103,7 +3107,7 @@ const char* JavaThread::get_thread_name() const {
 }
 
 // Returns a non-NULL representation of this thread's name, or a suitable
-// descriptive string if there is no set name
+// descriptive string if there is no set name.
 const char* JavaThread::get_thread_name_string(char* buf, int buflen) const {
   const char* name_str;
   oop thread_obj = threadObj();
@@ -3163,6 +3167,19 @@ ThreadPriority JavaThread::java_priority() const {
   ThreadPriority priority = java_lang_Thread::priority(thr_oop);
   assert(MinPriority <= priority && priority <= MaxPriority, "sanity check");
   return priority;
+}
+
+// Helper to extract the name from the thread oop for logging.
+const char* JavaThread::name_for(oop thread_obj) {
+  assert(thread_obj != NULL, "precondition");
+  oop name = java_lang_Thread::name(thread_obj);
+  const char* name_str;
+  if (name != NULL) {
+    name_str = java_lang_String::as_utf8_string(name);
+  } else {
+    name_str = "<un-named>";
+  }
+  return name_str;
 }
 
 void JavaThread::prepare(jobject jni_thread, ThreadPriority prio) {

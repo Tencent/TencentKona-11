@@ -468,6 +468,9 @@ void ZPageAllocator::free_page_inner(ZPage* page, bool reclaimed) {
   // Update used statistics
   decrease_used(page->size(), reclaimed);
 
+  // Make page inactive
+  page->set_inactive();
+
   // Cache page
   _cache.free_page(page);
 }
