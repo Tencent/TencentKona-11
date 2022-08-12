@@ -191,9 +191,7 @@ void ZRelocationSetSelector::register_live_page(const ZPage* page) {
 
 void ZRelocationSetSelector::register_garbage_page(ZPage* page) {
   _garbage += page->size();
-  if (page->dec_refcount()) {
-    _garbage_pages.add(page);
-  }
+  _garbage_pages.add(page);
 }
 
 void ZRelocationSetSelector::select(ZRelocationSet* relocation_set) {

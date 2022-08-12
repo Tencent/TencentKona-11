@@ -29,7 +29,6 @@
 #include "gc/shared/memAllocator.hpp"
 #include "gc/shared/plab.hpp"
 
-#include "gc/shenandoah/parallelCleaning.hpp"
 #include "gc/shenandoah/shenandoahBarrierSet.hpp"
 #include "gc/shenandoah/shenandoahClosures.inline.hpp"
 #include "gc/shenandoah/shenandoahCollectionSet.hpp"
@@ -1068,10 +1067,6 @@ void ShenandoahHeap::resize_tlabs() {
   CollectedHeap::resize_all_tlabs();
 }
 
-void ShenandoahHeap::accumulate_statistics_tlabs() {
-  CollectedHeap::accumulate_statistics_all_tlabs();
-}
-
 class ShenandoahEvacuateUpdateRootsTask : public AbstractGangTask {
 private:
   ShenandoahRootEvacuator* _rp;
@@ -1419,11 +1414,6 @@ void ShenandoahHeap::op_init_mark() {
 
   if (ShenandoahVerify) {
     verifier()->verify_before_concmark();
-  }
-
-  {
-    ShenandoahGCPhase phase(ShenandoahPhaseTimings::accumulate_stats);
-    accumulate_statistics_tlabs();
   }
 
   if (VerifyBeforeGC) {
@@ -1955,7 +1945,7 @@ void ShenandoahHeap::stw_unload_classes(bool full_gc) {
     ShenandoahGCSubPhase phase(p);
     ShenandoahIsAliveSelector is_alive;
     uint num_workers = _workers->active_workers();
-    ParallelCleaningTask unlink_task(p, is_alive.is_alive_closure(), true, true, num_workers, purged_class);
+    ShenandoahClassUnloadingTask unlink_task(p, is_alive.is_alive_closure(), num_workers, purged_class);
     _workers->run_task(&unlink_task);
   }
 
