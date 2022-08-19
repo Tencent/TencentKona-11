@@ -2290,6 +2290,7 @@ void MacroAssembler::VerifyCoroutineState(Register old_coroutine, Register targe
   pop(RegSet::of(rfp, lr), sp);
 }
 
+#if INCLUDE_ZGC
 void MacroAssembler::Concurrent_Coroutine_slowpath(Register target_coroutine) {
   push(RegSet::of(rfp, lr), sp);
   mov(rfp, sp);
@@ -2301,6 +2302,7 @@ void MacroAssembler::Concurrent_Coroutine_slowpath(Register target_coroutine) {
   mov(sp, rfp);
   pop(RegSet::of(rfp, lr), sp);
 }
+#endif
 #endif
 
 void MacroAssembler::unimplemented(const char* what) {
