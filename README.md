@@ -6,7 +6,7 @@ Kona serves as the default JDK at Tencent internally, optimized for extreme-scal
 
 ## Using Tencent Kona JDK11
 
-Tencent Kona JDK11 currently supports Linux/x86_64 platform only.
+Tencent Kona JDK11 currently supports  Linux/x86_64, Linux/Aarch64, Windows/x86_64, Mac/x86_64, Mac/Aarch64.
 
 ## License
 
