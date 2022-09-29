@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -70,6 +70,11 @@
                                                                         \
   product(uintx, CPUShareScaleLimit, 0,                                 \
           "Scale cpu count limit, max is active cpu count")             \
+                                                                        \
+  product(bool, UseContainerCpuShares, false,                           \
+          "Include CPU shares in the CPU availability"                  \
+          " calculation.")                                              \
+                                                                        \
   product(bool, PreferContainerQuotaForCPUCount, true,                  \
           "Calculate the container CPU availability based on the value" \
           " of quotas (if set), when true. Otherwise, use the CPU"    \
