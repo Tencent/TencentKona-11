@@ -55,7 +55,9 @@ G1ParScanThreadState::G1ParScanThreadState(G1CollectedHeap* g1h,
     _stack_trim_lower_threshold(GCDrainStackTargetSize),
     _trim_ticks(),
     _old_gen_is_full(false),
-    _num_optional_regions(optional_cset_length)
+    _num_optional_regions(optional_cset_length),
+    _numa(g1h->numa()),
+    _obj_alloc_stat(NULL)
 {
   // we allocate G1YoungSurvRateNumRegions plus one entries, since
   // we "sacrifice" entry 0 to keep track of surviving bytes for
@@ -83,6 +85,7 @@ G1ParScanThreadState::G1ParScanThreadState(G1CollectedHeap* g1h,
   _closures = G1EvacuationRootClosures::create_root_closures(this, _g1h);
   _oops_into_optional_regions = new G1OopStarChunkedList[_num_optional_regions];
 
+  initialize_numa_stats();
 }
 
 // Pass locally gathered statistics to global state.
@@ -96,6 +99,7 @@ void G1ParScanThreadState::flush(size_t* surviving_young_words) {
   for (uint region_index = 0; region_index < length; region_index++) {
     surviving_young_words[region_index] += _surviving_young_words[region_index];
   }
+  flush_numa_stats();
 }
 
 G1ParScanThreadState::~G1ParScanThreadState() {
@@ -103,6 +107,7 @@ G1ParScanThreadState::~G1ParScanThreadState() {
   delete _closures;
   FREE_C_HEAP_ARRAY(size_t, _surviving_young_words_base);
   delete[] _oops_into_optional_regions;
+  FREE_C_HEAP_ARRAY(size_t, _obj_alloc_stat);
 }
 
 size_t G1ParScanThreadState::lab_waste_words() const {
@@ -258,6 +263,8 @@ oop G1ParScanThreadState::copy_to_survivor_space(InCSetState const state,
         return handle_evacuation_failure_par(old, old_mark);
       }
     }
+    update_numa_stats(node_index);
+
     if (_g1h->_gc_tracer_stw->should_report_promotion_events()) {
       // The events are checked individually as part of the actual commit
       report_promotion_event(dest_state, old, word_sz, age, obj_ptr, node_index);

@@ -145,11 +145,33 @@ public:
 // add / remove one region at a time or concatenate two lists.
 
 class FreeRegionListIterator;
+class G1NUMA;
 
 class FreeRegionList : public HeapRegionSetBase {
   friend class FreeRegionListIterator;
 
 private:
+
+  // This class is only initialized if there are multiple active nodes.
+  class NodeInfo : public CHeapObj<mtGC> {
+    G1NUMA* _numa;
+    uint*   _length_of_node;
+    uint    _num_nodes;
+
+  public:
+    NodeInfo();
+    ~NodeInfo();
+
+    inline void increase_length(uint node_index);
+    inline void decrease_length(uint node_index);
+
+    inline uint length(uint index) const;
+
+    void clear();
+
+    void add(NodeInfo* info);
+  };
+
   HeapRegion* _head;
   HeapRegion* _tail;
 
@@ -157,20 +179,23 @@ private:
   // time. It helps to improve performance when adding several ordered items in a row.
   HeapRegion* _last;
 
+  NodeInfo*   _node_info;
+
   static uint _unrealistically_long_length;
 
   inline HeapRegion* remove_from_head_impl();
   inline HeapRegion* remove_from_tail_impl();
+
+  inline void increase_length(uint node_index);
+  inline void decrease_length(uint node_index);
 
 protected:
   // See the comment for HeapRegionSetBase::clear()
   virtual void clear();
 
 public:
-  FreeRegionList(const char* name, HeapRegionSetChecker* checker = NULL):
-    HeapRegionSetBase(name, checker) {
-    clear();
-  }
+  FreeRegionList(const char* name, HeapRegionSetChecker* checker = NULL);
+  ~FreeRegionList();
 
   void verify_list();
 
@@ -191,8 +216,7 @@ public:
   HeapRegion* remove_region(bool from_head);
 
   HeapRegion* remove_region_with_node_index(bool from_head,
-                                            const uint requested_node_index,
-                                            uint* region_node_index);
+                                            uint requested_node_index);
 
   // Merge two ordered lists. The result is also ordered. The order is
   // determined by hrm_index.
@@ -207,6 +231,11 @@ public:
   void remove_starting_at(HeapRegion* first, uint num_regions);
 
   virtual void verify();
+
+  uint num_of_regions_in_range(uint start, uint end) const;
+
+  using HeapRegionSetBase::length;
+  uint length(uint node_index) const;
 };
 
 // Iterator class that provides a convenient way to iterate over the

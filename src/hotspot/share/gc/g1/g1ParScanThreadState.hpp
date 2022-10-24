@@ -91,6 +91,13 @@ class G1ParScanThreadState : public CHeapObj<mtGC> {
   size_t _num_optional_regions;
   G1OopStarChunkedList* _oops_into_optional_regions;
 
+  G1NUMA* _numa;
+
+  // Records how many object allocations happened at each node during copy to survivor.
+  // Only starts recording when log of gc+heap+numa is enabled and its data is
+  // transferred when flushed.
+  size_t* _obj_alloc_stat;
+
 public:
   G1ParScanThreadState(G1CollectedHeap* g1h,
                        uint worker_id,
@@ -200,6 +207,12 @@ private:
   inline bool is_partially_trimmed() const;
 
   inline void trim_queue_to_threshold(uint threshold);
+
+  // NUMA statistics related methods.
+  inline void initialize_numa_stats();
+  inline void flush_numa_stats();
+  inline void update_numa_stats(uint node_index);
+
 public:
   oop copy_to_survivor_space(InCSetState const state, oop const obj, markOop const old_mark);
 
