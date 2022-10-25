@@ -709,6 +709,10 @@ static jmethodID reflected_method_to_jmid(JavaThread* thread, JNIEnv* env, jobje
   return env->FromReflectedMethod(method);
 }
 
+static CompLevel highestCompLevel() {
+  return TieredCompilation ? MIN2((CompLevel) TieredStopAtLevel, CompLevel_highest_tier) : CompLevel_highest_tier;
+}
+
 // Deoptimizes all compiled frames and makes nmethods not entrant if it's requested
 class VM_WhiteBoxDeoptimizeFrames : public VM_WhiteBoxOperation {
  private:
@@ -786,7 +790,7 @@ WB_ENTRY(jboolean, WB_IsMethodCompiled(JNIEnv* env, jobject o, jobject method, j
 WB_END
 
 WB_ENTRY(jboolean, WB_IsMethodCompilable(JNIEnv* env, jobject o, jobject method, jint comp_level, jboolean is_osr))
-  if (method == NULL || comp_level > MIN2((CompLevel) TieredStopAtLevel, CompLevel_highest_tier)) {
+  if (method == NULL || comp_level > highestCompLevel()) {
     return false;
   }
   jmethodID jmid = reflected_method_to_jmid(thread, env, method);
@@ -809,7 +813,7 @@ WB_ENTRY(jboolean, WB_IsMethodQueuedForCompilation(JNIEnv* env, jobject o, jobje
 WB_END
 
 WB_ENTRY(jboolean, WB_IsIntrinsicAvailable(JNIEnv* env, jobject o, jobject method, jobject compilation_context, jint compLevel))
-  if (compLevel < CompLevel_none || compLevel > MIN2((CompLevel) TieredStopAtLevel, CompLevel_highest_tier)) {
+  if (compLevel < CompLevel_none || compLevel > highestCompLevel()) {
     return false; // Intrinsic is not available on a non-existent compilation level.
   }
   jmethodID method_id, compilation_context_id;
@@ -893,7 +897,7 @@ bool WhiteBox::validate_cgroup(const char* proc_cgroups,
                                const char* proc_self_cgroup,
                                const char* proc_self_mountinfo,
                                u1* cg_flags) {
-  CgroupInfo cg_infos[4];
+  CgroupInfo cg_infos[CG_INFO_LENGTH];
   return CgroupSubsystemFactory::determine_type(cg_infos, proc_cgroups,
                                                     proc_self_cgroup,
                                                     proc_self_mountinfo, cg_flags);
@@ -907,7 +911,7 @@ bool WhiteBox::compile_method(Method* method, int comp_level, int bci, Thread* T
     tty->print_cr("WB error: request to compile NULL method");
     return false;
   }
-  if (comp_level > MIN2((CompLevel) TieredStopAtLevel, CompLevel_highest_tier)) {
+  if (comp_level > highestCompLevel()) {
     tty->print_cr("WB error: invalid compilation level %d", comp_level);
     return false;
   }
@@ -2060,8 +2064,8 @@ WB_ENTRY(void, WB_DisableElfSectionCache(JNIEnv* env))
 #endif
 WB_END
 
-WB_ENTRY(jint, WB_ResolvedMethodRemovedCount(JNIEnv* env, jobject o))
-  return (jint) ResolvedMethodTable::removed_entries_count();
+WB_ENTRY(jlong, WB_ResolvedMethodItemsCount(JNIEnv* env, jobject o))
+  return (jlong) ResolvedMethodTable::items_count();
 WB_END
 
 WB_ENTRY(jint, WB_ProtectionDomainRemovedCount(JNIEnv* env, jobject o))
@@ -2313,7 +2317,7 @@ static JNINativeMethod methods[] = {
                                                       (void*)&WB_ValidateCgroup },
   {CC"printOsInfo",               CC"()V",            (void*)&WB_PrintOsInfo },
   {CC"disableElfSectionCache",    CC"()V",            (void*)&WB_DisableElfSectionCache },
-  {CC"resolvedMethodRemovedCount",     CC"()I",       (void*)&WB_ResolvedMethodRemovedCount },
+  {CC"resolvedMethodItemsCount",  CC"()J",            (void*)&WB_ResolvedMethodItemsCount },
   {CC"protectionDomainRemovedCount",   CC"()I",       (void*)&WB_ProtectionDomainRemovedCount },
   {CC"aotLibrariesCount", CC"()I",                    (void*)&WB_AotLibrariesCount },
   {CC"getLibcName",     CC"()Ljava/lang/String;",     (void*)&WB_GetLibcName},
