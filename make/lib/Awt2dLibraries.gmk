@@ -28,6 +28,7 @@ $(eval $(call IncludeCustomExtension, lib/Awt2dLibraries-pre.gmk))
 WIN_AWT_LIB := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libawt/awt.lib
 
 LIBAWT_DEFAULT_HEADER_DIRS := \
+    common/awt/utility \
     libawt/awt/image \
     libawt/awt/image/cvutils \
     libawt/java2d \
@@ -582,6 +583,7 @@ LIBFONTMANAGER_EXTRA_HEADER_DIRS := \
     libharfbuzz \
     libharfbuzz/hb-ucdn \
     common/awt \
+    common/awt/utility \
     common/font \
     libawt/java2d \
     libawt/java2d/pipe \
@@ -679,6 +681,7 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
   LIBJAWT_EXTRA_HEADER_DIRS := \
       include \
       common/awt/debug \
+      common/awt/utility \
       libawt/awt/image/cvutils \
       libawt/java2d \
       libawt/java2d/windows \
@@ -777,7 +780,7 @@ ifeq ($(ENABLE_HEADLESS_ONLY), false)
       common/awt/systemscale \
       #
 
-  LIBSPLASHSCREEN_HEADER_DIRS += include
+  LIBSPLASHSCREEN_HEADER_DIRS += common/awt/utility
 
   ifeq ($(USE_EXTERNAL_LIBGIF), false)
     LIBSPLASHSCREEN_HEADER_DIRS += libsplashscreen/giflib
