@@ -1123,7 +1123,9 @@ void LIR_Assembler::emit_opBranch(LIR_OpBranch* op) {
   }
 }
 
-
+void LIR_Assembler::emit_opCmpBranch(LIR_OpCmpBranch* op) {
+  ShouldNotReachHere();
+}
 
 void LIR_Assembler::emit_opConvert(LIR_OpConvert* op) {
   LIR_Opr src  = op->in_opr();
@@ -1661,6 +1663,10 @@ void LIR_Assembler::cmove(LIR_Condition condition, LIR_Opr opr1, LIR_Opr opr2, L
     __ csel(result->as_register_lo(), opr1->as_register_lo(), opr2->as_register_lo(), acond);
   else
     __ csel(result->as_register(), opr1->as_register(), opr2->as_register(), acond);
+}
+
+void LIR_Assembler::cmp_cmove(LIR_Condition condition, LIR_Opr left, LIR_Opr right, LIR_Opr src1, LIR_Opr src2, LIR_Opr result, BasicType type) {
+  ShouldNotReachHere();
 }
 
 void LIR_Assembler::arith_op(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr dest, CodeEmitInfo* info, bool pop_fpu_stack) {

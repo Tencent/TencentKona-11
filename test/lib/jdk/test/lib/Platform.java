@@ -21,6 +21,12 @@
  * questions.
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2022, These
+ * modifications are Copyright (c) 2019, 2022, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 package jdk.test.lib;
 
 import java.io.FileNotFoundException;
@@ -223,6 +229,14 @@ public class Platform {
     public static boolean isX86() {
         // On Linux it's 'i386', Windows 'x86' without '_64' suffix.
         return isArch("(i386)|(x86(?!_64))");
+    }
+
+    public static boolean isLoongArch64() {
+        return isArch("loongarch64");
+    }
+
+    public static boolean isMIPS() {
+        return isArch("mips.*");
     }
 
     public static String getOsArch() {

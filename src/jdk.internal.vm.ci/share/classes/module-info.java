@@ -23,6 +23,12 @@
  * questions.
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2022, These
+ * modifications are Copyright (c) 2022, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 module jdk.internal.vm.ci {
     exports jdk.vm.ci.services to jdk.internal.vm.compiler;
     exports jdk.vm.ci.runtime to
@@ -37,6 +43,7 @@ module jdk.internal.vm.ci {
 
     provides jdk.vm.ci.hotspot.HotSpotJVMCIBackendFactory with
         jdk.vm.ci.hotspot.aarch64.AArch64HotSpotJVMCIBackendFactory,
+        jdk.vm.ci.hotspot.loongarch64.LoongArch64HotSpotJVMCIBackendFactory,
         jdk.vm.ci.hotspot.amd64.AMD64HotSpotJVMCIBackendFactory,
         jdk.vm.ci.hotspot.sparc.SPARCHotSpotJVMCIBackendFactory;
 }

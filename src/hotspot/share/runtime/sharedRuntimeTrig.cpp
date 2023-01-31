@@ -22,6 +22,13 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021, These
+ * modifications are Copyright (c) 2015, 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
+
 #include "precompiled.hpp"
 #include "jni.h"
 #include "runtime/interfaceSupport.inline.hpp"
@@ -512,6 +519,14 @@ static int __ieee754_rem_pio2(double x, double *y) {
  *              sin(x) = x + (S1*x + (x *(r-y/2)+y))
  */
 
+#if defined(MIPS)|| defined(LOONGARCH)
+#undef S1
+#undef S2
+#undef S3
+#undef S4
+#undef S5
+#undef S6
+#endif
 static const double
 S1  = -1.66666666666666324348e-01, /* 0xBFC55555, 0x55555549 */
 S2  =  8.33333333332248946124e-03, /* 0x3F811111, 0x1110F8A6 */

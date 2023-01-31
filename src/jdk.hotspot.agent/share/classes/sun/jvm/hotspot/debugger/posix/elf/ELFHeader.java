@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021, These
+ * modifications are Copyright (c) 2019, 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 package sun.jvm.hotspot.debugger.posix.elf;
 
 import java.io.FileInputStream;
@@ -63,6 +69,8 @@ public interface ELFHeader {
     public static final int ARCH_i860 = 7;
     /** MIPS architecture type. */
     public static final int ARCH_MIPS = 8;
+    /** LOONGARCH architecture type. */
+    public static final int ARCH_LOONGARCH = 9;
 
     /** Returns a file type which is defined by the file type constants. */
     public short getFileType();

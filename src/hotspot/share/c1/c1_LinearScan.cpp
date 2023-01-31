@@ -35,6 +35,12 @@
 #include "runtime/timerTrace.hpp"
 #include "utilities/bitMap.inline.hpp"
 
+/*
+ * This file has been modified by Loongson Technology in 2022, These
+ * modifications are Copyright (c) 2022, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 #ifndef PRODUCT
 
   static LinearScanStatistic _stat_before_alloc;
@@ -1246,6 +1252,23 @@ void LinearScan::add_register_hints(LIR_Op* op) {
       LIR_Op2* cmove = (LIR_Op2*)op;
 
       LIR_Opr move_from = cmove->in_opr1();
+      LIR_Opr move_to = cmove->result_opr();
+
+      if (move_to->is_register() && move_from->is_register()) {
+        Interval* from = interval_at(reg_num(move_from));
+        Interval* to = interval_at(reg_num(move_to));
+        if (from != NULL && to != NULL) {
+          to->set_register_hint(from);
+          TRACE_LINEAR_SCAN(4, tty->print_cr("operation at op_id %d: added hint from interval %d to %d", cmove->id(), from->reg_num(), to->reg_num()));
+        }
+      }
+      break;
+    }
+    case lir_cmp_cmove: {
+      assert(op->as_Op4() != NULL, "lir_cmp_cmove must be LIR_Op4");
+      LIR_Op4* cmove = (LIR_Op4*)op;
+
+      LIR_Opr move_from = cmove->in_opr3();
       LIR_Opr move_to = cmove->result_opr();
 
       if (move_to->is_register() && move_from->is_register()) {
@@ -3342,7 +3365,9 @@ void LinearScan::verify_no_oops_in_fixed_intervals() {
           check_live = (move->patch_code() == lir_patch_none);
         }
         LIR_OpBranch* branch = op->as_OpBranch();
-        if (branch != NULL && branch->stub() != NULL && branch->stub()->is_exception_throw_stub()) {
+        LIR_OpCmpBranch* cmp_branch = op->as_OpCmpBranch();
+        if ((branch != NULL && branch->stub() != NULL && branch->stub()->is_exception_throw_stub()) ||
+            (cmp_branch != NULL && cmp_branch->stub() != NULL && cmp_branch->stub()->is_exception_throw_stub())) {
           // Don't bother checking the stub in this case since the
           // exception stub will never return to normal control flow.
           check_live = false;
@@ -6198,6 +6223,16 @@ void ControlFlowOptimizer::substitute_branch_target(BlockBegin* block, BlockBegi
       if (branch->ublock() == target_from) {
         branch->change_ublock(target_to);
       }
+    } else if (op->code() == lir_cmp_branch || op->code() == lir_cmp_float_branch) {
+      assert(op->as_OpCmpBranch() != NULL, "branch must be of type LIR_OpCmpBranch");
+      LIR_OpCmpBranch* branch = (LIR_OpCmpBranch*)op;
+
+      if (branch->block() == target_from) {
+        branch->change_block(target_to);
+      }
+      if (branch->ublock() == target_from) {
+        branch->change_ublock(target_to);
+      }
     }
   }
 }
@@ -6320,6 +6355,20 @@ void ControlFlowOptimizer::delete_unnecessary_jumps(BlockList* code) {
                 }
               }
             }
+          } else if (prev_op->code() == lir_cmp_branch || prev_op->code() == lir_cmp_float_branch) {
+            assert(prev_op->as_OpCmpBranch() != NULL, "branch must be of type LIR_OpCmpBranch");
+            LIR_OpCmpBranch* prev_branch = (LIR_OpCmpBranch*)prev_op;
+
+            if (prev_branch->stub() == NULL) {
+              if (prev_branch->block() == code->at(i + 1) && prev_branch->info() == NULL) {
+                TRACE_LINEAR_SCAN(3, tty->print_cr("Negating conditional branch and deleting unconditional branch at end of block B%d", block->block_id()));
+
+                // eliminate a conditional branch to the immediate successor
+                prev_branch->change_block(last_branch->block());
+                prev_branch->negate_cond();
+                instructions->trunc_to(instructions->length() - 1);
+              }
+            }
           }
         }
       }
@@ -6394,6 +6443,13 @@ void ControlFlowOptimizer::verify(BlockList* code) {
       if (op_branch != NULL) {
         assert(op_branch->block() == NULL || code->find(op_branch->block()) != -1, "branch target not valid");
         assert(op_branch->ublock() == NULL || code->find(op_branch->ublock()) != -1, "branch target not valid");
+      }
+
+      LIR_OpCmpBranch* op_cmp_branch = instructions->at(j)->as_OpCmpBranch();
+
+      if (op_cmp_branch != NULL) {
+        assert(op_cmp_branch->block() == NULL || code->find(op_cmp_branch->block()) != -1, "branch target not valid");
+        assert(op_cmp_branch->ublock() == NULL || code->find(op_cmp_branch->ublock()) != -1, "branch target not valid");
       }
     }
 
@@ -6636,6 +6692,24 @@ void LinearScanStatistic::collect(LinearScan* allocator) {
           } else {
             inc_counter(counter_cond_branch);
           }
+          break;
+        }
+
+        case lir_cmp_branch:
+        case lir_cmp_float_branch: {
+          LIR_OpCmpBranch* branch = op->as_OpCmpBranch();
+          if (branch->block() == NULL) {
+            inc_counter(counter_stub_branch);
+          } else {
+            inc_counter(counter_cond_branch);
+          }
+          inc_counter(counter_cmp);
+          break;
+        }
+
+        case lir_cmp_cmove: {
+          inc_counter(counter_misc_inst);
+          inc_counter(counter_cmp);
           break;
         }
 

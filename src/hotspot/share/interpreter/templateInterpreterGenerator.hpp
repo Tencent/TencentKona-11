@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021. These
+ * modifications are Copyright (c) 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 #ifndef SHARE_VM_INTERPRETER_TEMPLATEINTERPRETERGENERATOR_HPP
 #define SHARE_VM_INTERPRETER_TEMPLATEINTERPRETERGENERATOR_HPP
 
@@ -114,9 +120,9 @@ class TemplateInterpreterGenerator: public AbstractInterpreterGenerator {
   void restore_native_result(void);
 #endif // SPARC
 
-#ifdef AARCH64
+#if defined(AARCH64) || defined(MIPS64) || defined(LOONGARCH64)
   void generate_transcendental_entry(AbstractInterpreter::MethodKind kind, int fpargs);
-#endif // AARCH64
+#endif // AARCH64 || MIPS64 || LOONGARCH64
 
 #ifdef PPC
   void lock_method(Register Rflags, Register Rscratch1, Register Rscratch2, bool flags_preloaded=false);

@@ -104,8 +104,9 @@ class PSScavengeFromCLDClosure: public OopClosure {
 
       oop o = *p;
       oop new_obj;
-      if (o->is_forwarded()) {
-        new_obj = o->forwardee();
+      markOop m = o->mark_raw();
+      if (m->is_marked()) {
+        new_obj = (oop) m->decode_pointer();
       } else {
         new_obj = _pm->copy_to_survivor_space</*promote_immediately=*/false>(o);
       }

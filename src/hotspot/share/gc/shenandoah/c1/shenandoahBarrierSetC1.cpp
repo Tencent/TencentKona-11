@@ -73,7 +73,6 @@ void ShenandoahBarrierSetC1::pre_barrier(LIRGenerator* gen, CodeEmitInfo* info, 
   // Read the marking-in-progress flag.
   LIR_Opr flag_val = gen->new_register(T_INT);
   __ load(mark_active_flag_addr, flag_val);
-  __ cmp(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0));
 
   LIR_PatchCode pre_val_patch_code = lir_patch_none;
 
@@ -101,7 +100,7 @@ void ShenandoahBarrierSetC1::pre_barrier(LIRGenerator* gen, CodeEmitInfo* info, 
     slow = new ShenandoahPreBarrierStub(pre_val);
   }
 
-  __ branch(lir_cond_notEqual, T_INT, slow);
+  __ cmp_branch(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0), T_INT, slow);
   __ branch_destination(slow->continuation());
 }
 
@@ -144,10 +143,9 @@ LIR_Opr ShenandoahBarrierSetC1::load_reference_barrier_impl(LIRGenerator* gen, L
     __ logical_and(flag_val, mask_reg, masked_flag);
     flag_val = masked_flag;
   }
-  __ cmp(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0));
 
   CodeStub* slow = new ShenandoahLoadReferenceBarrierStub(obj, addr, result, tmp1, tmp2);
-  __ branch(lir_cond_notEqual, T_INT, slow);
+  __ cmp_branch(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0), T_INT, slow);
   __ branch_destination(slow->continuation());
 
   return result;

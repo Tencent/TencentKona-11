@@ -105,15 +105,20 @@ public:
 
   virtual void visit(LIR_OpVisitState* state) {
     state->do_input(_opr);
+    if (_result->is_valid()) {
+      state->do_temp(_opr);
+      state->do_output(_result);
+    }
   }
 
   virtual void emit_code(LIR_Assembler* ce) {
-    ZBarrierSet::assembler()->generate_c1_load_barrier_test(ce, _opr);
+    ZBarrierSet::assembler()->generate_c1_load_barrier_test(ce, _opr, result_opr());
   }
 
   virtual void print_instr(outputStream* out) const {
     _opr->print(out);
     out->print(" ");
+    result_opr()->print(out);
   }
 
 #ifndef PRODUCT
@@ -149,13 +154,21 @@ address ZBarrierSetC1::load_barrier_on_oop_field_preloaded_runtime_stub(Decorato
 #endif
 
 void ZBarrierSetC1::load_barrier(LIRAccess& access, LIR_Opr result) const {
+  LIR_Op* op = new LIR_OpZLoadBarrierTest(result);
+
   // Fast path
-  __ append(new LIR_OpZLoadBarrierTest(result));
+  __ append(op);
 
   // Slow path
   const address runtime_stub = load_barrier_on_oop_field_preloaded_runtime_stub(access.decorators());
   CodeStub* const stub = new ZLoadBarrierStubC1(access, result, runtime_stub);
-  __ branch(lir_cond_notEqual, T_ADDRESS, stub);
+  if (ZPlatformLoadBarrierTestResultInRegister) {
+    LIR_Opr res = access.gen()->new_register(result->type());
+    op->set_result_opr(res);
+    __ cmp_branch(lir_cond_notEqual, res, LIR_OprFact::intptrConst(NULL_WORD), T_ADDRESS, stub);
+  } else {
+    __ branch(lir_cond_notEqual, T_ADDRESS, stub);
+  }
   __ branch_destination(stub->continuation());
 }
 

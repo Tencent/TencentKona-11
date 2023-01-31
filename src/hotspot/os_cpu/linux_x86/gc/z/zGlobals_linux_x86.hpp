@@ -85,4 +85,6 @@ const uintptr_t ZPlatformAddressSpaceSize     = ((uintptr_t)1 << ZPlatformAddres
 
 const size_t    ZPlatformCacheLineSize        = 64;
 
+const bool      ZPlatformLoadBarrierTestResultInRegister = false;
+
 #endif // OS_CPU_LINUX_X86_ZGLOBALS_LINUX_X86_HPP

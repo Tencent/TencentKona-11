@@ -23,6 +23,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021. These
+ * modifications are Copyright (c) 2018, 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ *
+ */
 package sun.jvm.hotspot;
 
 import java.rmi.RemoteException;
@@ -39,6 +45,8 @@ import sun.jvm.hotspot.debugger.MachineDescriptionAArch64;
 import sun.jvm.hotspot.debugger.MachineDescriptionIntelX86;
 import sun.jvm.hotspot.debugger.MachineDescriptionSPARC32Bit;
 import sun.jvm.hotspot.debugger.MachineDescriptionSPARC64Bit;
+import sun.jvm.hotspot.debugger.MachineDescriptionMIPS64;
+import sun.jvm.hotspot.debugger.MachineDescriptionLOONGARCH64;
 import sun.jvm.hotspot.debugger.NoSuchSymbolException;
 import sun.jvm.hotspot.debugger.bsd.BsdDebuggerLocal;
 import sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal;
@@ -598,6 +606,10 @@ public class HotSpotAgent {
             } else {
                     machDesc = new MachineDescriptionSPARC32Bit();
             }
+        } else if (cpu.equals("mips64")) {
+            machDesc = new MachineDescriptionMIPS64();
+        } else if (cpu.equals("loongarch64")) {
+            machDesc = new MachineDescriptionLOONGARCH64();
         } else {
           try {
             machDesc = (MachineDescription)

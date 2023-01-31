@@ -1161,6 +1161,15 @@ inline int exact_log2_long(jlong x) {
   return log2_long(x);
 }
 
+#if defined(MIPS64) || defined(LOONGARCH64)
+// returns integer round-up to the nearest multiple of s (s must be a power of two)
+inline intptr_t round_to(intptr_t x, uintx s) {
+  assert(is_power_of_2(s), "s must be a power of 2: " JLONG_FORMAT, x);
+  const uintx m = s - 1;
+  return mask_bits(x + m, ~m);
+}
+#endif
+
 inline bool is_odd (intx x) { return x & 1;      }
 inline bool is_even(intx x) { return !is_odd(x); }
 

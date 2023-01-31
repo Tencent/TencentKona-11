@@ -51,8 +51,9 @@ template <class T>
 inline void PSPromotionManager::claim_or_forward_internal_depth(T* p) {
   if (p != NULL) { // XXX: error if p != NULL here
     oop o = RawAccess<IS_NOT_NULL>::oop_load(p);
-    if (o->is_forwarded()) {
-      o = o->forwardee();
+    markOop m = o->mark_raw();
+    if (m->is_marked()) {
+      o = (oop) m->decode_pointer();
       // Card mark
       if (PSScavenge::is_obj_in_young(o)) {
         PSScavenge::card_table()->inline_write_ref_field_gc(p, o);
@@ -282,13 +283,17 @@ inline void PSPromotionManager::copy_and_push_safe_barrier(T* p) {
   assert(should_scavenge(p, true), "revisiting object?");
 
   oop o = RawAccess<IS_NOT_NULL>::oop_load(p);
-  oop new_obj = o->is_forwarded()
-        ? o->forwardee()
-        : copy_to_survivor_space<promote_immediately>(o);
+  oop new_obj;
+  markOop m = o->mark_raw();
+  if (m->is_marked()) {
+    new_obj = (oop) m->decode_pointer();
+  } else {
+    new_obj = copy_to_survivor_space<promote_immediately>(o);
+  }
 
   // This code must come after the CAS test, or it will print incorrect
   // information.
-  if (log_develop_is_enabled(Trace, gc, scavenge) && o->is_forwarded()) {
+  if (log_develop_is_enabled(Trace, gc, scavenge) && m->is_marked()) {
     log_develop_trace(gc, scavenge)("{%s %s " PTR_FORMAT " -> " PTR_FORMAT " (%d)}",
                       "forwarding",
                       new_obj->klass()->internal_name(), p2i((void *)o), p2i((void *)new_obj), new_obj->size());

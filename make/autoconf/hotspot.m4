@@ -34,6 +34,12 @@ DEPRECATED_JVM_FEATURES="trace"
 # All valid JVM variants
 VALID_JVM_VARIANTS="server client minimal core zero custom"
 
+#
+# This file has been modified by Loongson Technology in 2021. These
+# modifications are Copyright (c) 2020, 2021, Loongson Technology, and are made
+# available on the same license terms set forth above.
+#
+
 ###############################################################################
 # Check if the specified JVM variant should be built. To be used in shell if
 # constructs, like this:
@@ -334,6 +340,26 @@ AC_DEFUN_ONCE([HOTSPOT_SETUP_JVM_FEATURES],
     HOTSPOT_TARGET_CPU_ARCH=arm
   fi
 
+  # Override hotspot cpu definitions for MIPS and LOONGARCH platforms
+  if test "x$OPENJDK_TARGET_CPU" = xmips64el && test "x$HOTSPOT_TARGET_CPU" != xzero; then
+    HOTSPOT_TARGET_CPU=mips_64
+    HOTSPOT_TARGET_CPU_ARCH=mips
+  elif test "x$OPENJDK_TARGET_CPU" = xloongarch64 && test "x$HOTSPOT_TARGET_CPU" != xzero; then
+    HOTSPOT_TARGET_CPU=loongarch_64
+    HOTSPOT_TARGET_CPU_ARCH=loongarch
+  fi
+
+  # Disable compiler1 on linux-mips and linux-loongarch
+  if ! (HOTSPOT_CHECK_JVM_FEATURE(compiler1)); then
+    AC_MSG_CHECKING([if compiler1 should be built, $JVM_FEATURES])
+    if test "x$OPENJDK_TARGET_OS" = "xlinux" && test "x$HOTSPOT_TARGET_CPU_ARCH" = "xmips"; then
+      DISABLED_JVM_FEATURES="$DISABLED_JVM_FEATURES compiler1"
+      AC_MSG_RESULT([no, platform not supported])
+    else
+      AC_MSG_RESULT([yes])
+    fi
+  fi
+
   # Verify that dependencies are met for explicitly set features.
   if HOTSPOT_CHECK_JVM_FEATURE(jvmti) && ! HOTSPOT_CHECK_JVM_FEATURE(services); then
     AC_MSG_ERROR([Specified JVM feature 'jvmti' requires feature 'services'])
@@ -418,10 +444,11 @@ AC_DEFUN_ONCE([HOTSPOT_SETUP_JVM_FEATURES],
     JVM_FEATURES_jvmci=""
     INCLUDE_JVMCI="false"
   else
-    # Only enable jvmci on x86_64, sparcv9 and aarch64
+    # Only enable jvmci on x86_64, sparcv9, aarch64 and loongarch64
     if test "x$OPENJDK_TARGET_CPU" = "xx86_64" || \
        test "x$OPENJDK_TARGET_CPU" = "xsparcv9" || \
-       test "x$OPENJDK_TARGET_CPU" = "xaarch64" ; then
+       test "x$OPENJDK_TARGET_CPU" = "xaarch64" || \
+       test "x$OPENJDK_TARGET_CPU" = "xloongarch64" ; then
       AC_MSG_RESULT([yes])
       JVM_FEATURES_jvmci="jvmci"
       INCLUDE_JVMCI="true"

@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2022. These
+ * modifications are Copyright (c) 2022, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 #ifndef SHARE_VM_GC_G1_G1MARKSTACK_INLINE_HPP
 #define SHARE_VM_GC_G1_G1MARKSTACK_INLINE_HPP
 
@@ -71,6 +77,7 @@ template <class T> inline void G1FullGCMarker::mark_and_push(T* p) {
       _oop_stack.push(obj);
       assert(_bitmap->is_marked(obj), "Must be marked now - map self");
     } else {
+      DEBUG_ONLY(OrderAccess::loadload());
       assert(_bitmap->is_marked(obj) || G1ArchiveAllocator::is_closed_archive_object(obj),
              "Must be marked by other or closed archive object");
     }

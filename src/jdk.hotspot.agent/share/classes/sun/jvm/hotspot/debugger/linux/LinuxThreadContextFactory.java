@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021, These
+ * modifications are Copyright (c) 2019, 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 package sun.jvm.hotspot.debugger.linux;
 
 import java.lang.reflect.*;
@@ -30,6 +36,8 @@ import sun.jvm.hotspot.debugger.linux.amd64.*;
 import sun.jvm.hotspot.debugger.linux.x86.*;
 import sun.jvm.hotspot.debugger.linux.ppc64.*;
 import sun.jvm.hotspot.debugger.linux.sparc.*;
+import sun.jvm.hotspot.debugger.linux.mips64.*;
+import sun.jvm.hotspot.debugger.linux.loongarch64.*;
 
 class LinuxThreadContextFactory {
    static ThreadContext createThreadContext(LinuxDebugger dbg) {
@@ -40,7 +48,11 @@ class LinuxThreadContextFactory {
          return new LinuxAMD64ThreadContext(dbg);
       } else if (cpu.equals("sparc")) {
          return new LinuxSPARCThreadContext(dbg);
-      }  else if (cpu.equals("ppc64")) {
+      } else if (cpu.equals("mips64")) {
+         return new LinuxMIPS64ThreadContext(dbg);
+      } else if (cpu.equals("loongarch64")) {
+         return new LinuxLOONGARCH64ThreadContext(dbg);
+      } else if (cpu.equals("ppc64")) {
           return new LinuxPPC64ThreadContext(dbg);
       } else  {
         try {

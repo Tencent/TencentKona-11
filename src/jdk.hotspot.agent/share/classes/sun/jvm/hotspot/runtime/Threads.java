@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021, These
+ * modifications are Copyright (c) 2019, 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 package sun.jvm.hotspot.runtime;
 
 import java.util.*;
@@ -39,6 +45,8 @@ import sun.jvm.hotspot.runtime.linux_x86.LinuxX86JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.linux_amd64.LinuxAMD64JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.linux_aarch64.LinuxAARCH64JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.linux_ppc64.LinuxPPC64JavaThreadPDAccess;
+import sun.jvm.hotspot.runtime.linux_mips64.LinuxMIPS64JavaThreadPDAccess;
+import sun.jvm.hotspot.runtime.linux_loongarch64.LinuxLOONGARCH64JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.linux_sparc.LinuxSPARCJavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.bsd_x86.BsdX86JavaThreadPDAccess;
 import sun.jvm.hotspot.runtime.bsd_amd64.BsdAMD64JavaThreadPDAccess;
@@ -99,6 +107,10 @@ public class Threads {
                 access = new LinuxPPC64JavaThreadPDAccess();
             } else if (cpu.equals("aarch64")) {
                 access = new LinuxAARCH64JavaThreadPDAccess();
+            } else if (cpu.equals("mips64")) {
+                access = new LinuxMIPS64JavaThreadPDAccess();
+            } else if (cpu.equals("loongarch64")) {
+                access = new LinuxLOONGARCH64JavaThreadPDAccess();
             } else {
               try {
                 access = (JavaThreadPDAccess)

@@ -77,7 +77,8 @@ public:
 
 #ifdef COMPILER1
   void generate_c1_load_barrier_test(LIR_Assembler* ce,
-                                     LIR_Opr ref) const;
+                                     LIR_Opr ref,
+                                     LIR_Opr res) const;
 
   void generate_c1_load_barrier_stub(LIR_Assembler* ce,
                                      ZLoadBarrierStubC1* stub) const;

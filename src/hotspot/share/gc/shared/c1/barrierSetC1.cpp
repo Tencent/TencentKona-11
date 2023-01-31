@@ -192,8 +192,7 @@ void BarrierSetC1::load_at_resolved(LIRAccess& access, LIR_Opr result) {
   /* Normalize boolean value returned by unsafe operation, i.e., value  != 0 ? value = true : value false. */
   if (mask_boolean) {
     LabelObj* equalZeroLabel = new LabelObj();
-    __ cmp(lir_cond_equal, result, 0);
-    __ branch(lir_cond_equal, T_BOOLEAN, equalZeroLabel->label());
+    __ cmp_branch(lir_cond_equal, result, 0, T_BOOLEAN, equalZeroLabel->label());
     __ move(LIR_OprFact::intConst(1), result);
     __ branch_destination(equalZeroLabel->label());
   }
@@ -320,14 +319,12 @@ void BarrierSetC1::generate_referent_check(LIRAccess& access, LabelObj* cont) {
         referent_off = gen->new_register(T_LONG);
         __ move(LIR_OprFact::longConst(java_lang_ref_Reference::referent_offset), referent_off);
       }
-      __ cmp(lir_cond_notEqual, offset, referent_off);
-      __ branch(lir_cond_notEqual, offset->type(), cont->label());
+      __ cmp_branch(lir_cond_notEqual, offset, referent_off, offset->type(), cont->label());
     }
     if (gen_source_check) {
       // offset is a const and equals referent offset
       // if (source == null) -> continue
-      __ cmp(lir_cond_equal, base_reg, LIR_OprFact::oopConst(NULL));
-      __ branch(lir_cond_equal, T_OBJECT, cont->label());
+      __ cmp_branch(lir_cond_equal, base_reg, LIR_OprFact::oopConst(NULL), T_OBJECT, cont->label());
     }
     LIR_Opr src_klass = gen->new_register(T_METADATA);
     if (gen_type_check) {
@@ -337,8 +334,7 @@ void BarrierSetC1::generate_referent_check(LIRAccess& access, LabelObj* cont) {
       LIR_Address* reference_type_addr = new LIR_Address(src_klass, in_bytes(InstanceKlass::reference_type_offset()), T_BYTE);
       LIR_Opr reference_type = gen->new_register(T_INT);
       __ move(reference_type_addr, reference_type);
-      __ cmp(lir_cond_equal, reference_type, LIR_OprFact::intConst(REF_NONE));
-      __ branch(lir_cond_equal, T_INT, cont->label());
+      __ cmp_branch(lir_cond_equal, reference_type, LIR_OprFact::intConst(REF_NONE), T_INT, cont->label());
     }
   }
 }

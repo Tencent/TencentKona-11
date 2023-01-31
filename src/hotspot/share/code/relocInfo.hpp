@@ -269,7 +269,11 @@ class relocInfo {
     poll_return_type        = 11, // polling instruction for safepoints at return
     metadata_type           = 12, // metadata that used to be oops
     trampoline_stub_type    = 13, // stub-entry for trampoline
+#ifndef MIPS64
     runtime_call_w_cp_type  = 14, // Runtime call which may load its target from the constant pool
+#else
+    internal_pc_type        = 14, // tag for internal data
+#endif
     data_prefix_tag         = 15, // tag for a prefix (carries data arguments)
     type_mask               = 15  // A mask which selects only the above values
   };
@@ -304,13 +308,13 @@ class relocInfo {
     visitor(static_call) \
     visitor(static_stub) \
     visitor(runtime_call) \
-    visitor(runtime_call_w_cp) \
+    NOT_MIPS64(visitor(runtime_call_w_cp)) \
     visitor(external_word) \
     visitor(internal_word) \
     visitor(poll) \
     visitor(poll_return) \
-    visitor(section_word) \
     visitor(trampoline_stub) \
+    NOT_MIPS64(visitor(section_word))MIPS64_ONLY(ZERO_ONLY(visitor(section_word))NOT_ZERO(visitor(internal_pc)))
 
 
  public:
@@ -1174,6 +1178,15 @@ class runtime_call_Relocation : public CallRelocation {
 };
 
 
+#ifdef MIPS64
+// to handle the set_last_java_frame pc
+class internal_pc_Relocation : public Relocation {
+  relocInfo::relocType type() { return relocInfo::internal_pc_type; }
+ public:
+  address pc() { return pd_get_address_from_code(); }
+  void fix_relocation_after_move(const CodeBuffer* src, CodeBuffer* dest);
+};
+#else
 class runtime_call_w_cp_Relocation : public CallRelocation {
   relocInfo::relocType type() { return relocInfo::runtime_call_w_cp_type; }
 
@@ -1202,6 +1215,7 @@ class runtime_call_w_cp_Relocation : public CallRelocation {
   void pack_data_to(CodeSection * dest);
   void unpack_data();
 };
+#endif
 
 // Trampoline Relocations.
 // A trampoline allows to encode a small branch in the code, even if there

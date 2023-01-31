@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2022. These
+ * modifications are Copyright (c) 2022, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 #ifndef SHARE_VM_OOPS_OOP_INLINE_HPP
 #define SHARE_VM_OOPS_OOP_INLINE_HPP
 
@@ -389,7 +395,7 @@ oop oopDesc::forward_to_atomic(oop p, atomic_memory_order order) {
     // forwarding pointer.
     oldMark = curMark;
   }
-  return forwardee();
+  return (oop)oldMark->decode_pointer();
 }
 
 // Note that the forwardee is not the same thing as the displaced_mark.

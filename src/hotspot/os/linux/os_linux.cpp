@@ -23,6 +23,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021. These
+ * modifications are Copyright (c) 2021 Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 // no precompiled headers
 #include "jvm.h"
 #include "classfile/classLoader.hpp"
@@ -3967,6 +3973,8 @@ size_t os::Linux::find_large_page_size() {
     IA64_ONLY(256 * M)
     PPC_ONLY(4 * M)
     S390_ONLY(1 * M)
+    MIPS64_ONLY(4 * M)
+    LOONGARCH64_ONLY(4 * M); //In MIPS _large_page_size is seted 4*M. // TODO: LA
     SPARC_ONLY(4 * M);
 #endif // ZERO
 
