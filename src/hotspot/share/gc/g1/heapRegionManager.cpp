@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,11 +25,48 @@
 #include "precompiled.hpp"
 #include "gc/g1/g1CollectedHeap.inline.hpp"
 #include "gc/g1/g1ConcurrentRefine.hpp"
+#include "gc/g1/g1NUMAStats.hpp"
 #include "gc/g1/heapRegion.hpp"
 #include "gc/g1/heapRegionManager.inline.hpp"
 #include "gc/g1/heapRegionSet.inline.hpp"
+#include "logging/logStream.hpp"
 #include "memory/allocation.hpp"
 #include "utilities/bitMap.inline.hpp"
+
+class MasterFreeRegionListChecker : public HeapRegionSetChecker {
+public:
+  void check_mt_safety() {
+    // Master Free List MT safety protocol:
+    // (a) If we're at a safepoint, operations on the master free list
+    // should be invoked by either the VM thread (which will serialize
+    // them) or by the GC workers while holding the
+    // FreeList_lock.
+    // (b) If we're not at a safepoint, operations on the master free
+    // list should be invoked while holding the Heap_lock.
+
+    if (SafepointSynchronize::is_at_safepoint()) {
+      guarantee(Thread::current()->is_VM_thread() ||
+                FreeList_lock->owned_by_self(), "master free list MT safety protocol at a safepoint");
+    } else {
+      guarantee(Heap_lock->owned_by_self(), "master free list MT safety protocol outside a safepoint");
+    }
+  }
+  bool is_correct_type(HeapRegion* hr) { return hr->is_free(); }
+  const char* get_description() { return "Free Regions"; }
+};
+
+HeapRegionManager::HeapRegionManager() :
+  _regions(), _heap_mapper(NULL),
+  _prev_bitmap_mapper(NULL),
+  _next_bitmap_mapper(NULL),
+  _bot_mapper(NULL),
+  _cardtable_mapper(NULL),
+  _card_counts_mapper(NULL),
+  _free_list("Free list", new MasterFreeRegionListChecker()),
+  _available_map(mtGC),
+  _num_committed(0),
+  _allocated_heapregions_length(0)
+{ }
 
 void HeapRegionManager::initialize(G1RegionToSpaceMapper* heap_storage,
                                G1RegionToSpaceMapper* prev_bitmap,
@@ -57,6 +94,34 @@ void HeapRegionManager::initialize(G1RegionToSpaceMapper* heap_storage,
 
 bool HeapRegionManager::is_available(uint region) const {
   return _available_map.at(region);
+}
+
+HeapRegion* HeapRegionManager::allocate_free_region(HeapRegionType type, uint requested_node_index) {
+  HeapRegion* hr = NULL;
+  bool from_head = !type.is_young();
+  G1NUMA* numa = G1NUMA::numa();
+
+  if (requested_node_index != G1NUMA::AnyNodeIndex && numa->is_enabled()) {
+    // Try to allocate with requested node index.
+    hr = _free_list.remove_region_with_node_index(from_head, requested_node_index);
+  }
+
+  if (hr == NULL) {
+    // If there's a single active node or we did not get a region from our requested node,
+    // try without requested node index.
+    hr = _free_list.remove_region(from_head);
+  }
+
+  if (hr != NULL) {
+    assert(hr->next() == NULL, "Single region should not have next");
+    assert(is_available(hr->hrm_index()), "Must be committed");
+
+    if (numa->is_enabled() && hr->node_index() < numa->num_active_nodes()) {
+      numa->update_statistics(G1NUMAStats::NewRegionAlloc, requested_node_index, hr->node_index());
+    }
+  }
+
+  return hr;
 }
 
 #ifdef ASSERT
@@ -94,6 +159,11 @@ void HeapRegionManager::commit_regions(uint index, size_t num_regions, WorkGang*
 void HeapRegionManager::uncommit_regions(uint start, size_t num_regions) {
   guarantee(num_regions >= 1, "Need to specify at least one region to uncommit, tried to uncommit zero regions at %u", start);
   guarantee(_num_committed >= num_regions, "pre-condition");
+
+  // Reset node index to distinguish with committed regions.
+  for (uint i = start; i < start + num_regions; i++) {
+    at(i)->set_node_index(G1NUMA::UnknownNodeIndex);
+  }
 
   // Print before uncommitting.
   if (G1CollectedHeap::heap()->hr_printer()->is_active()) {
@@ -142,6 +212,7 @@ void HeapRegionManager::make_regions_available(uint start, uint num_regions, Wor
     MemRegion mr(bottom, bottom + HeapRegion::GrainWords);
 
     hr->initialize(mr);
+    hr->set_node_index(G1NUMA::numa()->index_for_region(hr));
     insert_into_free_list(at(i));
   }
 }
@@ -189,6 +260,35 @@ uint HeapRegionManager::expand_at(uint start, uint num_regions, WorkGang* pretou
 
   verify_optional();
   return expanded;
+}
+
+uint HeapRegionManager::expand_on_preferred_node(uint preferred_index) {
+  uint expand_candidate = UINT_MAX;
+  for (uint i = 0; i < max_length(); i++) {
+    if (is_available(i)) {
+      // Already in use continue
+      continue;
+    }
+    // Always save the candidate so we can expand later on.
+    expand_candidate = i;
+    if (is_on_preferred_index(expand_candidate, preferred_index)) {
+      // We have found a candidate on the preffered node, break.
+      break;
+    }
+  }
+
+  if (expand_candidate == UINT_MAX) {
+     // No regions left, expand failed.
+    return 0;
+  }
+
+  make_regions_available(expand_candidate, 1, NULL);
+  return 1;
+}
+
+bool HeapRegionManager::is_on_preferred_index(uint region_index, uint preferred_node_index) {
+  uint region_node_index = G1NUMA::numa()->preferred_node_index_for_index(region_index);
+  return region_node_index == preferred_node_index;
 }
 
 uint HeapRegionManager::find_contiguous(size_t num, bool empty_only) {

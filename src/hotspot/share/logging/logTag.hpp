@@ -107,6 +107,7 @@
   LOG_TAG(nestmates) \
   LOG_TAG(nmethod) \
   LOG_TAG(normalize) \
+  LOG_TAG(numa) \
   LOG_TAG(objecttagging) \
   LOG_TAG(obsolete) \
   LOG_TAG(oldobject) \
