@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2015, 2021, Loongson Technology. All rights reserved.
+ * Copyright (c) 2015, 2022, Loongson Technology. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -141,6 +141,12 @@ inline intptr_t* frame::link() const {
   if (is_java_frame())
     return (intptr_t*) *(intptr_t **)addr_at(java_frame_link_offset);
   return (intptr_t*) *(intptr_t **)addr_at(native_frame_link_offset);
+}
+
+inline intptr_t* frame::link_or_null() const {
+  intptr_t** ptr = is_java_frame() ? (intptr_t **)addr_at(java_frame_link_offset)
+                                   : (intptr_t **)addr_at(native_frame_link_offset);
+  return os::is_readable_pointer(ptr) ? *ptr : NULL;
 }
 
 inline intptr_t* frame::unextended_sp() const     { return _unextended_sp; }
