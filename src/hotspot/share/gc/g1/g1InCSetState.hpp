@@ -57,11 +57,11 @@ struct InCSetState {
     // used to index into arrays.
     // The negative values are used for objects requiring various special cases,
     // for example eager reclamation of humongous objects or optional regions.
-    Optional     = -2,    // The region is optional
-    Humongous    = -1,    // The region is humongous
-    NotInCSet    =  0,    // The region is not in the collection set.
-    Young        =  1,    // The region is in the collection set and a young region.
-    Old          =  2,    // The region is in the collection set and an old region.
+    Optional     = -3,    // The region is optional
+    Humongous    = -2,    // The region is humongous
+    NotInCSet    = -1,    // The region is not in the collection set.
+    Young        =  0,    // The region is in the collection set and a young region.
+    Old          =  1,    // The region is in the collection set and an old region.
     Num
   };
 
@@ -69,12 +69,23 @@ struct InCSetState {
     assert(is_valid(), "Invalid state %d", _value);
   }
 
+  const char* get_type_str() const {
+    switch (value()) {
+      case Optional: return "Optional";
+      case Humongous: return "Humongous";
+      case NotInCSet: return "NotInCSet";
+      case Young: return "Young";
+      case Old: return "Old";
+      default: ShouldNotReachHere(); return "";
+    }
+  }
+
   in_cset_state_t value() const        { return _value; }
 
   void set_old()                       { _value = Old; }
 
   bool is_in_cset_or_humongous() const { return is_in_cset() || is_humongous(); }
-  bool is_in_cset() const              { return _value > NotInCSet; }
+  bool is_in_cset() const              { return _value >= Young; }
 
   bool is_humongous() const            { return _value == Humongous; }
   bool is_young() const                { return _value == Young; }

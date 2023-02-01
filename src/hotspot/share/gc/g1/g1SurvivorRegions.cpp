@@ -28,15 +28,23 @@
 #include "utilities/growableArray.hpp"
 #include "utilities/debug.hpp"
 
-G1SurvivorRegions::G1SurvivorRegions() : _regions(new (ResourceObj::C_HEAP, mtGC) GrowableArray<HeapRegion*>(8, true, mtGC)) {}
+G1SurvivorRegions::G1SurvivorRegions() :
+  _regions(new (ResourceObj::C_HEAP, mtGC) GrowableArray<HeapRegion*>(8, true, mtGC)),
+  _used_bytes(0),
+  _regions_on_node() {}
 
-void G1SurvivorRegions::add(HeapRegion* hr) {
+uint G1SurvivorRegions::add(HeapRegion* hr) {
   assert(hr->is_survivor(), "should be flagged as survivor region");
   _regions->append(hr);
+  return _regions_on_node.add(hr);
 }
 
 uint G1SurvivorRegions::length() const {
   return (uint)_regions->length();
+}
+
+uint G1SurvivorRegions::regions_on_node(uint node_index) const {
+  return _regions_on_node.count(node_index);
 }
 
 void G1SurvivorRegions::convert_to_eden() {
@@ -51,5 +59,7 @@ void G1SurvivorRegions::convert_to_eden() {
 
 void G1SurvivorRegions::clear() {
   _regions->clear();
+  _used_bytes = 0;
+  _regions_on_node.clear();
 }
 

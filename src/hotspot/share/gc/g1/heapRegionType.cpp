@@ -26,6 +26,11 @@
 #include "gc/g1/g1HeapRegionTraceType.hpp"
 #include "gc/g1/heapRegionType.hpp"
 
+const HeapRegionType HeapRegionType::Eden      = HeapRegionType(EdenTag);
+const HeapRegionType HeapRegionType::Survivor  = HeapRegionType(SurvTag);
+const HeapRegionType HeapRegionType::Old       = HeapRegionType(OldTag);
+const HeapRegionType HeapRegionType::Humongous = HeapRegionType(StartsHumongousTag);
+
 bool HeapRegionType::is_valid(Tag tag) {
   switch (tag) {
     case FreeTag:
