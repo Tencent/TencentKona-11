@@ -268,35 +268,43 @@ void ObjectMonitor::enter(TRAPS) {
   // and to reduce RTS->RTO cache line upgrades on SPARC and IA32 processors.
   Thread * const Self = THREAD;
   void* cur_exec = ((JavaThread *)Self)->get_cur_exec();
-
-  void * cur = Atomic::cmpxchg(cur_exec, &_owner, (void*)NULL);
-  if (cur == NULL) {
-    // Either ASSERT _recursions == 0 or explicitly set _recursions = 0.
-    assert(_recursions == 0, "invariant");
-    assert(_owner == cur_exec, "invariant");
-    return;
-  }
-
-  if (cur == cur_exec) {
-    // TODO-FIXME: check for integer overflow!  BUGID 6557169.
-    _recursions++;
-    return;
-  }
-
-  if (Self->is_lock_owned ((address)cur)) {
-    assert(_recursions == 0, "internal state error");
-    _recursions = 1;
-    // Commute owner from a thread-specific on-stack BasicLockObject address to
-    // a full-fledged "Thread *".
-    _owner = cur_exec;
-    return;
-  }
-
 #if INCLUDE_KONA_FIBER
   int block;
-  Atomic::inc(&_count); //Prevent deflation at STW-time.
-  while ((block = Coroutine::try_compensate(Self)) == 0);
-  Atomic::dec(&_count);
+  while (true) {
+#endif
+    void * cur = Atomic::cmpxchg(cur_exec, &_owner, (void*)NULL);
+    if (cur == NULL) {
+      // Either ASSERT _recursions == 0 or explicitly set _recursions = 0.
+      assert(_recursions == 0, "invariant");
+      assert(_owner == cur_exec, "invariant");
+      return;
+    }
+
+    if (cur == cur_exec) {
+      // TODO-FIXME: check for integer overflow!  BUGID 6557169.
+      _recursions++;
+      return;
+    }
+
+    if (Self->is_lock_owned ((address)cur)) {
+      assert(_recursions == 0, "internal state error");
+      _recursions = 1;
+      // Commute owner from a thread-specific on-stack BasicLockObject address to
+      // a full-fledged "Thread *".
+      _owner = cur_exec;
+      return;
+    }
+
+#if INCLUDE_KONA_FIBER
+    Atomic::inc(&_count); //Prevent deflation at STW-time.
+    if ((block = Coroutine::try_compensate(Self)) == 0) {
+      Atomic::dec(&_count);
+      continue;
+    } else {
+      Atomic::dec(&_count);
+      break;
+    }
+  }
 #endif
 
   // We've encountered genuine contention.
