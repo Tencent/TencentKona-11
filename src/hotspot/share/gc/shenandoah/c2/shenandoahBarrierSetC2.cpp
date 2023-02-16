@@ -503,7 +503,9 @@ Node* ShenandoahBarrierSetC2::store_at_resolved(C2Access& access, C2AccessValue&
     return BarrierSetC2::store_at_resolved(access, val);
   }
 
-  GraphKit* kit = access.kit();
+  assert(access.is_parse_access(), "entry not supported at optimization time");
+  C2ParseAccess& parse_access = static_cast<C2ParseAccess&>(access);
+  GraphKit* kit = parse_access.kit();
 
   uint adr_idx = kit->C->get_alias_index(adr_type);
   assert(adr_idx != Compile::AliasIdxTop, "use other store_to_memory factory" );
@@ -528,7 +530,11 @@ Node* ShenandoahBarrierSetC2::load_at_resolved(C2Access& access, const Type* val
   // 2: apply LRB if needed
   if (ShenandoahBarrierSet::need_load_reference_barrier(decorators, type)) {
     load = new ShenandoahLoadReferenceBarrierNode(NULL, load);
-    load = access.kit()->gvn().transform(load);
+    if (access.is_parse_access()) {
+      load = static_cast<C2ParseAccess &>(access).kit()->gvn().transform(load);
+    } else {
+      load = static_cast<C2OptAccess &>(access).gvn().transform(load);
+    }
   }
 
   // 3: apply keep-alive barrier if needed
@@ -551,7 +557,10 @@ Node* ShenandoahBarrierSetC2::load_at_resolved(C2Access& access, const Type* val
     if (!on_weak_ref || (unknown && (offset == top || obj == top)) || !keep_alive) {
       return load;
     }
-    GraphKit* kit = access.kit();
+
+    assert(access.is_parse_access(), "entry not supported at optimization time");
+    C2ParseAccess& parse_access = static_cast<C2ParseAccess&>(access);
+    GraphKit* kit = parse_access.kit();
     bool mismatched = (decorators & C2_MISMATCHED) != 0;
     bool is_unordered = (decorators & MO_UNORDERED) != 0;
     bool need_cpu_mem_bar = !is_unordered || mismatched;
@@ -574,21 +583,7 @@ Node* ShenandoahBarrierSetC2::load_at_resolved(C2Access& access, const Type* val
   return load;
 }
 
-static void pin_atomic_op(C2AtomicAccess& access) {
-  if (!access.needs_pinning()) {
-    return;
-  }
-  // SCMemProjNodes represent the memory state of a LoadStore. Their
-  // main role is to prevent LoadStore nodes from being optimized away
-  // when their results aren't used.
-  GraphKit* kit = access.kit();
-  Node* load_store = access.raw_access();
-  assert(load_store != NULL, "must pin atomic op");
-  Node* proj = kit->gvn().transform(new SCMemProjNode(load_store));
-  kit->set_memory(proj, access.alias_idx());
-}
-
-Node* ShenandoahBarrierSetC2::atomic_cmpxchg_val_at_resolved(C2AtomicAccess& access, Node* expected_val,
+Node* ShenandoahBarrierSetC2::atomic_cmpxchg_val_at_resolved(C2AtomicParseAccess& access, Node* expected_val,
                                                    Node* new_val, const Type* value_type) const {
   GraphKit* kit = access.kit();
   if (access.is_oop()) {
@@ -636,7 +631,7 @@ Node* ShenandoahBarrierSetC2::atomic_cmpxchg_val_at_resolved(C2AtomicAccess& acc
   return BarrierSetC2::atomic_cmpxchg_val_at_resolved(access, expected_val, new_val, value_type);
 }
 
-Node* ShenandoahBarrierSetC2::atomic_cmpxchg_bool_at_resolved(C2AtomicAccess& access, Node* expected_val,
+Node* ShenandoahBarrierSetC2::atomic_cmpxchg_bool_at_resolved(C2AtomicParseAccess& access, Node* expected_val,
                                                               Node* new_val, const Type* value_type) const {
   GraphKit* kit = access.kit();
   if (access.is_oop()) {
@@ -691,7 +686,7 @@ Node* ShenandoahBarrierSetC2::atomic_cmpxchg_bool_at_resolved(C2AtomicAccess& ac
   return BarrierSetC2::atomic_cmpxchg_bool_at_resolved(access, expected_val, new_val, value_type);
 }
 
-Node* ShenandoahBarrierSetC2::atomic_xchg_at_resolved(C2AtomicAccess& access, Node* val, const Type* value_type) const {
+Node* ShenandoahBarrierSetC2::atomic_xchg_at_resolved(C2AtomicParseAccess& access, Node* val, const Type* value_type) const {
   GraphKit* kit = access.kit();
   if (access.is_oop()) {
     val = shenandoah_iu_barrier(kit, val);
@@ -753,7 +748,7 @@ bool ShenandoahBarrierSetC2::optimize_loops(PhaseIdealLoop* phase, LoopOptsMode 
   return false;
 }
 
-bool ShenandoahBarrierSetC2::array_copy_requires_gc_barriers(BasicType type) const {
+bool ShenandoahBarrierSetC2::array_copy_requires_gc_barriers(bool tightly_coupled_alloc, BasicType type, bool is_clone, ArrayCopyPhase phase) const {
   return false;
 }
 
@@ -1005,7 +1000,8 @@ Node* ShenandoahBarrierSetC2::ideal_node(PhaseGVN* phase, Node* n, bool can_resh
   } else if (can_reshape &&
              n->Opcode() == Op_If &&
              ShenandoahBarrierC2Support::is_heap_stable_test(n) &&
-             n->in(0) != NULL) {
+             n->in(0) != NULL &&
+             n->outcnt() == 2) {
     Node* dom = n->in(0);
     Node* prev_dom = n;
     int op = n->Opcode();

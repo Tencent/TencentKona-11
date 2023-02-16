@@ -26,6 +26,7 @@
 #define SHARE_VM_GC_G1_G1GCPHASETIMES_HPP
 
 #include "gc/shared/referenceProcessorPhaseTimes.hpp"
+#include "gc/shared/weakProcessorPhaseTimes.hpp"
 #include "logging/logLevel.hpp"
 #include "memory/allocation.hpp"
 #include "utilities/macros.hpp"
@@ -92,6 +93,11 @@ class G1GCPhaseTimes : public CHeapObj<mtGC> {
     UpdateRSSkippedCards
   };
 
+  enum GCObjCopyWorkItems {
+    ObjCopyLABWaste,
+    ObjCopyLABUndoWaste
+  };
+
   enum GCOptCSetWorkItems {
       OptCSetScannedCards,
       OptCSetClaimedCards,
@@ -114,6 +120,9 @@ class G1GCPhaseTimes : public CHeapObj<mtGC> {
   WorkerDataArray<size_t>* _scan_rs_scanned_cards;
   WorkerDataArray<size_t>* _scan_rs_claimed_cards;
   WorkerDataArray<size_t>* _scan_rs_skipped_cards;
+
+  WorkerDataArray<size_t>* _obj_copy_lab_waste;
+  WorkerDataArray<size_t>* _obj_copy_lab_undo_waste;
 
   WorkerDataArray<size_t>* _opt_cset_scanned_cards;
   WorkerDataArray<size_t>* _opt_cset_claimed_cards;
@@ -142,9 +151,6 @@ class G1GCPhaseTimes : public CHeapObj<mtGC> {
   double _cur_clear_ct_time_ms;
   double _cur_expand_heap_time_ms;
   double _cur_ref_proc_time_ms;
-  double _cur_ref_enq_time_ms;
-
-  double _cur_weak_ref_proc_time_ms;
 
   double _cur_collection_start_sec;
   double _root_region_scan_wait_time_ms;
@@ -178,6 +184,7 @@ class G1GCPhaseTimes : public CHeapObj<mtGC> {
   double _cur_verify_after_time_ms;
 
   ReferenceProcessorPhaseTimes _ref_phase_times;
+  WeakProcessorPhaseTimes _weak_phase_times;
 
   double worker_time(GCParPhases phase, uint worker);
   void note_gc_end();
@@ -279,10 +286,6 @@ class G1GCPhaseTimes : public CHeapObj<mtGC> {
 
   void record_ref_proc_time(double ms) {
     _cur_ref_proc_time_ms = ms;
-  }
-
-  void record_weak_ref_proc_time(double ms) {
-    _cur_weak_ref_proc_time_ms = ms;
   }
 
   void record_root_region_scan_wait_time(double time_ms) {
@@ -389,6 +392,8 @@ class G1GCPhaseTimes : public CHeapObj<mtGC> {
   }
 
   ReferenceProcessorPhaseTimes* ref_phase_times() { return &_ref_phase_times; }
+
+  WeakProcessorPhaseTimes* weak_phase_times() { return &_weak_phase_times; }
 };
 
 class G1EvacPhaseWithTrimTimeTracker : public StackObj {

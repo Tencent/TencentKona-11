@@ -578,7 +578,6 @@ public:
   size_t max_tlab_size() const;
   size_t tlab_used(Thread* ignored) const;
 
-  void accumulate_statistics_tlabs();
   void resize_tlabs();
 
   void ensure_parsability(bool retire_tlabs);

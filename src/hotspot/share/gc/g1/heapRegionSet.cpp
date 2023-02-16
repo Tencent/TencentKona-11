@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,6 +24,7 @@
 
 #include "precompiled.hpp"
 #include "gc/g1/g1CollectedHeap.inline.hpp"
+#include "gc/g1/g1NUMA.hpp"
 #include "gc/g1/heapRegionRemSet.hpp"
 #include "gc/g1/heapRegionSet.inline.hpp"
 
@@ -33,8 +34,8 @@ uint FreeRegionList::_unrealistically_long_length = 0;
 void HeapRegionSetBase::verify_region(HeapRegion* hr) {
   assert(hr->containing_set() == this, "Inconsistent containing set for %u", hr->hrm_index());
   assert(!hr->is_young(), "Adding young region %u", hr->hrm_index()); // currently we don't use these sets for young regions
-  assert(hr->is_humongous() == regions_humongous(), "Wrong humongous state for region %u and set %s", hr->hrm_index(), name());
-  assert(hr->is_free() == regions_free(), "Wrong free state for region %u and set %s", hr->hrm_index(), name());
+  assert(_checker == NULL || _checker->is_correct_type(hr), "Wrong type of region %u (%s) and set %s",
+         hr->hrm_index(), hr->get_type_str(), name());
   assert(!hr->is_free() || hr->is_empty(), "Free region %u is not empty for set %s", hr->hrm_index(), name());
   assert(!hr->is_empty() || hr->is_free() || hr->is_archive(),
          "Empty region %u is not free or archive for set %s", hr->hrm_index(), name());
@@ -75,18 +76,14 @@ void HeapRegionSetBase::verify_end() {
 void HeapRegionSetBase::print_on(outputStream* out, bool print_contents) {
   out->cr();
   out->print_cr("Set: %s (" PTR_FORMAT ")", name(), p2i(this));
-  out->print_cr("  Region Assumptions");
-  out->print_cr("    humongous         : %s", BOOL_TO_STR(regions_humongous()));
-  out->print_cr("    free              : %s", BOOL_TO_STR(regions_free()));
-  out->print_cr("  Attributes");
-  out->print_cr("    length            : %14u", length());
+  out->print_cr("  Region Type         : %s", _checker->get_description());
+  out->print_cr("  Length              : %14u", length());
 }
 
-HeapRegionSetBase::HeapRegionSetBase(const char* name, bool humongous, bool free, HRSMtSafeChecker* mt_safety_checker)
-  : _name(name), _verify_in_progress(false),
-    _is_humongous(humongous), _is_free(free), _mt_safety_checker(mt_safety_checker),
-    _length(0)
-{ }
+HeapRegionSetBase::HeapRegionSetBase(const char* name, HeapRegionSetChecker* checker)
+  : _checker(checker), _length(0), _name(name), _verify_in_progress(false)
+{
+}
 
 void FreeRegionList::set_unrealistically_long_length(uint len) {
   guarantee(_unrealistically_long_length == 0, "should only be set once");
@@ -105,6 +102,9 @@ void FreeRegionList::remove_all() {
     curr->set_next(NULL);
     curr->set_prev(NULL);
     curr->set_containing_set(NULL);
+
+    decrease_length(curr->node_index());
+
     curr = next;
   }
   clear();
@@ -121,6 +121,10 @@ void FreeRegionList::add_ordered(FreeRegionList* from_list) {
 
   if (from_list->is_empty()) {
     return;
+  }
+
+  if (_node_info != NULL && from_list->_node_info != NULL) {
+    _node_info->add(from_list->_node_info);
   }
 
   #ifdef ASSERT
@@ -224,6 +228,9 @@ void FreeRegionList::remove_starting_at(HeapRegion* first, uint num_regions) {
     remove(curr);
 
     count++;
+
+    decrease_length(curr->node_index());
+
     curr = next;
   }
 
@@ -256,6 +263,10 @@ void FreeRegionList::clear() {
   _head = NULL;
   _tail = NULL;
   _last = NULL;
+
+  if (_node_info!= NULL) {
+    _node_info->clear();
+  }
 }
 
 void FreeRegionList::verify_list() {
@@ -293,72 +304,39 @@ void FreeRegionList::verify_list() {
   guarantee(length() == count, "%s count mismatch. Expected %u, actual %u.", name(), length(), count);
 }
 
-// Note on the check_mt_safety() methods below:
-//
-// Verification of the "master" heap region sets / lists that are
-// maintained by G1CollectedHeap is always done during a STW pause and
-// by the VM thread at the start / end of the pause. The standard
-// verification methods all assert check_mt_safety(). This is
-// important as it ensures that verification is done without
-// concurrent updates taking place at the same time. It follows, that,
-// for the "master" heap region sets / lists, the check_mt_safety()
-// method should include the VM thread / STW case.
+FreeRegionList::FreeRegionList(const char* name, HeapRegionSetChecker* checker):
+  HeapRegionSetBase(name, checker),
+  _node_info(G1NUMA::numa()->is_enabled() ? new NodeInfo() : NULL) {
 
-void MasterFreeRegionListMtSafeChecker::check() {
-  // Master Free List MT safety protocol:
-  // (a) If we're at a safepoint, operations on the master free list
-  // should be invoked by either the VM thread (which will serialize
-  // them) or by the GC workers while holding the
-  // FreeList_lock.
-  // (b) If we're not at a safepoint, operations on the master free
-  // list should be invoked while holding the Heap_lock.
+  clear();
+}
 
-  if (SafepointSynchronize::is_at_safepoint()) {
-    guarantee(Thread::current()->is_VM_thread() ||
-              FreeList_lock->owned_by_self(), "master free list MT safety protocol at a safepoint");
-  } else {
-    guarantee(Heap_lock->owned_by_self(), "master free list MT safety protocol outside a safepoint");
+FreeRegionList::~FreeRegionList() {
+  if (_node_info != NULL) {
+    delete _node_info;
   }
 }
 
-void OldRegionSetMtSafeChecker::check() {
-  // Master Old Set MT safety protocol:
-  // (a) If we're at a safepoint, operations on the master old set
-  // should be invoked:
-  // - by the VM thread (which will serialize them), or
-  // - by the GC workers while holding the FreeList_lock, if we're
-  //   at a safepoint for an evacuation pause (this lock is taken
-  //   anyway when an GC alloc region is retired so that a new one
-  //   is allocated from the free list), or
-  // - by the GC workers while holding the OldSets_lock, if we're at a
-  //   safepoint for a cleanup pause.
-  // (b) If we're not at a safepoint, operations on the master old set
-  // should be invoked while holding the Heap_lock.
+FreeRegionList::NodeInfo::NodeInfo() : _numa(G1NUMA::numa()), _length_of_node(NULL),
+                                       _num_nodes(_numa->num_active_nodes()) {
+  assert(UseNUMA, "Invariant");
 
-  if (SafepointSynchronize::is_at_safepoint()) {
-    guarantee(Thread::current()->is_VM_thread()
-        || FreeList_lock->owned_by_self() || OldSets_lock->owned_by_self(),
-        "master old set MT safety protocol at a safepoint");
-  } else {
-    guarantee(Heap_lock->owned_by_self(), "master old set MT safety protocol outside a safepoint");
+  _length_of_node = NEW_C_HEAP_ARRAY(uint, _num_nodes, mtGC);
+}
+
+FreeRegionList::NodeInfo::~NodeInfo() {
+  FREE_C_HEAP_ARRAY(uint, _length_of_node);
+}
+
+void FreeRegionList::NodeInfo::clear() {
+  for (uint i = 0; i < _num_nodes; ++i) {
+    _length_of_node[i] = 0;
   }
 }
 
-void HumongousRegionSetMtSafeChecker::check() {
-  // Humongous Set MT safety protocol:
-  // (a) If we're at a safepoint, operations on the master humongous
-  // set should be invoked by either the VM thread (which will
-  // serialize them) or by the GC workers while holding the
-  // OldSets_lock.
-  // (b) If we're not at a safepoint, operations on the master
-  // humongous set should be invoked while holding the Heap_lock.
-
-  if (SafepointSynchronize::is_at_safepoint()) {
-    guarantee(Thread::current()->is_VM_thread() ||
-              OldSets_lock->owned_by_self(),
-              "master humongous set MT safety protocol at a safepoint");
-  } else {
-    guarantee(Heap_lock->owned_by_self(),
-              "master humongous set MT safety protocol outside a safepoint");
+void FreeRegionList::NodeInfo::add(NodeInfo* info) {
+  for (uint i = 0; i < _num_nodes; ++i) {
+    _length_of_node[i] += info->_length_of_node[i];
   }
 }
+

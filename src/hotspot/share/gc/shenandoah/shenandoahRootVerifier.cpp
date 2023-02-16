@@ -25,7 +25,7 @@
 #include "precompiled.hpp"
 
 
-#include "classfile/classLoaderData.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "code/codeCache.hpp"
 #include "gc/shenandoah/shenandoahAsserts.hpp"
@@ -63,7 +63,7 @@ void ShenandoahRootVerifier::oops_do(OopClosure* oops) {
 
   if (verify(CLDGRoots)) {
     shenandoah_assert_safepoint();
-    CLDToOopClosure clds(oops, false);
+    CLDToOopClosure clds(oops, ClassLoaderData::_claim_other);
     ClassLoaderDataGraph::cld_do(&clds);
   }
 
@@ -107,7 +107,7 @@ void ShenandoahRootVerifier::roots_do(OopClosure* oops) {
   CodeBlobToOopClosure blobs(oops, !CodeBlobToOopClosure::FixRelocations);
   CodeCache::blobs_do(&blobs);
 
-  CLDToOopClosure clds(oops, false);
+  CLDToOopClosure clds(oops, ClassLoaderData::_claim_other);
   ClassLoaderDataGraph::cld_do(&clds);
 
   Universe::oops_do(oops);
@@ -135,7 +135,7 @@ void ShenandoahRootVerifier::strong_roots_do(OopClosure* oops) {
 
   CodeBlobToOopClosure blobs(oops, !CodeBlobToOopClosure::FixRelocations);
 
-  CLDToOopClosure clds(oops, false);
+  CLDToOopClosure clds(oops, ClassLoaderData::_claim_other);
   ClassLoaderDataGraph::roots_cld_do(&clds, NULL);
 
   Universe::oops_do(oops);

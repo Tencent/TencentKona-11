@@ -141,7 +141,7 @@ ShenandoahRootEvacuator::ShenandoahRootEvacuator(uint n_workers, ShenandoahPhase
 
 void ShenandoahRootEvacuator::roots_do(uint worker_id, OopClosure* oops) {
   MarkingCodeBlobClosure blobsCl(oops, CodeBlobToOopClosure::FixRelocations);
-  CLDToOopClosure clds(oops);
+  CLDToOopClosure clds(oops, ClassLoaderData::_claim_strong);
 
   AlwaysTrueClosure always_true;
 
@@ -184,7 +184,7 @@ ShenandoahRootAdjuster::ShenandoahRootAdjuster(uint n_workers, ShenandoahPhaseTi
 
 void ShenandoahRootAdjuster::roots_do(uint worker_id, OopClosure* oops) {
   CodeBlobToOopClosure adjust_code_closure(oops, CodeBlobToOopClosure::FixRelocations);
-  CLDToOopClosure adjust_cld_closure(oops);
+  CLDToOopClosure adjust_cld_closure(oops, ClassLoaderData::_claim_strong);
   AlwaysTrueClosure always_true;
 
   // Process serial-claiming roots first
@@ -215,7 +215,7 @@ ShenandoahHeapIterationRootScanner::ShenandoahHeapIterationRootScanner() :
  void ShenandoahHeapIterationRootScanner::roots_do(OopClosure* oops) {
    assert(Thread::current()->is_VM_thread(), "Only by VM thread");
    // Must use _claim_none to avoid interfering with concurrent CLDG iteration
-   CLDToOopClosure clds(oops, false);
+   CLDToOopClosure clds(oops, ClassLoaderData::_claim_other);
    MarkingCodeBlobClosure code(oops, !CodeBlobToOopClosure::FixRelocations);
    ShenandoahParallelOopsDoThreadClosure tc_cl(oops, &code, NULL);
    AlwaysTrueClosure always_true;

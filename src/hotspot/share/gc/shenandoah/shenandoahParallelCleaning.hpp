@@ -25,7 +25,7 @@
 #define SHARE_GC_SHENANDOAH_SHENANDOAHPARALLELCLEANING_HPP
 
 #include "gc/shared/workgroup.hpp"
-#include "gc/shenandoah/parallelCleaning.hpp"
+#include "gc/shared/parallelCleaning.hpp"
 #include "gc/shenandoah/shenandoahRootProcessor.hpp"
 #include "memory/iterator.hpp"
 
@@ -43,6 +43,22 @@ public:
                                           KeepAlive* keep_alive,
                                           uint num_workers);
   ~ShenandoahParallelWeakRootsCleaningTask();
+
+  void work(uint worker_id);
+};
+
+// Perform class unloading at a pause
+class ShenandoahClassUnloadingTask : public AbstractGangTask {
+private:
+  ShenandoahPhaseTimings::Phase const _phase;
+  bool                                _unloading_occurred;
+  CodeCacheUnloadingTask              _code_cache_task;
+  KlassCleaningTask                   _klass_cleaning_task;
+public:
+  ShenandoahClassUnloadingTask(ShenandoahPhaseTimings::Phase phase,
+                               BoolObjectClosure* is_alive,
+                               uint num_workers,
+                               bool unloading_occurred);
 
   void work(uint worker_id);
 };

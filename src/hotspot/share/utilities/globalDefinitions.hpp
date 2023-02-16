@@ -333,6 +333,13 @@ inline size_t byte_size_in_exact_unit(size_t s) {
   return s;
 }
 
+// Memory size transition formatting.
+
+#define HEAP_CHANGE_FORMAT "%s: " SIZE_FORMAT "K(" SIZE_FORMAT "K)->" SIZE_FORMAT "K(" SIZE_FORMAT "K)"
+
+#define HEAP_CHANGE_FORMAT_ARGS(_name_, _prev_used_, _prev_capacity_, _used_, _capacity_) \
+  (_name_), (_prev_used_) / K, (_prev_capacity_) / K, (_used_) / K, (_capacity_) / K
+
 //----------------------------------------------------------------------------------------------------
 // VM type definitions
 
@@ -479,14 +486,6 @@ const size_t minimumStringTableSize = 128;
 
 const size_t defaultSymbolTableSize = 32768; // 2^15
 const size_t minimumSymbolTableSize = 1024;
-
-
-//----------------------------------------------------------------------------------------------------
-// HotSwap - for JVMTI   aka Class File Replacement and PopFrame
-//
-// Determines whether on-the-fly class replacement and frame popping are enabled.
-
-#define HOTSWAP
 
 //----------------------------------------------------------------------------------------------------
 // Object alignment, in units of HeapWords.
