@@ -46,6 +46,7 @@
 #include "runtime/vframe.inline.hpp"
 #include "runtime/vframeArray.hpp"
 #include "runtime/vframe_hp.hpp"
+#include "runtime/coroutine.hpp"
 
 vframe::vframe(const frame* fr, const RegisterMap* reg_map, JavaThread* thread)
 : _reg_map(reg_map), _thread(thread) {
@@ -163,7 +164,7 @@ void javaVFrame::print_locked_object_class_name(outputStream* st, Handle obj, co
   }
 }
 
-void javaVFrame::print_lock_info_on(outputStream* st, int frame_count) {
+void javaVFrame::print_lock_info_on(outputStream* st, int frame_count, Coroutine* target_coro) {
   Thread* THREAD = Thread::current();
   ResourceMark rm(THREAD);
   HandleMark hm(THREAD);
@@ -192,10 +193,20 @@ void javaVFrame::print_lock_info_on(outputStream* st, int frame_count) {
       } else {
         st->print_cr("\t- %s <no object reference available>", wait_state);
       }
-    } else if (thread()->current_park_blocker() != NULL) {
-      oop obj = thread()->current_park_blocker();
-      Klass* k = obj->klass();
-      st->print_cr("\t- %s <" INTPTR_FORMAT "> (a %s)", "parking to wait for ", p2i(obj), k->external_name());
+    } else {
+      if (target_coro == NULL) {
+        if (thread()->current_park_blocker() != NULL) {
+          oop obj = thread()->current_park_blocker();
+          Klass* k = obj->klass();
+          st->print_cr("\t- %s <" INTPTR_FORMAT "> (a %s)", "parking to wait for ", p2i(obj), k->external_name());
+        }
+      } else {
+        if (target_coro->current_park_blocker() != NULL) {
+          oop obj = target_coro->current_park_blocker();
+          Klass* k = obj->klass();
+          st->print_cr("\t- %s <" INTPTR_FORMAT "> (a %s)", "parking to wait for ", p2i(obj), k->external_name());
+        }
+      }
     }
   }
 
@@ -225,7 +236,10 @@ void javaVFrame::print_lock_info_on(outputStream* st, int frame_count) {
         markOop mark = NULL;
         const char *lock_state = "locked"; // assume we have the monitor locked
         // YieldWithMonitor added for invoke tryCompensate of vt.
-        if ((!found_first_monitor && frame_count == 0) || YieldWithMonitor) {
+        // target_coro != NULL means this method is called by Coroutine::print_stack_on,
+        // so the state of target coroutine must be on_stack. It is impossible that the
+        // coro waiting for a lock while the coro is on_stack(it must be run on a worker thread) 
+        if (target_coro == NULL && ((!found_first_monitor && frame_count == 0) || YieldWithMonitor)) {
           // If this is the first frame and we haven't found an owned
           // monitor before, then we need to see if we have completed
           // the lock or if we are blocked trying to acquire it. Only

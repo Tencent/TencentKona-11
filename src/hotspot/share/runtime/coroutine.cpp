@@ -963,6 +963,7 @@ void Coroutine::init_thread_stack(JavaThread* thread) {
   _stack_base = thread->stack_base();
   _stack_size = thread->stack_size();
   _stack_overflow_limit = thread->stack_overflow_limit();
+  _shadow_zone_safe_limit = thread->shadow_zone_safe_limit();
   _last_sp = NULL;
 }
 
@@ -973,6 +974,9 @@ bool Coroutine::init_stack(JavaThread* thread) {
   }
   _stack_size = ContReservedStack::stack_size;
   _stack_overflow_limit = _stack_base - _stack_size + MAX2(JavaThread::stack_guard_zone_size(), JavaThread::stack_shadow_zone_size());
+  _shadow_zone_safe_limit = _stack_base - _stack_size + JavaThread::stack_guard_zone_size() + JavaThread::stack_shadow_zone_size();
+  _shadow_zone_growth_watermark = _stack_base;
+  _shadow_zone_growth_native_watermark = _stack_base;
   _last_sp = NULL;
   return true;
 }
@@ -1065,10 +1069,9 @@ void Coroutine::print_stack_on(outputStream* st, void* frames, int* depth) {
           java_lang_Throwable::print_stack_element(st, jvf->method(), jvf->bci());
 
           // Print out lock information
-          // We only print stack info of coroutines which status is _on_stack.
-          // If coroutine has lock, it can't yield from current thread,
-          // its status must be _current.
-          // So there is no lock info to print.
+          if (JavaMonitorsInStackTrace) {
+            jvf->print_lock_info_on(st, count, this);
+          }
         } else {
           add_stack_frame(frames, depth, jvf);
         }
