@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -622,14 +622,23 @@ bool CodeCache::contains(nmethod *nm) {
   return contains((void *)nm);
 }
 
+static bool is_in_asgct() {
+  Thread* current_thread = Thread::current_or_null_safe();
+  return current_thread != NULL && current_thread->is_Java_thread() && ((JavaThread*)current_thread)->in_asgct();
+}
+
 // This method is safe to call without holding the CodeCache_lock, as long as a dead CodeBlob is not
 // looked up (i.e., one that has been marked for deletion). It only depends on the _segmap to contain
 // valid indices, which it will always do, as long as the CodeBlob is not in the process of being recycled.
 CodeBlob* CodeCache::find_blob(void* start) {
   CodeBlob* result = find_blob_unsafe(start);
   // We could potentially look up non_entrant methods
-  guarantee(result == NULL || !result->is_zombie() || result->is_locked_by_vm() || VMError::is_error_reported(), "unsafe access to zombie method");
-  return result;
+  bool is_zombie = result != NULL && result->is_zombie();
+  bool is_result_safe = !is_zombie || result->is_locked_by_vm() || VMError::is_error_reported();
+  guarantee(is_result_safe || is_in_asgct(), "unsafe access to zombie method");
+  // When in ASGCT the previous gurantee will pass for a zombie method but we still don't want that code blob returned in order
+  // to minimize the chance of accessing dead memory
+  return is_result_safe ? result : NULL;
 }
 
 // Lookup that does not fail if you lookup a zombie method (if you call this, be sure to know
@@ -1200,10 +1209,9 @@ bool CodeCache::is_far_target(address target) {
 #endif
 }
 
-#ifdef HOTSWAP
-int CodeCache::mark_for_evol_deoptimization(InstanceKlass* dependee) {
+// Just marks the methods in this class as needing deoptimization
+void CodeCache::mark_for_evol_deoptimization(InstanceKlass* dependee) {
   MutexLockerEx mu(CodeCache_lock, Mutex::_no_safepoint_check_flag);
-  int number_of_marked_CodeBlobs = 0;
 
   // Deoptimize all methods of the evolving class itself
   Array<Method*>* old_methods = dependee->methods();
@@ -1213,16 +1221,24 @@ int CodeCache::mark_for_evol_deoptimization(InstanceKlass* dependee) {
     CompiledMethod* nm = old_method->code();
     if (nm != NULL) {
       nm->mark_for_deoptimization();
-      number_of_marked_CodeBlobs++;
     }
   }
 
+  // Mark dependent AOT nmethods, which are only found via the class redefined.
+  AOTLoader::mark_evol_dependent_methods(dependee);
+}
+
+// Walk compiled methods and mark dependent methods for deoptimization.
+int CodeCache::mark_dependents_for_evol_deoptimization() {
+  int number_of_marked_CodeBlobs = 0;
   CompiledMethodIterator iter(CompiledMethodIterator::only_alive_and_not_unloading);
   while(iter.next()) {
     CompiledMethod* nm = iter.method();
     if (nm->is_marked_for_deoptimization()) {
-      // ...Already marked in the previous pass; don't count it again.
-    } else if (nm->is_evol_dependent_on(dependee)) {
+      // ...Already marked in the previous pass; count it here.
+      // Also counts AOT compiled methods, already marked.
+      number_of_marked_CodeBlobs++;
+    } else if (nm->is_evol_dependent()) {
       ResourceMark rm;
       nm->mark_for_deoptimization();
       number_of_marked_CodeBlobs++;
@@ -1232,10 +1248,10 @@ int CodeCache::mark_for_evol_deoptimization(InstanceKlass* dependee) {
     }
   }
 
+  // return total count of nmethods marked for deoptimization, if zero the caller
+  // can skip deoptimization
   return number_of_marked_CodeBlobs;
 }
-#endif // HOTSWAP
-
 
 // Deoptimize all methods
 void CodeCache::mark_all_nmethods_for_deoptimization() {
@@ -1304,37 +1320,32 @@ void CodeCache::flush_dependents_on(InstanceKlass* dependee) {
   }
 }
 
-#ifdef HOTSWAP
-// Flushes compiled methods dependent on dependee in the evolutionary sense
-void CodeCache::flush_evol_dependents_on(InstanceKlass* ev_k) {
+// Flushes compiled methods dependent on redefined classes, that have already been
+// marked for deoptimization.
+void CodeCache::flush_evol_dependents() {
   // --- Compile_lock is not held. However we are at a safepoint.
   assert_locked_or_safepoint(Compile_lock);
-  if (number_of_nmethods_with_dependencies() == 0 && !UseAOT) return;
 
   // CodeCache can only be updated by a thread_in_VM and they will all be
   // stopped during the safepoint so CodeCache will be safe to update without
   // holding the CodeCache_lock.
 
-  // Compute the dependent nmethods
-  if (mark_for_evol_deoptimization(ev_k) > 0) {
-    // At least one nmethod has been marked for deoptimization
+  // At least one nmethod has been marked for deoptimization
 
-    // All this already happens inside a VM_Operation, so we'll do all the work here.
-    // Stuff copied from VM_Deoptimize and modified slightly.
+  // All this already happens inside a VM_Operation, so we'll do all the work here.
+  // Stuff copied from VM_Deoptimize and modified slightly.
 
-    // We do not want any GCs to happen while we are in the middle of this VM operation
-    ResourceMark rm;
-    DeoptimizationMarker dm;
+  // We do not want any GCs to happen while we are in the middle of this VM operation
+  ResourceMark rm;
+  DeoptimizationMarker dm;
 
-    // Deoptimize all activations depending on marked nmethods
-    Deoptimization::deoptimize_dependents();
+  // Deoptimize all activations depending on marked nmethods
+  Deoptimization::deoptimize_dependents();
+  log_info(redefine, class, nmethod)("Finish deoptimize dependents");
 
-    // Make the dependent methods not entrant
-    make_marked_nmethods_not_entrant();
-  }
+  // Make the dependent methods not entrant
+  make_marked_nmethods_not_entrant();
 }
-#endif // HOTSWAP
-
 
 // Flushes compiled methods dependent on dependee
 void CodeCache::flush_dependents_on_method(const methodHandle& m_h) {

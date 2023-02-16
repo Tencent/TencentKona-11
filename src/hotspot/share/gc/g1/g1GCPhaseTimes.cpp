@@ -28,6 +28,7 @@
 #include "gc/g1/g1HotCardCache.hpp"
 #include "gc/g1/g1ParScanThreadState.inline.hpp"
 #include "gc/g1/g1StringDedup.hpp"
+#include "gc/shared/gcTimer.hpp"
 #include "gc/shared/workerDataArray.inline.hpp"
 #include "memory/resourceArea.hpp"
 #include "logging/log.hpp"
@@ -42,7 +43,8 @@ G1GCPhaseTimes::G1GCPhaseTimes(STWGCTimer* gc_timer, uint max_gc_threads) :
   _max_gc_threads(max_gc_threads),
   _gc_start_counter(0),
   _gc_pause_time_ms(0.0),
-  _ref_phase_times((GCTimer*)gc_timer, max_gc_threads)
+  _ref_phase_times(gc_timer, max_gc_threads),
+  _weak_phase_times(max_gc_threads)
 {
   assert(max_gc_threads > 0, "Must have some GC threads");
 
@@ -106,6 +108,11 @@ _gc_par_phases[Termination] = new WorkerDataArray<double>(max_gc_threads, "Termi
   _update_rs_skipped_cards = new WorkerDataArray<size_t>(max_gc_threads, "Skipped Cards:");
   _gc_par_phases[UpdateRS]->link_thread_work_items(_update_rs_skipped_cards, ScanRSSkippedCards);
 
+  _obj_copy_lab_waste = new WorkerDataArray<size_t>(max_gc_threads, "LAB Waste");
+  _gc_par_phases[ObjCopy]->link_thread_work_items(_obj_copy_lab_waste, ObjCopyLABWaste);
+  _obj_copy_lab_undo_waste = new WorkerDataArray<size_t>(max_gc_threads, "LAB Undo Waste");
+  _gc_par_phases[ObjCopy]->link_thread_work_items(_obj_copy_lab_undo_waste, ObjCopyLABUndoWaste);
+
   _termination_attempts = new WorkerDataArray<size_t>(max_gc_threads, "Termination Attempts:");
   _gc_par_phases[Termination]->link_thread_work_items(_termination_attempts);
 
@@ -141,7 +148,6 @@ void G1GCPhaseTimes::reset() {
   _cur_clear_ct_time_ms = 0.0;
   _cur_expand_heap_time_ms = 0.0;
   _cur_ref_proc_time_ms = 0.0;
-  _cur_weak_ref_proc_time_ms = 0.0;
   _cur_collection_start_sec = 0.0;
   _root_region_scan_wait_time_ms = 0.0;
   _external_accounted_time_ms = 0.0;
@@ -169,6 +175,7 @@ void G1GCPhaseTimes::reset() {
   }
 
   _ref_phase_times.reset();
+  _weak_phase_times.reset();
 }
 
 void G1GCPhaseTimes::note_gc_start() {
@@ -407,7 +414,7 @@ double G1GCPhaseTimes::print_post_evacuate_collection_set() const {
                         _cur_collection_code_root_fixup_time_ms +
                         _recorded_preserve_cm_referents_time_ms +
                         _cur_ref_proc_time_ms +
-                        _cur_weak_ref_proc_time_ms +
+                        (_weak_phase_times.total_time_sec() * MILLIUNITS) +
                         _cur_clear_ct_time_ms +
                         _recorded_merge_pss_time_ms +
                         _cur_strong_code_root_purge_time_ms +
@@ -425,8 +432,7 @@ double G1GCPhaseTimes::print_post_evacuate_collection_set() const {
 
   debug_time_for_reference("Reference Processing", _cur_ref_proc_time_ms);
   _ref_phase_times.print_all_references(2, false);
-
-  debug_time("Weak Processing", _cur_weak_ref_proc_time_ms);
+  _weak_phase_times.log_print(2);
 
   if (G1StringDedup::is_enabled()) {
     debug_time("String Dedup Fixup", _cur_string_dedup_fixup_time_ms);

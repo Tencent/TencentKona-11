@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 1999, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2022 SAP SE. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -101,7 +102,6 @@
 # include <string.h>
 # include <syscall.h>
 # include <sys/sysinfo.h>
-# include <gnu/libc-version.h>
 # include <sys/ipc.h>
 # include <sys/shm.h>
 # include <link.h>
@@ -133,6 +133,17 @@
 // for timer info max values which include all bits
 #define ALL_64_BITS CONST64(0xFFFFFFFFFFFFFFFF)
 
+#ifdef MUSL_LIBC
+// dlvsym is not a part of POSIX
+// and musl libc doesn't implement it.
+static void *dlvsym(void *handle,
+                    const char *symbol,
+                    const char *version) {
+   // load the latest version of symbol
+   return dlsym(handle, symbol);
+}
+#endif
+
 enum CoredumpFilterBit {
   FILE_BACKED_PVT_BIT = 1 << 2,
   FILE_BACKED_SHARED_BIT = 1 << 3,
@@ -155,7 +166,7 @@ pthread_t os::Linux::_main_thread;
 int os::Linux::_page_size = -1;
 bool os::Linux::_supports_fast_thread_cpu_time = false;
 uint32_t os::Linux::_os_version = 0;
-const char * os::Linux::_glibc_version = NULL;
+const char * os::Linux::_libc_version = NULL;
 const char * os::Linux::_libpthread_version = NULL;
 
 #ifdef __GLIBC__
@@ -198,15 +209,12 @@ julong os::Linux::available_memory() {
   julong avail_mem;
 
   if (OSContainer::is_containerized()) {
-    jlong mem_limit, mem_usage;
-    if ((mem_limit = OSContainer::memory_limit_in_bytes()) < 1) {
-      log_debug(os, container)("container memory limit %s: " JLONG_FORMAT ", using host value",
-                             mem_limit == OSCONTAINER_ERROR ? "failed" : "unlimited", mem_limit);
-    }
+    jlong mem_limit = OSContainer::memory_limit_in_bytes();
+    jlong mem_usage;
     if (mem_limit > 0 && (mem_usage = OSContainer::memory_usage_in_bytes()) < 1) {
       log_debug(os, container)("container memory usage failed: " JLONG_FORMAT ", using host value", mem_usage);
     }
-    if (mem_limit > 0 && mem_usage > 0 ) {
+    if (mem_limit > 0 && mem_usage > 0) {
       avail_mem = mem_limit > mem_usage ? (julong)mem_limit - (julong)mem_usage : 0;
       log_trace(os)("available container memory: " JULONG_FORMAT, avail_mem);
       return avail_mem;
@@ -227,8 +235,6 @@ julong os::physical_memory() {
       log_trace(os)("total container memory: " JLONG_FORMAT, mem_limit);
       return mem_limit;
     }
-    log_debug(os, container)("container memory limit %s: " JLONG_FORMAT ", using host value",
-                            mem_limit == OSCONTAINER_ERROR ? "failed" : "unlimited", mem_limit);
   }
 
   phys_mem = Linux::physical_memory();
@@ -355,6 +361,14 @@ pid_t os::Linux::gettid() {
   int rslt = syscall(SYS_gettid);
   assert(rslt != -1, "must be."); // old linuxthreads implementation?
   return (pid_t)rslt;
+}
+
+// Returns the amount of swap currently configured, in bytes.
+// This can change at any time.
+julong os::Linux::host_swap() {
+  struct sysinfo si;
+  sysinfo(&si);
+  return (julong)si.totalswap;
 }
 
 // Most versions of linux have a bug where the number of processors are
@@ -615,17 +629,24 @@ void os::Linux::libpthread_init() {
   #error "glibc too old (< 2.3.2)"
 #endif
 
+#ifdef MUSL_LIBC
+  // confstr() from musl libc returns EINVAL for
+  // _CS_GNU_LIBC_VERSION and _CS_GNU_LIBPTHREAD_VERSION
+  os::Linux::set_libc_version("musl - unknown");
+  os::Linux::set_libpthread_version("musl - unknown");
+#else
   size_t n = confstr(_CS_GNU_LIBC_VERSION, NULL, 0);
   assert(n > 0, "cannot retrieve glibc version");
   char *str = (char *)malloc(n, mtInternal);
   confstr(_CS_GNU_LIBC_VERSION, str, n);
-  os::Linux::set_glibc_version(str);
+  os::Linux::set_libc_version(str);
 
   n = confstr(_CS_GNU_LIBPTHREAD_VERSION, NULL, 0);
   assert(n > 0, "cannot retrieve pthread version");
   str = (char *)malloc(n, mtInternal);
   confstr(_CS_GNU_LIBPTHREAD_VERSION, str, n);
   os::Linux::set_libpthread_version(str);
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -750,14 +771,20 @@ static void *thread_native_entry(Thread *thread) {
 
   thread->record_stack_base_and_size();
 
+#ifndef __GLIBC__
   // Try to randomize the cache line index of hot stack frames.
   // This helps when threads of the same stack traces evict each other's
   // cache lines. The threads can be either from the same JVM instance, or
   // from different JVM instances. The benefit is especially true for
   // processors with hyperthreading technology.
+  // This code is not needed anymore in glibc because it has MULTI_PAGE_ALIASING
+  // and we did not see any degradation in performance without `alloca()`.
   static int counter = 0;
   int pid = os::current_process_id();
-  alloca(((pid ^ counter++) & 7) * 128);
+  void *stackmem = alloca(((pid ^ counter++) & 7) * 128);
+  // Ensure the alloca result is used in a way that prevents the compiler from eliding it.
+  *(char *)stackmem = 1;
+#endif
 
   thread->initialize_thread_current();
 
@@ -855,16 +882,21 @@ bool os::create_thread(Thread* thread, ThreadType thr_type,
   ThreadState state;
 
   {
+    ResourceMark rm;
     pthread_t tid;
-    int ret = pthread_create(&tid, &attr, (void* (*)(void*)) thread_native_entry, thread);
+    int ret = 0;
+    int limit = 3;
+    do {
+      ret = pthread_create(&tid, &attr, (void* (*)(void*)) thread_native_entry, thread);
+    } while (ret == EAGAIN && limit-- > 0);
 
     char buf[64];
     if (ret == 0) {
-      log_info(os, thread)("Thread started (pthread id: " UINTX_FORMAT ", attributes: %s). ",
-        (uintx) tid, os::Posix::describe_pthread_attr(buf, sizeof(buf), &attr));
+      log_info(os, thread)("Thread \"%s\" started (pthread id: " UINTX_FORMAT ", attributes: %s). ",
+                           thread->name(), (uintx) tid, os::Posix::describe_pthread_attr(buf, sizeof(buf), &attr));
     } else {
-      log_warning(os, thread)("Failed to start thread - pthread_create failed (%s) for attributes: %s.",
-        os::errno_name(ret), os::Posix::describe_pthread_attr(buf, sizeof(buf), &attr));
+      log_warning(os, thread)("Failed to start thread \"%s\" - pthread_create failed (%s) for attributes: %s.",
+                              thread->name(), os::errno_name(ret), os::Posix::describe_pthread_attr(buf, sizeof(buf), &attr));
       // Log some OS information which might explain why creating the thread failed.
       log_info(os, thread)("Number of threads approx. running in the VM: %d", Threads::number_of_threads());
       LogStream st(Log(os, thread)::info());
@@ -2277,7 +2309,7 @@ void os::get_summary_os_info(char* buf, size_t buflen) {
 void os::Linux::print_libversion_info(outputStream* st) {
   // libc, pthread
   st->print("libc:");
-  st->print("%s ", os::Linux::glibc_version());
+  st->print("%s ", os::Linux::libc_version());
   st->print("%s ", os::Linux::libpthread_version());
   st->cr();
 }
@@ -2304,73 +2336,115 @@ void os::Linux::print_system_memory_info(outputStream* st) {
                       "/sys/kernel/mm/transparent_hugepage/defrag", st);
 }
 
-void os::Linux::print_process_memory_info(outputStream* st) {
-
-  st->print_cr("Process Memory:");
-
-  // Print virtual and resident set size; peak values; swap; and for
-  //  rss its components if the kernel is recent enough.
-  ssize_t vmsize = -1, vmpeak = -1, vmswap = -1,
-      vmrss = -1, vmhwm = -1, rssanon = -1, rssfile = -1, rssshmem = -1;
-  const int num_values = 8;
+bool os::Linux::query_process_memory_info(os::Linux::meminfo_t* info) {
+  FILE* f = os::fopen("/proc/self/status", "r");
+  const int num_values = sizeof(os::Linux::meminfo_t) / sizeof(size_t);
   int num_found = 0;
-  FILE* f = ::fopen("/proc/self/status", "r");
   char buf[256];
+  info->vmsize = info->vmpeak = info->vmrss = info->vmhwm = info->vmswap =
+      info->rssanon = info->rssfile = info->rssshmem = -1;
   if (f != NULL) {
     while (::fgets(buf, sizeof(buf), f) != NULL && num_found < num_values) {
-      if ( (vmsize == -1    && sscanf(buf, "VmSize: " SSIZE_FORMAT " kB", &vmsize) == 1) ||
-           (vmpeak == -1    && sscanf(buf, "VmPeak: " SSIZE_FORMAT " kB", &vmpeak) == 1) ||
-           (vmswap == -1    && sscanf(buf, "VmSwap: " SSIZE_FORMAT " kB", &vmswap) == 1) ||
-           (vmhwm == -1     && sscanf(buf, "VmHWM: " SSIZE_FORMAT " kB", &vmhwm) == 1) ||
-           (vmrss == -1     && sscanf(buf, "VmRSS: " SSIZE_FORMAT " kB", &vmrss) == 1) ||
-           (rssanon == -1   && sscanf(buf, "RssAnon: " SSIZE_FORMAT " kB", &rssanon) == 1) ||
-           (rssfile == -1   && sscanf(buf, "RssFile: " SSIZE_FORMAT " kB", &rssfile) == 1) ||
-           (rssshmem == -1  && sscanf(buf, "RssShmem: " SSIZE_FORMAT " kB", &rssshmem) == 1)
+      if ( (info->vmsize == -1    && sscanf(buf, "VmSize: " SSIZE_FORMAT " kB", &info->vmsize) == 1) ||
+           (info->vmpeak == -1    && sscanf(buf, "VmPeak: " SSIZE_FORMAT " kB", &info->vmpeak) == 1) ||
+           (info->vmswap == -1    && sscanf(buf, "VmSwap: " SSIZE_FORMAT " kB", &info->vmswap) == 1) ||
+           (info->vmhwm == -1     && sscanf(buf, "VmHWM: " SSIZE_FORMAT " kB", &info->vmhwm) == 1) ||
+           (info->vmrss == -1     && sscanf(buf, "VmRSS: " SSIZE_FORMAT " kB", &info->vmrss) == 1) ||
+           (info->rssanon == -1   && sscanf(buf, "RssAnon: " SSIZE_FORMAT " kB", &info->rssanon) == 1) || // Needs Linux 4.5
+           (info->rssfile == -1   && sscanf(buf, "RssFile: " SSIZE_FORMAT " kB", &info->rssfile) == 1) || // Needs Linux 4.5
+           (info->rssshmem == -1  && sscanf(buf, "RssShmem: " SSIZE_FORMAT " kB", &info->rssshmem) == 1)  // Needs Linux 4.5
            )
       {
         num_found ++;
       }
     }
     fclose(f);
+    return true;
+  }
+  return false;
+}
 
-    st->print_cr("Virtual Size: " SSIZE_FORMAT "K (peak: " SSIZE_FORMAT "K)", vmsize, vmpeak);
-    st->print("Resident Set Size: " SSIZE_FORMAT "K (peak: " SSIZE_FORMAT "K)", vmrss, vmhwm);
-    if (rssanon != -1) { // requires kernel >= 4.5
+#ifdef __GLIBC__
+// For Glibc, print a one-liner with the malloc tunables.
+// Most important and popular is MALLOC_ARENA_MAX, but we are
+// thorough and print them all.
+static void print_glibc_malloc_tunables(outputStream* st) {
+  static const char* var[] = {
+      // the new variant
+      "GLIBC_TUNABLES",
+      // legacy variants
+      "MALLOC_CHECK_", "MALLOC_TOP_PAD_", "MALLOC_PERTURB_",
+      "MALLOC_MMAP_THRESHOLD_", "MALLOC_TRIM_THRESHOLD_",
+      "MALLOC_MMAP_MAX_", "MALLOC_ARENA_TEST", "MALLOC_ARENA_MAX",
+      NULL};
+  st->print("glibc malloc tunables: ");
+  bool printed = false;
+  for (int i = 0; var[i] != NULL; i ++) {
+    const char* const val = ::getenv(var[i]);
+    if (val != NULL) {
+      st->print("%s%s=%s", (printed ? ", " : ""), var[i], val);
+      printed = true;
+    }
+  }
+  if (!printed) {
+    st->print("(default)");
+  }
+}
+#endif // __GLIBC__
+
+void os::Linux::print_process_memory_info(outputStream* st) {
+
+  st->print_cr("Process Memory:");
+
+  // Print virtual and resident set size; peak values; swap; and for
+  //  rss its components if the kernel is recent enough.
+  meminfo_t info;
+  if (query_process_memory_info(&info)) {
+    st->print_cr("Virtual Size: " SSIZE_FORMAT "K (peak: " SSIZE_FORMAT "K)", info.vmsize, info.vmpeak);
+    st->print("Resident Set Size: " SSIZE_FORMAT "K (peak: " SSIZE_FORMAT "K)", info.vmrss, info.vmhwm);
+    if (info.rssanon != -1) { // requires kernel >= 4.5
       st->print(" (anon: " SSIZE_FORMAT "K, file: " SSIZE_FORMAT "K, shmem: " SSIZE_FORMAT "K)",
-                  rssanon, rssfile, rssshmem);
+                info.rssanon, info.rssfile, info.rssshmem);
     }
     st->cr();
-    if (vmswap != -1) { // requires kernel >= 2.6.34
-      st->print_cr("Swapped out: " SSIZE_FORMAT "K", vmswap);
+    if (info.vmswap != -1) { // requires kernel >= 2.6.34
+      st->print_cr("Swapped out: " SSIZE_FORMAT "K", info.vmswap);
     }
   } else {
     st->print_cr("Could not open /proc/self/status to get process memory related information");
   }
 
-  // Print glibc outstanding allocations.
-  // (note: there is no implementation of mallinfo for muslc)
+  // glibc only:
+  // - Print outstanding allocations using mallinfo
+  // - Print glibc tunables
 #ifdef __GLIBC__
   size_t total_allocated = 0;
+  size_t free_retained = 0;
   bool might_have_wrapped = false;
   if (_mallinfo2 != NULL) {
     struct glibc_mallinfo2 mi = _mallinfo2();
-    total_allocated = mi.uordblks;
+    total_allocated = mi.uordblks + mi.hblkhd;
+    free_retained = mi.fordblks;
   } else if (_mallinfo != NULL) {
-    // mallinfo is an old API. Member names mean next to nothing and, beyond that, are int.
-    // So values may have wrapped around. Still useful enough to see how much glibc thinks
-    // we allocated.
+    // mallinfo is an old API. Member names mean next to nothing and, beyond that, are 32-bit signed.
+    // So for larger footprints the values may have wrapped around. We try to detect this here: if the
+    // process whole resident set size is smaller than 4G, malloc footprint has to be less than that
+    // and the numbers are reliable.
     struct glibc_mallinfo mi = _mallinfo();
-    total_allocated = (size_t)(unsigned)mi.uordblks;
+    total_allocated = (size_t)(unsigned)mi.uordblks + (size_t)(unsigned)mi.hblkhd;
+    free_retained = (size_t)(unsigned)mi.fordblks;
     // Since mallinfo members are int, glibc values may have wrapped. Warn about this.
-    might_have_wrapped = (vmrss * K) > UINT_MAX && (vmrss * K) > (total_allocated + UINT_MAX);
+    might_have_wrapped = (info.vmrss * K) > UINT_MAX && (info.vmrss * K) > (total_allocated + UINT_MAX);
   }
   if (_mallinfo2 != NULL || _mallinfo != NULL) {
-    st->print_cr("C-Heap outstanding allocations: " SIZE_FORMAT "K%s",
-                 total_allocated / K,
+    st->print_cr("C-Heap outstanding allocations: " SIZE_FORMAT "K, retained: " SIZE_FORMAT "K%s",
+                 total_allocated / K, free_retained / K,
                  might_have_wrapped ? " (may have wrapped)" : "");
   }
-#endif // __GLIBC__
-
+  // Tunables
+  print_glibc_malloc_tunables(st);
+  st->cr();
+#endif
 }
 
 void os::Linux::print_ld_preload_file(outputStream* st) {
@@ -2386,60 +2460,103 @@ void os::Linux::print_uptime_info(outputStream* st) {
   }
 }
 
+static void print_container_helper(outputStream* st, jlong j, const char* metrics) {
+  st->print("%s: ", metrics);
+  if (j > 0) {
+    if (j >= 1024) {
+      st->print_cr(UINT64_FORMAT " k", uint64_t(j) / 1024);
+    } else {
+      st->print_cr(UINT64_FORMAT, uint64_t(j));
+    }
+  } else {
+    st->print_cr("%s", j == OSCONTAINER_ERROR ? "not supported" : "unlimited");
+  }
+}
 
 void os::Linux::print_container_info(outputStream* st) {
   if (!OSContainer::is_containerized()) {
+    st->print_cr("container information not found.");
     return;
   }
 
   st->print("container (cgroup) information:\n");
 
   const char *p_ct = OSContainer::container_type();
-  st->print("container_type: %s\n", p_ct != NULL ? p_ct : "failed");
+  st->print("container_type: %s\n", p_ct != NULL ? p_ct : "not supported");
 
   char *p = OSContainer::cpu_cpuset_cpus();
-  st->print("cpu_cpuset_cpus: %s\n", p != NULL ? p : "failed");
+  st->print("cpu_cpuset_cpus: %s\n", p != NULL ? p : "not supported");
   free(p);
 
   p = OSContainer::cpu_cpuset_memory_nodes();
-  st->print("cpu_memory_nodes: %s\n", p != NULL ? p : "failed");
+  st->print("cpu_memory_nodes: %s\n", p != NULL ? p : "not supported");
   free(p);
 
   int i = OSContainer::active_processor_count();
+  st->print("active_processor_count: ");
   if (i > 0) {
-    st->print("active_processor_count: %d\n", i);
+    if (ActiveProcessorCount > 0) {
+      st->print_cr("%d, but overridden by -XX:ActiveProcessorCount %d", i, ActiveProcessorCount);
+    } else {
+      st->print_cr("%d", i);
+    }
   } else {
-    st->print("active_processor_count: failed\n");
+    st->print("not supported\n");
   }
 
   i = OSContainer::cpu_quota();
-  st->print("cpu_quota: %d\n", i);
+  st->print("cpu_quota: ");
+  if (i > 0) {
+    st->print("%d\n", i);
+  } else {
+    st->print("%s\n", i == OSCONTAINER_ERROR ? "not supported" : "no quota");
+  }
 
   i = OSContainer::cpu_period();
-  st->print("cpu_period: %d\n", i);
+  st->print("cpu_period: ");
+  if (i > 0) {
+    st->print("%d\n", i);
+  } else {
+    st->print("%s\n", i == OSCONTAINER_ERROR ? "not supported" : "no period");
+  }
 
   i = OSContainer::cpu_shares();
-  st->print("cpu_shares: %d\n", i);
+  st->print("cpu_shares: ");
+  if (i > 0) {
+    st->print("%d\n", i);
+  } else {
+    st->print("%s\n", i == OSCONTAINER_ERROR ? "not supported" : "no shares");
+  }
 
   if (CPUShareScaleFactor != 1) {
     st->print("cpu_shares scale factor: %d\n", (int)CPUShareScaleFactor);
     st->print("cpu_shares scale limit: %d\n", (int)CPUShareScaleLimit);
   }
 
-  jlong j = OSContainer::memory_limit_in_bytes();
-  st->print("memory_limit_in_bytes: " JLONG_FORMAT "\n", j);
+  print_container_helper(st, OSContainer::memory_limit_in_bytes(), "memory_limit_in_bytes");
+  print_container_helper(st, OSContainer::memory_and_swap_limit_in_bytes(), "memory_and_swap_limit_in_bytes");
+  print_container_helper(st, OSContainer::memory_soft_limit_in_bytes(), "memory_soft_limit_in_bytes");
+  print_container_helper(st, OSContainer::memory_usage_in_bytes(), "memory_usage_in_bytes");
+  print_container_helper(st, OSContainer::memory_max_usage_in_bytes(), "memory_max_usage_in_bytes");
 
-  j = OSContainer::memory_and_swap_limit_in_bytes();
-  st->print("memory_and_swap_limit_in_bytes: " JLONG_FORMAT "\n", j);
+  jlong j = OSContainer::pids_max();
+  st->print("maximum number of tasks: ");
+  if (j > 0) {
+    st->print_cr(JLONG_FORMAT, j);
+  } else {
+    st->print_cr("%s", j == OSCONTAINER_ERROR ? "not supported" : "unlimited");
+  }
 
-  j = OSContainer::memory_soft_limit_in_bytes();
-  st->print("memory_soft_limit_in_bytes: " JLONG_FORMAT "\n", j);
+  j = OSContainer::pids_current();
+  st->print("current number of tasks: ");
+  if (j > 0) {
+    st->print_cr(JLONG_FORMAT, j);
+  } else {
+    if (j == OSCONTAINER_ERROR) {
+      st->print_cr("not supported");
+    }
+  }
 
-  j = OSContainer::OSContainer::memory_usage_in_bytes();
-  st->print("memory_usage_in_bytes: " JLONG_FORMAT "\n", j);
-
-  j = OSContainer::OSContainer::memory_max_usage_in_bytes();
-  st->print("memory_max_usage_in_bytes: " JLONG_FORMAT "\n", j);
   st->cr();
 }
 
@@ -3130,6 +3247,19 @@ int os::numa_get_group_id() {
   return 0;
 }
 
+int os::numa_get_group_id_for_address(const void* address) {
+  void** pages = const_cast<void**>(&address);
+  int id = -1;
+
+  if (os::Linux::numa_move_pages(0, 1, pages, NULL, &id, 0) == -1) {
+    return -1;
+  }
+  if (id < 0) {
+    return -1;
+  }
+  return id;
+}
+
 int os::Linux::get_existing_num_nodes() {
   int node;
   int highest_node_number = Linux::numa_max_node();
@@ -3137,7 +3267,7 @@ int os::Linux::get_existing_num_nodes() {
 
   // Get the total number of nodes in the system including nodes without memory.
   for (node = 0; node <= highest_node_number; node++) {
-    if (isnode_in_existing_nodes(node)) {
+    if (is_node_in_existing_nodes(node)) {
       num_nodes++;
     }
   }
@@ -3153,7 +3283,7 @@ size_t os::numa_get_leaf_groups(int *ids, size_t size) {
   // node number. If the nodes have been bound explicitly using numactl membind,
   // then allocate memory from those nodes only.
   for (int node = 0; node <= highest_node_number; node++) {
-    if (Linux::isnode_in_bound_nodes((unsigned int)node)) {
+    if (Linux::is_node_in_bound_nodes((unsigned int)node)) {
       ids[i++] = node;
     }
   }
@@ -3254,6 +3384,8 @@ bool os::Linux::libnuma_init() {
     if (handle != NULL) {
       set_numa_node_to_cpus(CAST_TO_FN_PTR(numa_node_to_cpus_func_t,
                                            libnuma_dlsym(handle, "numa_node_to_cpus")));
+      set_numa_node_to_cpus_v2(CAST_TO_FN_PTR(numa_node_to_cpus_v2_func_t,
+                                              libnuma_v2_dlsym(handle, "numa_node_to_cpus")));
       set_numa_max_node(CAST_TO_FN_PTR(numa_max_node_func_t,
                                        libnuma_dlsym(handle, "numa_max_node")));
       set_numa_num_configured_nodes(CAST_TO_FN_PTR(numa_num_configured_nodes_func_t,
@@ -3274,11 +3406,17 @@ bool os::Linux::libnuma_init() {
                                        libnuma_dlsym(handle, "numa_distance")));
       set_numa_get_membind(CAST_TO_FN_PTR(numa_get_membind_func_t,
                                           libnuma_v2_dlsym(handle, "numa_get_membind")));
+      set_numa_get_interleave_mask(CAST_TO_FN_PTR(numa_get_interleave_mask_func_t,
+                                                  libnuma_v2_dlsym(handle, "numa_get_interleave_mask")));
+      set_numa_move_pages(CAST_TO_FN_PTR(numa_move_pages_func_t,  
+                                         libnuma_dlsym(handle, "numa_move_pages")));
 
       if (numa_available() != -1) {
         set_numa_all_nodes((unsigned long*)libnuma_dlsym(handle, "numa_all_nodes"));
         set_numa_all_nodes_ptr((struct bitmask **)libnuma_dlsym(handle, "numa_all_nodes_ptr"));
         set_numa_nodes_ptr((struct bitmask **)libnuma_dlsym(handle, "numa_nodes_ptr"));
+        set_numa_interleave_bitmask(_numa_get_interleave_mask());
+        set_numa_membind_bitmask(_numa_get_membind());
         // Create an index -> node mapping, since nodes are not always consecutive
         _nindex_to_node = new (ResourceObj::C_HEAP, mtInternal) GrowableArray<int>(0, true);
         rebuild_nindex_to_node_map();
@@ -3304,7 +3442,7 @@ void os::Linux::rebuild_nindex_to_node_map() {
 
   nindex_to_node()->clear();
   for (int node = 0; node <= highest_node_number; node++) {
-    if (Linux::isnode_in_existing_nodes(node)) {
+    if (Linux::is_node_in_existing_nodes(node)) {
       nindex_to_node()->append(node);
     }
   }
@@ -3341,16 +3479,16 @@ void os::Linux::rebuild_cpu_to_node_map() {
     // the closest configured node. Check also if node is bound, i.e. it's allowed
     // to allocate memory from the node. If it's not allowed, map cpus in that node
     // to the closest node from which memory allocation is allowed.
-    if (!isnode_in_configured_nodes(nindex_to_node()->at(i)) ||
-        !isnode_in_bound_nodes(nindex_to_node()->at(i))) {
+    if (!is_node_in_configured_nodes(nindex_to_node()->at(i)) ||
+        !is_node_in_bound_nodes(nindex_to_node()->at(i))) {
       closest_distance = INT_MAX;
       // Check distance from all remaining nodes in the system. Ignore distance
       // from itself, from another non-configured node, and from another non-bound
       // node.
       for (size_t m = 0; m < node_num; m++) {
         if (m != i &&
-            isnode_in_configured_nodes(nindex_to_node()->at(m)) &&
-            isnode_in_bound_nodes(nindex_to_node()->at(m))) {
+            is_node_in_configured_nodes(nindex_to_node()->at(m)) &&
+            is_node_in_bound_nodes(nindex_to_node()->at(m))) {
           distance = numa_distance(nindex_to_node()->at(i), nindex_to_node()->at(m));
           // If a closest node is found, update. There is always at least one
           // configured and bound node in the system so there is always at least
@@ -3384,6 +3522,26 @@ void os::Linux::rebuild_cpu_to_node_map() {
   FREE_C_HEAP_ARRAY(unsigned long, cpu_map);
 }
 
+int os::Linux::numa_node_to_cpus(int node, unsigned long *buffer, int bufferlen) {
+  // use the latest version of numa_node_to_cpus if available
+  if (_numa_node_to_cpus_v2 != NULL) {
+
+    // libnuma bitmask struct
+    struct bitmask {
+      unsigned long size; /* number of bits in the map */
+      unsigned long *maskp;
+    };
+
+    struct bitmask mask;
+    mask.maskp = (unsigned long *)buffer;
+    mask.size = bufferlen * 8;
+    return _numa_node_to_cpus_v2(node, &mask);
+  } else if (_numa_node_to_cpus != NULL) {
+    return _numa_node_to_cpus(node, buffer, bufferlen);
+  }
+  return -1;
+}
+
 int os::Linux::get_node_by_cpu(int cpu_id) {
   if (cpu_to_node() != NULL && cpu_id >= 0 && cpu_id < cpu_to_node()->length()) {
     return cpu_to_node()->at(cpu_id);
@@ -3395,6 +3553,7 @@ GrowableArray<int>* os::Linux::_cpu_to_node;
 GrowableArray<int>* os::Linux::_nindex_to_node;
 os::Linux::sched_getcpu_func_t os::Linux::_sched_getcpu;
 os::Linux::numa_node_to_cpus_func_t os::Linux::_numa_node_to_cpus;
+os::Linux::numa_node_to_cpus_v2_func_t os::Linux::_numa_node_to_cpus_v2;
 os::Linux::numa_max_node_func_t os::Linux::_numa_max_node;
 os::Linux::numa_num_configured_nodes_func_t os::Linux::_numa_num_configured_nodes;
 os::Linux::numa_available_func_t os::Linux::_numa_available;
@@ -3405,9 +3564,14 @@ os::Linux::numa_set_bind_policy_func_t os::Linux::_numa_set_bind_policy;
 os::Linux::numa_bitmask_isbitset_func_t os::Linux::_numa_bitmask_isbitset;
 os::Linux::numa_distance_func_t os::Linux::_numa_distance;
 os::Linux::numa_get_membind_func_t os::Linux::_numa_get_membind;
+os::Linux::numa_get_interleave_mask_func_t os::Linux::_numa_get_interleave_mask;
+os::Linux::numa_move_pages_func_t os::Linux::_numa_move_pages;
+os::Linux::NumaAllocationPolicy os::Linux::_current_numa_policy;
 unsigned long* os::Linux::_numa_all_nodes;
 struct bitmask* os::Linux::_numa_all_nodes_ptr;
 struct bitmask* os::Linux::_numa_nodes_ptr;
+struct bitmask* os::Linux::_numa_interleave_bitmask;
+struct bitmask* os::Linux::_numa_membind_bitmask;
 
 bool os::pd_uncommit_memory(char* addr, size_t size) {
   uintptr_t res = (uintptr_t) ::mmap(addr, size, PROT_NONE,
@@ -5259,6 +5423,40 @@ void os::Linux::check_signal_handler(int sig) {
 extern void report_error(char* file_name, int line_no, char* title,
                          char* format, ...);
 
+// Some linux distributions (notably: Alpine Linux) include the
+// grsecurity in the kernel. Of particular interest from a JVM perspective
+// is PaX (https://pax.grsecurity.net/), which adds some security features
+// related to page attributes. Specifically, the MPROTECT PaX functionality
+// (https://pax.grsecurity.net/docs/mprotect.txt) prevents dynamic
+// code generation by disallowing a (previously) writable page to be
+// marked as executable. This is, of course, exactly what HotSpot does
+// for both JIT compiled method, as well as for stubs, adapters, etc.
+//
+// Instead of crashing "lazily" when trying to make a page executable,
+// this code probes for the presence of PaX and reports the failure
+// eagerly.
+static void check_pax(void) {
+  // Zero doesn't generate code dynamically, so no need to perform the PaX check
+#ifndef ZERO
+  size_t size = os::Linux::page_size();
+
+  void* p = ::mmap(NULL, size, PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+  if (p == MAP_FAILED) {
+    log_debug(os)("os_linux.cpp: check_pax: mmap failed (%s)" , os::strerror(errno));
+    vm_exit_out_of_memory(size, OOM_MMAP_ERROR, "failed to allocate memory for PaX check.");
+  }
+
+  int res = ::mprotect(p, size, PROT_WRITE|PROT_EXEC);
+  if (res == -1) {
+    log_debug(os)("os_linux.cpp: check_pax: mprotect failed (%s)" , os::strerror(errno));
+    vm_exit_during_initialization(
+      "Failed to mark memory page as executable - check if grsecurity/PaX is enabled");
+  }
+
+  ::munmap(p, size);
+#endif
+}
+
 // this is called _before_ most of the global arguments have been parsed
 void os::init(void) {
   char dummy;   // used to get a guess on initial stack address
@@ -5302,6 +5500,8 @@ void os::init(void) {
   Linux::_pthread_setname_np =
     (int(*)(pthread_t, const char*))dlsym(RTLD_DEFAULT, "pthread_setname_np");
 
+  check_pax();
+
   os::Posix::init();
 }
 
@@ -5314,6 +5514,74 @@ extern "C" {
 
 void os::pd_init_container_support() {
   OSContainer::init();
+}
+
+void os::Linux::numa_init() {
+
+  // Java can be invoked as
+  // 1. Without numactl and heap will be allocated/configured on all nodes as
+  //    per the system policy.
+  // 2. With numactl --interleave:
+  //      Use numa_get_interleave_mask(v2) API to get nodes bitmask. The same
+  //      API for membind case bitmask is reset.
+  //      Interleave is only hint and Kernel can fallback to other nodes if
+  //      no memory is available on the target nodes.
+  // 3. With numactl --membind:
+  //      Use numa_get_membind(v2) API to get nodes bitmask. The same API for
+  //      interleave case returns bitmask of all nodes.
+  // numa_all_nodes_ptr holds bitmask of all nodes.
+  // numa_get_interleave_mask(v2) and numa_get_membind(v2) APIs returns correct
+  // bitmask when externally configured to run on all or fewer nodes.
+
+  if (!Linux::libnuma_init()) {
+    UseNUMA = false;
+  } else {
+    if ((Linux::numa_max_node() < 1) || Linux::is_bound_to_single_node()) {
+      // If there's only one node (they start from 0) or if the process
+      // is bound explicitly to a single node using membind, disable NUMA.
+      UseNUMA = false;
+    } else {
+
+      LogTarget(Info,os) log;
+      LogStream ls(log);
+
+      Linux::set_configured_numa_policy(Linux::identify_numa_policy());
+
+      struct bitmask* bmp = Linux::_numa_membind_bitmask;
+      const char* numa_mode = "membind";
+
+      if (Linux::is_running_in_interleave_mode()) {
+        bmp = Linux::_numa_interleave_bitmask;
+        numa_mode = "interleave";
+      }
+
+      ls.print("UseNUMA is enabled and invoked in '%s' mode."
+               " Heap will be configured using NUMA memory nodes:", numa_mode);
+
+      for (int node = 0; node <= Linux::numa_max_node(); node++) {
+        if (Linux::_numa_bitmask_isbitset(bmp, node)) {
+          ls.print(" %d", node);
+        }
+      }
+    }
+  }
+
+  if (UseParallelGC && UseNUMA && UseLargePages && !can_commit_large_page_memory()) {
+    // With SHM and HugeTLBFS large pages we cannot uncommit a page, so there's no way
+    // we can make the adaptive lgrp chunk resizing work. If the user specified both
+    // UseNUMA and UseLargePages (or UseSHM/UseHugeTLBFS) on the command line - warn
+    // and disable adaptive resizing.
+    if (UseAdaptiveSizePolicy || UseAdaptiveNUMAChunkSizing) {
+      warning("UseNUMA is not fully compatible with SHM/HugeTLBFS large pages, "
+              "disabling adaptive resizing (-XX:-UseAdaptiveSizePolicy -XX:-UseAdaptiveNUMAChunkSizing)");
+      UseAdaptiveSizePolicy = false;
+      UseAdaptiveNUMAChunkSizing = false;
+    }
+  }
+
+  if (!UseNUMA && ForceNUMA) {
+    UseNUMA = true;
+  }
 }
 
 // this is called _after_ the global arguments have been parsed
@@ -5356,35 +5624,10 @@ jint os::init_2(void) {
   Linux::libpthread_init();
   Linux::sched_getcpu_init();
   log_info(os)("HotSpot is running with %s, %s",
-               Linux::glibc_version(), Linux::libpthread_version());
+               Linux::libc_version(), Linux::libpthread_version());
 
   if (UseNUMA) {
-    if (!Linux::libnuma_init()) {
-      UseNUMA = false;
-    } else {
-      if ((Linux::numa_max_node() < 1) || Linux::isbound_to_single_node()) {
-        // If there's only one node (they start from 0) or if the process
-        // is bound explicitly to a single node using membind, disable NUMA.
-        UseNUMA = false;
-      }
-    }
-
-    if (UseParallelGC && UseNUMA && UseLargePages && !can_commit_large_page_memory()) {
-      // With SHM and HugeTLBFS large pages we cannot uncommit a page, so there's no way
-      // we can make the adaptive lgrp chunk resizing work. If the user specified both
-      // UseNUMA and UseLargePages (or UseSHM/UseHugeTLBFS) on the command line - warn
-      // and disable adaptive resizing.
-      if (UseAdaptiveSizePolicy || UseAdaptiveNUMAChunkSizing) {
-        warning("UseNUMA is not fully compatible with SHM/HugeTLBFS large pages, "
-                "disabling adaptive resizing (-XX:-UseAdaptiveSizePolicy -XX:-UseAdaptiveNUMAChunkSizing)");
-        UseAdaptiveSizePolicy = false;
-        UseAdaptiveNUMAChunkSizing = false;
-      }
-    }
-
-    if (!UseNUMA && ForceNUMA) {
-      UseNUMA = true;
-    }
+    Linux::numa_init();
   }
 
   if (MaxFDLimit) {
@@ -5483,7 +5726,8 @@ static int _cpu_count(const cpu_set_t* cpus) {
 // dynamic check - see 6515172 for details.
 // If anything goes wrong we fallback to returning the number of online
 // processors - which can be greater than the number available to the process.
-int os::Linux::active_processor_count() {
+static int get_active_processor_count() {
+  // Note: keep this function, with its CPU_xx macros, *outside* the os namespace (see JDK-8289477).
   cpu_set_t cpus;  // can represent at most 1024 (CPU_SETSIZE) processors
   cpu_set_t* cpus_p = &cpus;
   int cpus_size = sizeof(cpu_set_t);
@@ -5553,6 +5797,10 @@ int os::Linux::active_processor_count() {
 
   assert(cpu_count > 0 && cpu_count <= os::processor_count(), "sanity check");
   return cpu_count;
+}
+
+int os::Linux::active_processor_count() {
+  return get_active_processor_count();
 }
 
 // Determine the active processor count from one of

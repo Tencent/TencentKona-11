@@ -25,6 +25,7 @@
 #define SHARE_GC_SHENANDOAH_SHENANDOAHROOTPROCESSOR_INLINE_HPP
 
 #include "classfile/stringTable.hpp"
+#include "classfile/classLoaderDataGraph.hpp"
 #include "gc/shared/oopStorageParState.inline.hpp"
 #include "gc/shenandoah/shenandoahHeap.inline.hpp"
 #include "gc/shenandoah/shenandoahPhaseTimings.hpp"
@@ -123,14 +124,14 @@ ShenandoahRootScanner<ITR>::ShenandoahRootScanner(uint n_workers, ShenandoahPhas
 
 template <typename ITR>
 void ShenandoahRootScanner<ITR>::roots_do(uint worker_id, OopClosure* oops) {
-  CLDToOopClosure clds_cl(oops);
+  CLDToOopClosure clds_cl(oops, ClassLoaderData::_claim_strong);
   MarkingCodeBlobClosure blobs_cl(oops, !CodeBlobToOopClosure::FixRelocations);
   roots_do(worker_id, oops, &clds_cl, &blobs_cl);
 }
 
 template <typename ITR>
 void ShenandoahRootScanner<ITR>::strong_roots_do(uint worker_id, OopClosure* oops) {
-  CLDToOopClosure clds_cl(oops);
+  CLDToOopClosure clds_cl(oops, ClassLoaderData::_claim_strong);
   MarkingCodeBlobClosure blobs_cl(oops, !CodeBlobToOopClosure::FixRelocations);
   strong_roots_do(worker_id, oops, &clds_cl, &blobs_cl);
 }
@@ -178,7 +179,7 @@ void ShenandoahRootScanner<ITR>::strong_roots_do(uint worker_id, OopClosure* oop
 template <typename IsAlive, typename KeepAlive>
 void ShenandoahRootUpdater::roots_do(uint worker_id, IsAlive* is_alive, KeepAlive* keep_alive) {
   CodeBlobToOopClosure update_blobs(keep_alive, CodeBlobToOopClosure::FixRelocations);
-  CLDToOopClosure clds(keep_alive);
+  CLDToOopClosure clds(keep_alive, ClassLoaderData::_claim_strong);
 
   // Process serial-claiming roots first
   _serial_roots.oops_do(keep_alive, worker_id);

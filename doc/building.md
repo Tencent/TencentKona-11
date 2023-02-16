@@ -177,10 +177,9 @@ On Windows, it is important that you pay attention to the instructions in the
 
 Windows is the only non-POSIX OS supported by the JDK, and as such, requires
 some extra care. A POSIX support layer is required to build on Windows.
-Currently, the only supported such layer is Cygwin. (Msys is no longer
-supported due to a too old bash; msys2 and the new Windows Subsystem for Linux
-(WSL) would likely be possible to support in a future version but that would
-require effort to implement.)
+Currently, the only supported such layers are Cygwin and MSYS2. (MSYS is no longer
+supported due to an outdated bash; While OpenJDK can be built with MSYS2,
+support for it is still experimental, so build failures and unusual errors are not uncommon.)
 
 Internally in the build system, all paths are represented as Unix-style paths,
 e.g. `/cygdrive/c/git/jdk/Makefile` rather than `C:\git\jdk\Makefile`. This
@@ -270,6 +269,13 @@ sudo apt-get install build-essential
 For rpm-based distributions (Fedora, Red Hat, etc), try this:
 ```
 sudo yum groupinstall "Development Tools"
+```
+
+For Alpine Linux, aside from basic tooling, install the GNU versions of some
+programs:
+
+```
+sudo apk add build-base bash grep zip
 ```
 
 ### AIX
@@ -396,6 +402,9 @@ specific installation order. However, the solution suggested by the KB article
 does not always resolve the problem. See [this stackoverflow discussion](
 https://stackoverflow.com/questions/10888391) for other suggestions.
 
+If you have Visual Studio installed but `configure` fails to detect it, it may
+be because of [spaces in path](#spaces-in-path).
+
 ### IBM XL C/C++
 
 The regular builds by SAP is using version 12.1, described as `IBM XL C/C++ for
@@ -465,6 +474,8 @@ rather than bundling the JDK's own copy.
     libfreetype6-dev`.
   * To install on an rpm-based Linux, try running `sudo yum install
     freetype-devel`.
+  * To install on Alpine Linux, try running `sudo apk add freetype-dev`.
+  * To install on macOS, try running `brew install freetype`.
   * To install on Solaris, try running `pkg install system/library/freetype-2`.
 
 Use `--with-freetype-include=<path>` and `--with-freetype-lib=<path>`
@@ -480,6 +491,7 @@ your operating system.
     libcups2-dev`.
   * To install on an rpm-based Linux, try running `sudo yum install
     cups-devel`.
+  * To install on Alpine Linux, try running `sudo apk add cups-dev`.
   * To install on Solaris, try running `pkg install print/cups`.
 
 Use `--with-cups=<path>` if `configure` does not properly locate your CUPS
@@ -494,6 +506,8 @@ Linux and Solaris.
     libx11-dev libxext-dev libxrender-dev libxtst-dev libxt-dev`.
   * To install on an rpm-based Linux, try running `sudo yum install
     libXtst-devel libXt-devel libXrender-devel libXi-devel`.
+  * To install on Alpine Linux, try running `sudo apk add libx11-dev
+    libxext-dev libxrender-dev libxrandr-dev libxtst-dev libxt-dev`.
   * To install on Solaris, try running `pkg install x11/header/x11-protocols
     x11/library/libice x11/library/libpthread-stubs x11/library/libsm
     x11/library/libx11 x11/library/libxau x11/library/libxcb
@@ -512,6 +526,7 @@ required on Linux. At least version 0.9.1 of ALSA is required.
     libasound2-dev`.
   * To install on an rpm-based Linux, try running `sudo yum install
     alsa-lib-devel`.
+  * To install on Alpine Linux, try running `sudo apk add alsa-lib-dev`.
 
 Use `--with-alsa=<path>` if `configure` does not properly locate your ALSA
 files.
@@ -526,6 +541,7 @@ Hotspot.
     libffi-dev`.
   * To install on an rpm-based Linux, try running `sudo yum install
     libffi-devel`.
+  * To install on Alpine Linux, try running `sudo apk add libffi-dev`.
 
 Use `--with-libffi=<path>` if `configure` does not properly locate your libffi
 files.
@@ -541,6 +557,7 @@ platforms. At least version 2.69 is required.
     autoconf`.
   * To install on an rpm-based Linux, try running `sudo yum install
     autoconf`.
+  * To install on Alpine Linux, try running `sudo apk add autoconf`.
   * To install on macOS, try running `brew install autoconf`.
   * To install on Windows, try running `<path to Cygwin setup>/setup-x86_64 -q
     -P autoconf`.
@@ -1088,7 +1105,7 @@ Note that X11 is needed even if you only want to build a headless JDK.
   * If the X11 libraries are not properly detected by `configure`, you can
     point them out by `--with-x`.
 
-### Creating And Using Sysroots With qemu-deboostrap
+### Cross compiling with Debian sysroots
 
 Fortunately, you can create sysroots for foreign architectures with tools
 provided by your OS. On Debian/Ubuntu systems, one could use `qemu-deboostrap` to
@@ -1109,7 +1126,7 @@ For example, cross-compiling to AArch64 from x86_64 could be done like this:
     sudo qemu-debootstrap \
       --arch=arm64 \
       --verbose \
-      --include=fakeroot,symlinks,build-essential,libx11-dev,libxext-dev,libxrender-dev,libxrandr-dev,libxtst-dev,libxt-dev,libcups2-dev,libfontconfig1-dev,libasound2-dev,libfreetype6-dev,libpng-dev \
+      --include=fakeroot,symlinks,build-essential,libx11-dev,libxext-dev,libxrender-dev,libxrandr-dev,libxtst-dev,libxt-dev,libcups2-dev,libfontconfig1-dev,libasound2-dev,libfreetype6-dev,libpng-dev,libffi-dev \
       --resolve-deps \
       buster \
       ~/sysroot-arm64 \
@@ -1123,13 +1140,9 @@ For example, cross-compiling to AArch64 from x86_64 could be done like this:
 
   * Configure and build with newly created chroot as sysroot/toolchain-path:
     ```
-    CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ sh ./configure \
-     --openjdk-target=aarch64-linux-gnu \
-     --with-sysroot=~/sysroot-arm64 \
-     --with-toolchain-path=~/sysroot-arm64 \
-     --with-freetype-lib=~/sysroot-arm64/usr/lib/aarch64-linux-gnu/ \
-     --with-freetype-include=~/sysroot-arm64/usr/include/freetype2/ \
-     --x-libraries=~/sysroot-arm64/usr/lib/aarch64-linux-gnu/
+    sh ./configure \
+      --openjdk-target=aarch64-linux-gnu \
+      --with-sysroot=~/sysroot-arm64
     make images
     ls build/linux-aarch64-normal-server-release/
     ```
@@ -1137,17 +1150,34 @@ For example, cross-compiling to AArch64 from x86_64 could be done like this:
 The build does not create new files in that chroot, so it can be reused for multiple builds
 without additional cleanup.
 
+The build system should automatically detect the toolchain paths and dependencies, but sometimes
+it might require a little nudge with:
+
+  * Native compilers: override `CC` or `CXX` for `./configure`
+
+  * Freetype lib location: override `--with-freetype-lib`, for example `${sysroot}/usr/lib/${target}/`
+
+  * Freetype includes location: override `--with-freetype-include` for example `${sysroot}/usr/include/freetype2/`
+
+  * X11 libraries location: override `--x-libraries`, for example `${sysroot}/usr/lib/${target}/`
+
 Architectures that are known to successfully cross-compile like this are:
 
-  Target        `CC`                      `CXX`                       `--arch=...` `--openjdk-target=...`
-  ------------  ------------------------- --------------------------- ------------ ----------------------
-  x86           default                   default                     i386         i386-linux-gnu
-  armhf         gcc-arm-linux-gnueabihf   g++-arm-linux-gnueabihf     armhf        arm-linux-gnueabihf
-  aarch64       gcc-aarch64-linux-gnu     g++-aarch64-linux-gnu       arm64        aarch64-linux-gnu
-  ppc64el       gcc-powerpc64le-linux-gnu g++-powerpc64le-linux-gnu   ppc64el      powerpc64le-linux-gnu
-  s390x         gcc-s390x-linux-gnu       g++-s390x-linux-gnu         s390x        s390x-linux-gnu
-
-Additional architectures might be supported by Debian/Ubuntu Ports.
+  Target        Debian tree  Debian arch   `--openjdk-target=...`   `--with-jvm-variants=...`
+  ------------  ------------ ------------- ------------------------ --------------
+  x86           buster       i386          i386-linux-gnu           (all)
+  arm           buster       armhf         arm-linux-gnueabihf      (all)
+  aarch64       buster       arm64         aarch64-linux-gnu        (all)
+  ppc64le       buster       ppc64el       powerpc64le-linux-gnu    (all)
+  s390x         buster       s390x         s390x-linux-gnu          (all)
+  mipsle        buster       mipsel        mipsel-linux-gnu         zero
+  mips64le      buster       mips64el      mips64el-linux-gnueabi64 zero
+  armel         buster       arm           arm-linux-gnueabi        zero
+  ppc           sid          powerpc       powerpc-linux-gnu        zero
+  ppc64be       sid          ppc64         powerpc64-linux-gnu      (all)
+  m68k          sid          m68k          m68k-linux-gnu           zero
+  alpha         sid          alpha         alpha-linux-gnu          zero
+  sh4           sid          sh4           sh4-linux-gnu            zero
 
 ### Building for ARM/aarch64
 
@@ -1164,6 +1194,25 @@ the Oracle contributed ARM port. When targeting aarch64, by the default the
 original aarch64 port is used. To select the Oracle ARM 64 port, use
 `--with-cpu-port=arm64`. Also set the corresponding value (`aarch64` or
 `arm64`) to --with-abi-profile, to ensure a consistent build.
+
+### Building for musl
+
+Just like it's possible to cross-compile for a different CPU, it's possible to
+cross-compile for musl libc on a glibc-based *build* system.
+A devkit suitable for most target CPU architectures can be obtained from
+[musl.cc](https://musl.cc). After installing the required packages in the
+sysroot, configure the build with `--openjdk-target`:
+
+```
+sh ./configure --with-jvm-variants=server \
+--with-boot-jdk=$BOOT_JDK \
+--with-build-jdk=$BUILD_JDK \
+--openjdk-target=x86_64-unknown-linux-musl \
+--with-devkit=$DEVKIT \
+--with-sysroot=$SYSROOT
+```
+
+and run `make` normally.
 
 ### Verifying the Build
 
@@ -1462,6 +1511,15 @@ spawn failed
 This can be a sign of a Cygwin problem. See the information about solving
 problems in the [Cygwin](#cygwin) section. Rebooting the computer might help
 temporarily.
+
+#### Spaces in Path
+
+On Windows, when configuring, `fixpath.sh` may report that some directory
+names have spaces. Usually, it assumes those directories have
+[short paths](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-8dot3name).
+You can run `fsutil file setshortname` in `cmd` on certain directories, such as
+`Microsoft Visual Studio` or `Windows Kits`, to assign arbitrary short paths so
+`configure` can access them.
 
 ### Getting Help
 

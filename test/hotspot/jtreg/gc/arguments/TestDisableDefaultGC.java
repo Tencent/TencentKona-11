@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,16 +21,19 @@
  * questions.
  */
 
+package gc.arguments;
+
 /*
  * @test TestDisableDefaultGC
  * @summary Test that the VM complains when the default GC is disabled and no other GC is specified
  * @bug 8068579
  * @key gc
  * @library /test/lib
+ * @library /
  * @requires vm.gc=="null"
  * @modules java.base/jdk.internal.misc
  *          java.management
- * @run driver TestDisableDefaultGC
+ * @run driver gc.arguments.TestDisableDefaultGC
  */
 
 import jdk.test.lib.process.ProcessTools;
@@ -39,13 +42,13 @@ import jdk.test.lib.process.OutputAnalyzer;
 public class TestDisableDefaultGC {
     public static void main(String[] args) throws Exception {
         // Start VM, disabling all possible default GCs
-        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder("-XX:-UseSerialGC",
-                                                                  "-XX:-UseParallelGC",
-                                                                  "-XX:-UseG1GC",
-                                                                  "-XX:-UseConcMarkSweepGC",
-                                                                  "-XX:+UnlockExperimentalVMOptions",
-                                                                  "-XX:-UseZGC",
-                                                                  "-version");
+        ProcessBuilder pb = GCArguments.createJavaProcessBuilder("-XX:-UseSerialGC",
+                                                                 "-XX:-UseParallelGC",
+                                                                 "-XX:-UseG1GC",
+                                                                 "-XX:-UseConcMarkSweepGC",
+                                                                 "-XX:+UnlockExperimentalVMOptions",
+                                                                 "-XX:-UseZGC",
+                                                                 "-version");
         OutputAnalyzer output = new OutputAnalyzer(pb.start());
         output.shouldMatch("Garbage collector not selected");
         output.shouldHaveExitValue(1);

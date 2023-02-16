@@ -47,14 +47,17 @@
   } while (0)
 
 
-class HRSMtSafeChecker : public CHeapObj<mtGC> {
+// Interface collecting various instance specific verification methods of
+// HeapRegionSets.
+class HeapRegionSetChecker : public CHeapObj<mtGC> {
 public:
-  virtual void check() = 0;
+  // Verify MT safety for this HeapRegionSet.
+  virtual void check_mt_safety() = 0;
+  // Returns true if the given HeapRegion is of the correct type for this HeapRegionSet.
+  virtual bool is_correct_type(HeapRegion* hr) = 0;
+  // Return a description of the type of regions this HeapRegionSet contains.
+  virtual const char* get_description() = 0;
 };
-
-class MasterFreeRegionListMtSafeChecker    : public HRSMtSafeChecker { public: void check(); };
-class HumongousRegionSetMtSafeChecker      : public HRSMtSafeChecker { public: void check(); };
-class OldRegionSetMtSafeChecker            : public HRSMtSafeChecker { public: void check(); };
 
 // Base class for all the classes that represent heap region sets. It
 // contains the basic attributes that each set needs to maintain
@@ -63,10 +66,8 @@ class OldRegionSetMtSafeChecker            : public HRSMtSafeChecker { public: v
 
 class HeapRegionSetBase {
   friend class VMStructs;
-private:
-  bool _is_humongous;
-  bool _is_free;
-  HRSMtSafeChecker* _mt_safety_checker;
+
+  HeapRegionSetChecker* _checker;
 
 protected:
   // The number of regions in to the set.
@@ -80,21 +81,13 @@ protected:
   // added to / removed from a set are consistent.
   void verify_region(HeapRegion* hr) PRODUCT_RETURN;
 
-  // Indicates whether all regions in the set should be humongous or
-  // not. Only used during verification.
-  bool regions_humongous() { return _is_humongous; }
-
-  // Indicates whether all regions in the set should be free or
-  // not. Only used during verification.
-  bool regions_free() { return _is_free; }
-
   void check_mt_safety() {
-    if (_mt_safety_checker != NULL) {
-      _mt_safety_checker->check();
+    if (_checker != NULL) {
+      _checker->check_mt_safety();
     }
   }
 
-  HeapRegionSetBase(const char* name, bool humongous, bool free, HRSMtSafeChecker* mt_safety_checker);
+  HeapRegionSetBase(const char* name, HeapRegionSetChecker* verifier);
 
 public:
   const char* name() { return _name; }
@@ -137,8 +130,9 @@ public:
 
 class HeapRegionSet : public HeapRegionSetBase {
 public:
-  HeapRegionSet(const char* name, bool humongous, HRSMtSafeChecker* mt_safety_checker):
-    HeapRegionSetBase(name, humongous, false /* free */, mt_safety_checker) { }
+  HeapRegionSet(const char* name, HeapRegionSetChecker* checker):
+    HeapRegionSetBase(name, checker) {
+  }
 
   void bulk_remove(const uint removed) {
     _length -= removed;
@@ -151,11 +145,33 @@ public:
 // add / remove one region at a time or concatenate two lists.
 
 class FreeRegionListIterator;
+class G1NUMA;
 
 class FreeRegionList : public HeapRegionSetBase {
   friend class FreeRegionListIterator;
 
 private:
+
+  // This class is only initialized if there are multiple active nodes.
+  class NodeInfo : public CHeapObj<mtGC> {
+    G1NUMA* _numa;
+    uint*   _length_of_node;
+    uint    _num_nodes;
+
+  public:
+    NodeInfo();
+    ~NodeInfo();
+
+    inline void increase_length(uint node_index);
+    inline void decrease_length(uint node_index);
+
+    inline uint length(uint index) const;
+
+    void clear();
+
+    void add(NodeInfo* info);
+  };
+
   HeapRegion* _head;
   HeapRegion* _tail;
 
@@ -163,20 +179,23 @@ private:
   // time. It helps to improve performance when adding several ordered items in a row.
   HeapRegion* _last;
 
+  NodeInfo*   _node_info;
+
   static uint _unrealistically_long_length;
 
   inline HeapRegion* remove_from_head_impl();
   inline HeapRegion* remove_from_tail_impl();
+
+  inline void increase_length(uint node_index);
+  inline void decrease_length(uint node_index);
 
 protected:
   // See the comment for HeapRegionSetBase::clear()
   virtual void clear();
 
 public:
-  FreeRegionList(const char* name, HRSMtSafeChecker* mt_safety_checker = NULL):
-    HeapRegionSetBase(name, false /* humongous */, true /* empty */, mt_safety_checker) {
-    clear();
-  }
+  FreeRegionList(const char* name, HeapRegionSetChecker* checker = NULL);
+  ~FreeRegionList();
 
   void verify_list();
 
@@ -196,6 +215,9 @@ public:
   // Removes from head or tail based on the given argument.
   HeapRegion* remove_region(bool from_head);
 
+  HeapRegion* remove_region_with_node_index(bool from_head,
+                                            uint requested_node_index);
+
   // Merge two ordered lists. The result is also ordered. The order is
   // determined by hrm_index.
   void add_ordered(FreeRegionList* from_list);
@@ -209,6 +231,11 @@ public:
   void remove_starting_at(HeapRegion* first, uint num_regions);
 
   virtual void verify();
+
+  uint num_of_regions_in_range(uint start, uint end) const;
+
+  using HeapRegionSetBase::length;
+  uint length(uint node_index) const;
 };
 
 // Iterator class that provides a convenient way to iterate over the

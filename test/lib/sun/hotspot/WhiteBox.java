@@ -189,6 +189,9 @@ public class WhiteBox {
     return parseCommandLine0(commandline, delim, args);
   }
 
+  public native int g1ActiveMemoryNodeCount();
+  public native int[] g1MemoryNodeIds();
+
   // Parallel GC
   public native long psVirtualSpaceAlignment();
   public native long psHeapGenerationAlignment();
@@ -539,17 +542,23 @@ public class WhiteBox {
 
   // Container testing
   public native boolean isContainerized();
+  public native int validateCgroup(String procCgroups,
+                                   String procSelfCgroup,
+                                   String procSelfMountinfo);
   public native void printOsInfo();
 
   // Decoder
   public native void disableElfSectionCache();
 
   // Resolved Method Table
-  public native int resolvedMethodRemovedCount();
+  public native long resolvedMethodItemsCount();
 
   // Protection Domain Table
   public native int protectionDomainRemovedCount();
 
   // Number of loaded AOT libraries
   public native int aotLibrariesCount();
+
+  // libc name
+  public native String getLibcName();
 }
