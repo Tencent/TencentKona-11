@@ -5177,6 +5177,7 @@ address generate_avx_ghash_processBlocks() {
    * Ouput:
    *       rax   - updated sp and dp (dp << 32 | sp)
    */
+#ifndef _WIN64
   address generate_utf8_to_utf16_decoder() {
     assert(UseUTF8UTF16Intrinsics, "UseUTF8UTF16Intrinsics is off");
 
@@ -5454,6 +5455,12 @@ address generate_avx_ghash_processBlocks() {
     
     return start;
   }
+#else
+  address generate_utf8_to_utf16_decoder() {
+    // Unsupported on windows.
+    return nullptr;
+  }
+#endif
 
   /**
    *  Arguments:
