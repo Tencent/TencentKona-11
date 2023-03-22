@@ -727,9 +727,7 @@ public abstract class PKCS11Test {
                 "/usr/lib32/",
                 "/usr/lib/" });
         osMap.put("Linux-amd64-64", new String[] {
-                "/usr/lib/x86_64-linux-gnu/",
-                "/usr/lib/x86_64-linux-gnu/nss/",
-                "/usr/lib64/" });
+                PKCS11_BASE + "/nss/lib/linux-amd64/" });
         osMap.put("Linux-ppc64-64", new String[] { "/usr/lib64/" });
         osMap.put("Linux-ppc64le-64", new String[] { "/usr/lib64/" });
         osMap.put("Linux-s390x-64", new String[] { "/usr/lib64/" });
