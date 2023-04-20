@@ -1551,9 +1551,10 @@ public:
     G1CMTask* task = _cm->task(worker_id);
     G1CMIsAliveClosure g1_is_alive(_g1h);
     G1CMKeepAliveAndDrainClosure g1_par_keep_alive(_cm, task, false /* is_serial */);
+    BarrierEnqueueDiscoveredFieldClosure enqueue;
     G1CMDrainMarkingStackClosure g1_par_drain(_cm, task, false /* is_serial */);
 
-    _proc_task.work(worker_id, g1_is_alive, g1_par_keep_alive, g1_par_drain);
+    _proc_task.work(worker_id, g1_is_alive, g1_par_keep_alive, enqueue, g1_par_drain);
   }
 };
 
@@ -1610,6 +1611,7 @@ void G1ConcurrentMark::weak_refs_work(bool clear_all_soft_refs) {
     // their own instances of these closures, which do their own
     // synchronization among themselves.
     G1CMKeepAliveAndDrainClosure g1_keep_alive(this, task(0), true /* is_serial */);
+    BarrierEnqueueDiscoveredFieldClosure g1_enqueue;
     G1CMDrainMarkingStackClosure g1_drain_mark_stack(this, task(0), true /* is_serial */);
 
     // We need at least one active thread. If reference processing
@@ -1641,6 +1643,7 @@ void G1ConcurrentMark::weak_refs_work(bool clear_all_soft_refs) {
     const ReferenceProcessorStats& stats =
         rp->process_discovered_references(&g1_is_alive,
                                           &g1_keep_alive,
+                                          &g1_enqueue,
                                           &g1_drain_mark_stack,
                                           executor,
                                           &pt);
