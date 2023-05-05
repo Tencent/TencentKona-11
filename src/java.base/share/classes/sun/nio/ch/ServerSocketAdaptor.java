@@ -39,6 +39,7 @@ import java.nio.channels.NotYetBoundException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
+import sun.security.action.GetPropertyAction;
 
 // Make a server-socket channel look like a server socket.
 //
@@ -67,6 +68,14 @@ class ServerSocketAdaptor                        // package-private
     // ## super will create a useless impl
     private ServerSocketAdaptor(ServerSocketChannelImpl ssc) throws IOException {
         this.ssc = ssc;
+        String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+        if (tos != null) {
+            try {
+                ssc.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+            } catch (IOException ioe) {
+                // do nothing
+            }
+        }
     }
 
     public void bind(SocketAddress local) throws IOException {

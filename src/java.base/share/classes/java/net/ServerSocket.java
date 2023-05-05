@@ -27,6 +27,7 @@ package java.net;
 
 import jdk.internal.misc.JavaNetSocketAccess;
 import jdk.internal.misc.SharedSecrets;
+import sun.security.action.GetPropertyAction;
 import sun.security.util.SecurityConstants;
 
 import java.io.FileDescriptor;
@@ -88,6 +89,14 @@ class ServerSocket implements java.io.Closeable {
         checkPermission();
         this.impl = impl;
         impl.setServerSocket(this);
+        String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+        if (tos != null) {
+            try {
+                impl.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+            } catch (IOException ioe) {
+                // do nothing
+            }
+        }
     }
 
     private static Void checkPermission() {
@@ -307,8 +316,17 @@ class ServerSocket implements java.io.Closeable {
             // SocketImpl!
             impl = new SocksSocketImpl();
         }
-        if (impl != null)
+        if (impl != null) {
             impl.setServerSocket(this);
+            String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+            if (tos != null) {
+                try {
+                    impl.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+                } catch (IOException ioe) {
+                    // do nothing
+                }
+            }
+        }
     }
 
     /**
@@ -322,6 +340,14 @@ class ServerSocket implements java.io.Closeable {
             setImpl();
         try {
             impl.create(true);
+            String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+            if (tos != null) {
+                try {
+                    impl.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+                } catch (IOException ioe) {
+                    // do nothing
+                }
+            }
             created = true;
         } catch (IOException e) {
             throw new SocketException(e.getMessage());

@@ -25,6 +25,7 @@
 
 package java.net;
 
+import sun.security.action.GetPropertyAction;
 import sun.security.util.SecurityConstants;
 
 import java.io.InputStream;
@@ -175,6 +176,14 @@ class Socket implements java.io.Closeable {
         if (impl != null) {
             checkOldImpl();
             this.impl.setSocket(this);
+            String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+            if (tos != null) {
+                try {
+                    impl.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+                } catch (IOException ioe) {
+                    // do nothing
+                }
+            }
         }
     }
 
@@ -475,6 +484,14 @@ class Socket implements java.io.Closeable {
             setImpl();
         try {
             impl.create(stream);
+            String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+            if (tos != null) {
+                try {
+                    impl.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+                } catch (IOException ioe) {
+                    // do nothing
+                }
+            }
             created = true;
         } catch (IOException e) {
             throw new SocketException(e.getMessage());
@@ -522,8 +539,17 @@ class Socket implements java.io.Closeable {
             // SocketImpl!
             impl = new SocksSocketImpl();
         }
-        if (impl != null)
+        if (impl != null) {
             impl.setSocket(this);
+            String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+            if (tos != null) {
+                try {
+                    impl.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+                } catch (IOException ioe) {
+                    // do nothing
+                }
+            }
+        }
     }
 
 

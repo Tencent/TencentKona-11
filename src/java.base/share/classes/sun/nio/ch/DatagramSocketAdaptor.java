@@ -43,6 +43,7 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.IllegalBlockingModeException;
 import java.util.Objects;
 
+import sun.security.action.GetPropertyAction;
 
 // Make a datagram-socket channel look like a datagram socket.
 //
@@ -68,6 +69,14 @@ public class DatagramSocketAdaptor
         // before the dc field is initialized.
         super(dummyDatagramSocket);
         this.dc = dc;
+        String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+        if (tos != null) {
+            try {
+                dc.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+            } catch (IOException ioe) {
+                // do nothing
+            }
+        }
     }
 
     public static DatagramSocket create(DatagramChannelImpl dc) {

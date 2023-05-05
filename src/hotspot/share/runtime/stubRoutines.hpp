@@ -196,6 +196,8 @@ class StubRoutines: AllStatic {
   static address _montgomeryMultiply;
   static address _montgomerySquare;
 
+  static address _utf8_to_utf16_decoder;
+
   static address _vectorizedMismatch;
 
   static address _dexp;
@@ -359,6 +361,8 @@ class StubRoutines: AllStatic {
   static address sha256_implCompressMB() { return _sha256_implCompressMB; }
   static address sha512_implCompress()   { return _sha512_implCompress; }
   static address sha512_implCompressMB() { return _sha512_implCompressMB; }
+
+  static address utf8_to_utf16_decoder() { return _utf8_to_utf16_decoder; }
 
   static address updateBytesCRC32()    { return _updateBytesCRC32; }
   static address crc_table_addr()      { return _crc_table_adr; }

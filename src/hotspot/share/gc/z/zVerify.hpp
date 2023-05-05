@@ -25,6 +25,7 @@
 #define SHARE_GC_Z_ZVERIFY_HPP
 
 #include "memory/allocation.hpp"
+#include "runtime/vmOperations.hpp"
 
 class ZVerify : public AllStatic {
 private:

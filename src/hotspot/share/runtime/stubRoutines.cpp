@@ -152,6 +152,8 @@ address StubRoutines::_mulAdd = NULL;
 address StubRoutines::_montgomeryMultiply = NULL;
 address StubRoutines::_montgomerySquare = NULL;
 
+address StubRoutines::_utf8_to_utf16_decoder = NULL;
+
 address StubRoutines::_vectorizedMismatch = NULL;
 
 address StubRoutines::_dexp = NULL;

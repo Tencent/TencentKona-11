@@ -1412,6 +1412,19 @@ void VM_Version::get_processor_features() {
   }
 #endif // _LP64
 
+#ifndef _WINDOWS
+#ifdef _LP64
+  if (FLAG_IS_DEFAULT(UseUTF8UTF16Intrinsics)) {
+    FLAG_SET_ERGO(bool, UseUTF8UTF16Intrinsics, true);
+  }
+#endif // _LP64
+#else
+  if (UseUTF8UTF16Intrinsics) {
+    warning("UTF8UTF16Intrinscs is not supported on Windows");
+    UseUTF8UTF16Intrinsics = false;
+  }
+#endif // _WINDOWS
+
   // Use count leading zeros count instruction if available.
   if (supports_lzcnt()) {
     if (FLAG_IS_DEFAULT(UseCountLeadingZerosInstruction)) {

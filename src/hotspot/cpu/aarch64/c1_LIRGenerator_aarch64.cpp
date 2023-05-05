@@ -1072,6 +1072,10 @@ void LIRGenerator::do_update_CRC32C(Intrinsic* x) {
   }
 }
 
+void LIRGenerator::do_UTF8_UTF16_decode(Intrinsic* x) {
+  fatal("UTF8_UTF16_decode intrinsic is not implemented on this platform");
+}
+
 void LIRGenerator::do_FmaIntrinsic(Intrinsic* x) {
   assert(x->number_of_arguments() == 3, "wrong type");
   assert(UseFMA, "Needs FMA instructions support.");

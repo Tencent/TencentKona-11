@@ -263,6 +263,7 @@ class LIRGenerator: public InstructionVisitor, public BlockClosure {
   void do_Reference_get(Intrinsic* x);
   void do_update_CRC32(Intrinsic* x);
   void do_update_CRC32C(Intrinsic* x);
+  void do_UTF8_UTF16_decode(Intrinsic* x);
   void do_vectorizedMismatch(Intrinsic* x);
 
  public:
