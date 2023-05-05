@@ -28,6 +28,7 @@
 #include "memory/allocation.hpp"
 #include "oops/accessDecorators.hpp"
 #include "opto/loopnode.hpp"
+#include "opto/matcher.hpp"
 #include "opto/memnode.hpp"
 #include "utilities/globalDefinitions.hpp"
 

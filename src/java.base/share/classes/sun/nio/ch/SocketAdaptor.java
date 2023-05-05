@@ -46,6 +46,8 @@ import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 import static java.util.concurrent.TimeUnit.*;
 
+import sun.security.action.GetPropertyAction;
+
 // Make a socket channel look like a socket.
 //
 // The methods in this class are defined in exactly the same order as in
@@ -64,6 +66,14 @@ class SocketAdaptor
     private SocketAdaptor(SocketChannelImpl sc) throws SocketException {
         super((SocketImpl) null);
         this.sc = sc;
+        String tos = GetPropertyAction.privilegedGetProperty("kona.socket.tos.value");
+        if (tos != null) {
+            try {
+                sc.setOption(StandardSocketOptions.IP_TOS, Integer.valueOf(tos).intValue());
+            } catch (IOException ioe) {
+                // do nothing
+            }
+        }
     }
 
     public static Socket create(SocketChannelImpl sc) {

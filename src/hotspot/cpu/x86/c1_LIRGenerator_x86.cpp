@@ -1093,6 +1093,47 @@ void LIRGenerator::do_update_CRC32C(Intrinsic* x) {
   Unimplemented();
 }
 
+void LIRGenerator::do_UTF8_UTF16_decode(Intrinsic* x) {
+  assert(x->number_of_arguments() == 5, "wrong type");
+
+  // Make all state_for calls early since they can emit code
+  CodeEmitInfo* info = state_for(x, x->state());
+
+  LIRItem sa(x->argument_at(0), this);
+  LIRItem sp(x->argument_at(1), this);
+  LIRItem sl(x->argument_at(2), this);
+  LIRItem da(x->argument_at(3), this);
+  LIRItem dp(x->argument_at(4), this);
+
+  BasicTypeList signature(5);
+  signature.append(T_ARRAY);
+  signature.append(T_INT);
+  signature.append(T_INT);
+  signature.append(T_ARRAY);
+  signature.append(T_INT);
+  CallingConvention* cc = frame_map()->c_calling_convention(&signature);
+
+  LIR_Address* sa_elem_addr =
+    new LIR_Address(sa.result(),
+                    arrayOopDesc::base_offset_in_bytes(T_BYTE),
+                    T_BYTE);
+  LIR_Address* da_elem_addr =
+    new LIR_Address(da.result(),
+                    arrayOopDesc::base_offset_in_bytes(T_CHAR),
+                    T_CHAR);
+
+  __ leal(LIR_OprFact::address(sa_elem_addr), cc->at(0)); // rdi
+  sp.load_item_force(cc->at(1)); // rsi
+  sl.load_item_force(cc->at(2)); // rdx
+  __ leal(LIR_OprFact::address(da_elem_addr), cc->at(3)); // rcx
+  dp.load_item_force(cc->at(4)); // r8
+
+  LIR_Opr result = rlock_result(x);
+  const LIR_Opr result_reg = result_register_for(x->type());
+  __ call_runtime_leaf(StubRoutines::utf8_to_utf16_decoder(), getThreadTemp(), result_reg, cc->args());
+  __ move(result_reg, result);
+}
+
 void LIRGenerator::do_vectorizedMismatch(Intrinsic* x) {
   assert(UseVectorizedMismatchIntrinsic, "need AVX instruction support");
 

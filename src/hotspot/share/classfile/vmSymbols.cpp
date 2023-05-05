@@ -421,6 +421,7 @@ bool vmIntrinsics::can_trap(vmIntrinsics::ID id) {
   case vmIntrinsics::_updateCRC32:
   case vmIntrinsics::_updateBytesCRC32:
   case vmIntrinsics::_updateByteBufferCRC32:
+  case vmIntrinsics::_UTF8FastDecode:
   case vmIntrinsics::_vectorizedMismatch:
   case vmIntrinsics::_fmaD:
   case vmIntrinsics::_fmaF:
@@ -764,6 +765,9 @@ bool vmIntrinsics::is_disabled_by_flags(vmIntrinsics::ID id) {
     break;
   case vmIntrinsics::_base64_encodeBlock:
     if (!UseBASE64Intrinsics) return true;
+    break;
+  case vmIntrinsics::_UTF8FastDecode:
+    if (!UseUTF8UTF16Intrinsics) return true;
     break;
   case vmIntrinsics::_updateBytesCRC32C:
   case vmIntrinsics::_updateDirectByteBufferCRC32C:

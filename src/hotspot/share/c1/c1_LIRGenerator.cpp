@@ -3104,6 +3104,10 @@ void LIRGenerator::do_Intrinsic(Intrinsic* x) {
   case vmIntrinsics::_updateDirectByteBufferCRC32C:
     do_update_CRC32C(x);
     break;
+    
+  case vmIntrinsics::_UTF8FastDecode:
+    do_UTF8_UTF16_decode(x);
+    break;
 
   case vmIntrinsics::_vectorizedMismatch:
     do_vectorizedMismatch(x);

@@ -462,6 +462,9 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   diagnostic(bool, UseCRC32Intrinsics, false,                               \
           "use intrinsics for java.util.zip.CRC32")                         \
                                                                             \
+  product(bool, UseUTF8UTF16Intrinsics, false,                              \
+          "Use intrinsics for UTF8 UTF16 conversion")                       \
+                                                                            \
   diagnostic(bool, UseCRC32CIntrinsics, false,                              \
           "use intrinsics for java.util.zip.CRC32C")                        \
                                                                             \
