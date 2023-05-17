@@ -583,6 +583,8 @@ class MacroAssembler: public Assembler {
   void popad();
   void pushad_except_v0();
   void popad_except_v0();
+  void push(RegSet regs) { if (regs.bits()) push(regs.bits()); }
+  void pop(RegSet regs) { if (regs.bits()) pop(regs.bits()); }
 
   void li(Register rd, jlong value);
   void li(Register rd, address addr) { li(rd, (long)addr); }
@@ -753,6 +755,9 @@ public:
 #endif
 
 private:
+  void push(unsigned int bitset);
+  void pop(unsigned int bitset);
+
   template <typename T>
   void loadstore_t(T reg, int base, int index, int scale, int disp, int type) {
     if (index != 0) {

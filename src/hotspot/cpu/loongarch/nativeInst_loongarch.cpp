@@ -35,6 +35,10 @@
 #include "runtime/stubRoutines.hpp"
 #include "utilities/ostream.hpp"
 
+#ifndef PRODUCT
+#include "compiler/disassembler.hpp"
+#endif
+
 #include <sys/mman.h>
 
 #define T0 RT0
@@ -336,7 +340,9 @@ intptr_t NativeMovConstReg::data() const {
     return Assembler::simm12((int_at(0) >> 10) & 0xfff);
   }
 
-  //Disassembler::decode(addr_at(0), addr_at(0) + 16, tty);
+#ifndef PRODUCT
+  Disassembler::decode(addr_at(0), addr_at(0) + 16, tty);
+#endif
   fatal("not a mov reg, imm52");
   return 0; // unreachable
 }

@@ -2401,6 +2401,38 @@ void MacroAssembler::pop2(Register reg1, Register reg2) {
   addi_d(SP, SP, 16);
 }
 
+void MacroAssembler::push(unsigned int bitset) {
+  unsigned char regs[31];
+  int count = 0;
+
+  bitset >>= 1;
+  for (int reg = 1; reg < 31; reg++) {
+    if (1 & bitset)
+      regs[count++] = reg;
+    bitset >>= 1;
+  }
+
+  addi_d(SP, SP, -align_up(count, 2) * wordSize);
+  for (int i = 0; i < count; i ++)
+    st_d(as_Register(regs[i]), SP, i * wordSize);
+}
+
+void MacroAssembler::pop(unsigned int bitset) {
+  unsigned char regs[31];
+  int count = 0;
+
+  bitset >>= 1;
+  for (int reg = 1; reg < 31; reg++) {
+    if (1 & bitset)
+      regs[count++] = reg;
+    bitset >>= 1;
+  }
+
+  for (int i = 0; i < count; i ++)
+    ld_d(as_Register(regs[i]), SP, i * wordSize);
+  addi_d(SP, SP, align_up(count, 2) * wordSize);
+}
+
 // for UseCompressedOops Option
 void MacroAssembler::load_klass(Register dst, Register src) {
   if(UseCompressedClassPointers){

@@ -26,6 +26,7 @@
 #include "precompiled.hpp"
 #include "asm/macroAssembler.hpp"
 #include "compiler/disassembler.hpp"
+#include "code/codeCache.hpp"
 #include "code/compiledIC.hpp"
 #include "memory/resourceArea.hpp"
 #include "nativeInst_mips.hpp"

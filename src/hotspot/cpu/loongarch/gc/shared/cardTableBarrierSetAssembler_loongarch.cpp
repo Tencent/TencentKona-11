@@ -45,7 +45,8 @@
 #define TIMES_OOP (UseCompressedOops ? Address::times_4 : Address::times_8)
 
 void CardTableBarrierSetAssembler::gen_write_ref_array_post_barrier(MacroAssembler* masm, DecoratorSet decorators,
-                                                                    Register addr, Register count, Register tmp) {
+                                                                    Register addr, Register count, Register tmp,
+                                                                    RegSet saved_regs) {
   BarrierSet *bs = BarrierSet::barrier_set();
   CardTableBarrierSet* ctbs = barrier_set_cast<CardTableBarrierSet>(bs);
   CardTable* ct = ctbs->card_table();

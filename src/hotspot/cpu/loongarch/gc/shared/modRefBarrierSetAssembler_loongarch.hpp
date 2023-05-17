@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2018, 2021, Loongson Technology. All rights reserved.
+ * Copyright (c) 2018, 2022, Loongson Technology. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,16 +36,16 @@
 class ModRefBarrierSetAssembler: public BarrierSetAssembler {
 protected:
   virtual void gen_write_ref_array_pre_barrier(MacroAssembler* masm, DecoratorSet decorators,
-                                               Register addr, Register count) {}
+                                               Register addr, Register count, RegSet saved_regs) {}
   virtual void gen_write_ref_array_post_barrier(MacroAssembler* masm, DecoratorSet decorators,
-                                                Register addr, Register count, Register tmp) {}
+                                                Register addr, Register count, Register tmp, RegSet saved_regs) {}
   virtual void oop_store_at(MacroAssembler* masm, DecoratorSet decorators, BasicType type,
                             Address dst, Register val, Register tmp1, Register tmp2) = 0;
 public:
   virtual void arraycopy_prologue(MacroAssembler* masm, DecoratorSet decorators, bool is_oop,
-                                  Register dst, Register count, Register scratch = NOREG);
+                                  Register dst, Register count, RegSet saved_regs);
   virtual void arraycopy_epilogue(MacroAssembler* masm, DecoratorSet decorators, bool is_oop,
-                                  Register dst, Register count, Register scratch = NOREG);
+                                  Register dst, Register count, Register scratch, RegSet saved_regs);
 
   virtual void store_at(MacroAssembler* masm, DecoratorSet decorators, BasicType type,
                         Address dst, Register val, Register tmp1, Register tmp2);

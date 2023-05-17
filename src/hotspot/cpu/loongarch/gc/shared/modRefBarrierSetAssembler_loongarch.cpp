@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2018, 2021, Loongson Technology. All rights reserved.
+ * Copyright (c) 2018, 2022, Loongson Technology. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,16 +30,16 @@
 #define __ masm->
 
 void ModRefBarrierSetAssembler::arraycopy_prologue(MacroAssembler* masm, DecoratorSet decorators, bool is_oop,
-                                                   Register dst, Register count, Register scratch) {
+                                                   Register dst, Register count, RegSet saved_regs) {
   if (is_oop) {
-    gen_write_ref_array_pre_barrier(masm, decorators, dst, count);
+    gen_write_ref_array_pre_barrier(masm, decorators, dst, count, saved_regs);
   }
 }
 
 void ModRefBarrierSetAssembler::arraycopy_epilogue(MacroAssembler* masm, DecoratorSet decorators, bool is_oop,
-                                                   Register dst, Register count, Register scratch) {
+                                                   Register dst, Register count, Register scratch, RegSet saved_regs) {
   if (is_oop) {
-    gen_write_ref_array_post_barrier(masm, decorators, dst, count, scratch);
+    gen_write_ref_array_post_barrier(masm, decorators, dst, count, scratch, saved_regs);
   }
 }
 

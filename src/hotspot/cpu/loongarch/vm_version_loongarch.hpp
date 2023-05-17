@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2015, 2021, Loongson Technology. All rights reserved.
+ * Copyright (c) 2015, 2023, Loongson Technology. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -198,30 +198,30 @@ public:
 protected:
 
   enum {
-    CPU_LA32              = (1 << 1),
-    CPU_LA64              = (1 << 2),
-    CPU_LLEXC             = (1 << 3),
-    CPU_SCDLY             = (1 << 4),
-    CPU_LLDBAR            = (1 << 5),
-    CPU_LBT_X86           = (1 << 6),
-    CPU_LBT_ARM           = (1 << 7),
-    CPU_LBT_MIPS          = (1 << 8),
-    CPU_CCDMA             = (1 << 9),
-    CPU_COMPLEX           = (1 << 10),
-    CPU_FP                = (1 << 11),
-    CPU_CRYPTO            = (1 << 14),
-    CPU_LSX               = (1 << 15),
-    CPU_LASX              = (1 << 17),
-    CPU_LAM               = (1 << 21),
-    CPU_LLSYNC            = (1 << 23),
-    CPU_TGTSYNC           = (1 << 24),
-    CPU_ULSYNC            = (1 << 25),
-    CPU_UAL               = (1 << 26),
+    CPU_LAM               = (1 << 1),
+    CPU_UAL               = (1 << 2),
+    CPU_LSX               = (1 << 4),
+    CPU_LASX              = (1 << 5),
+    CPU_COMPLEX           = (1 << 7),
+    CPU_CRYPTO            = (1 << 8),
+    CPU_LBT_X86           = (1 << 10),
+    CPU_LBT_ARM           = (1 << 11),
+    CPU_LBT_MIPS          = (1 << 12),
+    // flags above must follow Linux HWCAP
+    CPU_LA32              = (1 << 13),
+    CPU_LA64              = (1 << 14),
+    CPU_FP                = (1 << 15),
+    CPU_LLEXC             = (1 << 16),
+    CPU_SCDLY             = (1 << 17),
+    CPU_LLDBAR            = (1 << 18),
+    CPU_CCDMA             = (1 << 19),
+    CPU_LLSYNC            = (1 << 20),
+    CPU_TGTSYNC           = (1 << 21),
+    CPU_ULSYNC            = (1 << 22),
 
     //////////////////////add some other feature here//////////////////
   } cpuFeatureFlags;
 
-  static int  _cpuFeatures;
   static const char* _features_str;
   static bool _cpu_info_is_initialized;
 
@@ -244,8 +244,8 @@ protected:
   static CpuidInfo _cpuid_info;
 
   static uint32_t get_feature_flags_by_cpucfg();
-  static int      get_feature_flags_by_cpuinfo(int features);
   static void     get_processor_features();
+  static void     get_os_cpu_info();
 
 public:
   // Offsets for cpuid asm stub
@@ -262,26 +262,26 @@ public:
   static ByteSize Loongson_Cpucfg_id13_offset() { return byte_offset_of(CpuidInfo, cpucfg_info_id13); }
   static ByteSize Loongson_Cpucfg_id14_offset() { return byte_offset_of(CpuidInfo, cpucfg_info_id14); }
 
-  static void clean_cpuFeatures()   { _cpuFeatures = 0; }
+  static void clean_cpuFeatures()   { _features = 0; }
 
   // Initialization
   static void initialize();
 
   static bool cpu_info_is_initialized()                   { return _cpu_info_is_initialized; }
 
-  static bool is_la32()             { return _cpuFeatures & CPU_LA32; }
-  static bool is_la64()             { return _cpuFeatures & CPU_LA64; }
-  static bool supports_crypto()     { return _cpuFeatures & CPU_CRYPTO; }
-  static bool supports_lsx()        { return _cpuFeatures & CPU_LSX; }
-  static bool supports_lasx()       { return _cpuFeatures & CPU_LASX; }
-  static bool supports_lam()        { return _cpuFeatures & CPU_LAM; }
-  static bool supports_llexc()      { return _cpuFeatures & CPU_LLEXC; }
-  static bool supports_scdly()      { return _cpuFeatures & CPU_SCDLY; }
-  static bool supports_lldbar()     { return _cpuFeatures & CPU_LLDBAR; }
-  static bool supports_ual()        { return _cpuFeatures & CPU_UAL; }
-  static bool supports_lbt_x86()    { return _cpuFeatures & CPU_LBT_X86; }
-  static bool supports_lbt_arm()    { return _cpuFeatures & CPU_LBT_ARM; }
-  static bool supports_lbt_mips()   { return _cpuFeatures & CPU_LBT_MIPS; }
+  static bool is_la32()             { return _features & CPU_LA32; }
+  static bool is_la64()             { return _features & CPU_LA64; }
+  static bool supports_crypto()     { return _features & CPU_CRYPTO; }
+  static bool supports_lsx()        { return _features & CPU_LSX; }
+  static bool supports_lasx()       { return _features & CPU_LASX; }
+  static bool supports_lam()        { return _features & CPU_LAM; }
+  static bool supports_llexc()      { return _features & CPU_LLEXC; }
+  static bool supports_scdly()      { return _features & CPU_SCDLY; }
+  static bool supports_lldbar()     { return _features & CPU_LLDBAR; }
+  static bool supports_ual()        { return _features & CPU_UAL; }
+  static bool supports_lbt_x86()    { return _features & CPU_LBT_X86; }
+  static bool supports_lbt_arm()    { return _features & CPU_LBT_ARM; }
+  static bool supports_lbt_mips()   { return _features & CPU_LBT_MIPS; }
   static bool needs_llsync()        { return !supports_lldbar(); }
   static bool needs_tgtsync()       { return 1; }
   static bool needs_ulsync()        { return 1; }

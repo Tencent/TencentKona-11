@@ -1559,10 +1559,20 @@ public:
     AbstractAssembler::flush();
   }
 
-  inline void emit_int32(int);
+  inline void emit_int32(int x) {
+    AbstractAssembler::emit_int32(x);
+  }
+
   inline void emit_data(int x) { emit_int32(x); }
-  inline void emit_data(int, RelocationHolder const&);
-  inline void emit_data(int, relocInfo::relocType rtype);
+  inline void emit_data(int x, relocInfo::relocType rtype) {
+    relocate(rtype);
+    emit_int32(x);
+  }
+
+  inline void emit_data(int x, RelocationHolder const& rspec) {
+    relocate(rspec);
+    emit_int32(x);
+  }
 
 
   // Generic instructions
@@ -2797,8 +2807,5 @@ public:
   static address locate_operand(address inst, WhichOperand which);
   static address locate_next_instruction(address inst);
 };
-
-
-#include "assembler_loongarch.inline.hpp"
 
 #endif // CPU_LOONGARCH_ASSEMBLER_LOONGARCH_HPP

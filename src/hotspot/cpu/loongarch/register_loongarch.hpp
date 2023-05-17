@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2015, 2021, Loongson Technology. All rights reserved.
+ * Copyright (c) 2015, 2022, Loongson Technology. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -424,5 +424,72 @@ class ConcreteRegisterImpl : public AbstractRegisterImpl {
   static const int max_gpr;
   static const int max_fpr;
 };
+
+// A set of registers
+template <class RegImpl>
+class AbstractRegSet {
+  uint32_t _bitset;
+
+  AbstractRegSet(uint32_t bitset) : _bitset(bitset) { }
+
+public:
+
+  AbstractRegSet() : _bitset(0) { }
+
+  AbstractRegSet(RegImpl r1) : _bitset(1 << r1->encoding()) { }
+
+  AbstractRegSet operator+(const AbstractRegSet aSet) const {
+    AbstractRegSet result(_bitset | aSet._bitset);
+    return result;
+  }
+
+  AbstractRegSet operator-(const AbstractRegSet aSet) const {
+    AbstractRegSet result(_bitset & ~aSet._bitset);
+    return result;
+  }
+
+  AbstractRegSet &operator+=(const AbstractRegSet aSet) {
+    *this = *this + aSet;
+    return *this;
+  }
+
+  AbstractRegSet &operator-=(const AbstractRegSet aSet) {
+    *this = *this - aSet;
+    return *this;
+  }
+
+  static AbstractRegSet of(RegImpl r1) {
+    return AbstractRegSet(r1);
+  }
+
+  static AbstractRegSet of(RegImpl r1, RegImpl r2) {
+    return of(r1) + r2;
+  }
+
+  static AbstractRegSet of(RegImpl r1, RegImpl r2, RegImpl r3) {
+    return of(r1, r2) + r3;
+  }
+
+  static AbstractRegSet of(RegImpl r1, RegImpl r2, RegImpl r3, RegImpl r4) {
+    return of(r1, r2, r3) + r4;
+  }
+
+  static AbstractRegSet of(RegImpl r1, RegImpl r2, RegImpl r3, RegImpl r4, RegImpl r5) {
+    return of(r1, r2, r3, r4) + r5;
+  }
+
+  static AbstractRegSet range(RegImpl start, RegImpl end) {
+    uint32_t bits = ~0;
+    bits <<= start->encoding();
+    bits <<= 31 - end->encoding();
+    bits >>= 31 - end->encoding();
+
+    return AbstractRegSet(bits);
+  }
+
+  uint32_t bits() const { return _bitset; }
+};
+
+typedef AbstractRegSet<Register> RegSet;
 
 #endif //CPU_LOONGARCH_REGISTER_LOONGARCH_HPP

@@ -43,7 +43,7 @@
 #define __ masm->
 
 void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm, DecoratorSet decorators,
-                                                            Register addr, Register count) {
+                                                            Register addr, Register count, RegSet saved_regs) {
   bool dest_uninitialized = (decorators & IS_DEST_UNINITIALIZED) != 0;
 
   if (!dest_uninitialized) {
@@ -66,7 +66,7 @@ void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm
 
     __ beqz(AT, filtered);
 
-    __ pushad();                      // push registers
+    __ push(saved_regs);
     if (count == A0) {
       if (addr == A1) {
         __ move(AT, A0);
@@ -85,15 +85,15 @@ void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm
     } else {
       __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_array_pre_oop_entry), 2);
     }
-    __ popad();
+    __ pop(saved_regs);
 
     __ bind(filtered);
   }
 }
 
 void G1BarrierSetAssembler::gen_write_ref_array_post_barrier(MacroAssembler* masm, DecoratorSet decorators,
-                                                             Register addr, Register count, Register tmp) {
-  __ pushad();             // push registers (overkill)
+                                                             Register addr, Register count, Register tmp, RegSet saved_regs) {
+  __ push(saved_regs);
   if (count == A0) {
     assert_different_registers(A1, addr);
     __ move(A1, count);
@@ -104,7 +104,7 @@ void G1BarrierSetAssembler::gen_write_ref_array_post_barrier(MacroAssembler* mas
     __ move(A1, count);
   }
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_array_post_entry), 2);
-  __ popad();
+  __ pop(saved_regs);
 }
 
 void G1BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators, BasicType type,
@@ -119,6 +119,8 @@ void G1BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorator
 #ifndef OPT_THREAD
     __ get_thread(thread);
 #endif
+    // RA is live. It must be saved around calls.
+    __ enter(); // barrier may call runtime
     // Generate the G1 pre-barrier code to log the value of
     // the referent field in an SATB buffer.
     g1_write_barrier_pre(masm /* masm */,
@@ -128,6 +130,7 @@ void G1BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorator
                          tmp1 /* tmp */,
                          true /* tosca_live */,
                          true /* expand_call */);
+    __ leave();
   }
 }
 

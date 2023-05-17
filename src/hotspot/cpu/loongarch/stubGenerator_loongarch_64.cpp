@@ -2062,7 +2062,7 @@ class StubGenerator: public StubCodeGenerator {
       __ st_d(RA, SP, 0 * wordSize);
 
       bs = BarrierSet::barrier_set()->barrier_set_assembler();
-      bs->arraycopy_prologue(_masm, decorators, is_oop, A1, A2);
+      bs->arraycopy_prologue(_masm, decorators, is_oop, A1, A2, RegSet());
 
       __ ld_d(A2, SP, 3 * wordSize);
       __ ld_d(A1, SP, 2 * wordSize);
@@ -2106,7 +2106,7 @@ class StubGenerator: public StubCodeGenerator {
       __ ld_d(A2, SP, 3 * wordSize);
       __ ld_d(A1, SP, 2 * wordSize);
 
-      bs->arraycopy_epilogue(_masm, decorators, is_oop, A1, A2, T1);
+      bs->arraycopy_epilogue(_masm, decorators, is_oop, A1, A2, T1, RegSet());
 
       __ ld_d(RA, SP, 0 * wordSize);
       __ addi_d(SP, SP, 4 * wordSize);
@@ -2377,6 +2377,9 @@ class StubGenerator: public StubCodeGenerator {
     const Register ckoff       = A3; // super_check_offset
     const Register ckval       = A4; // super_klass
 
+    RegSet wb_pre_saved_regs = RegSet::range(A0, A4);
+    RegSet wb_post_saved_regs = RegSet::of(count);
+
     // Registers used as temps (S0, S1, S2, S3 are save-on-entry)
     const Register copied_oop  = S0; // actual oop copied
     const Register count_save  = S1; // orig elementscount
@@ -2408,12 +2411,7 @@ class StubGenerator: public StubCodeGenerator {
     // Empty array:  Nothing to do.
     __ beqz(count, L_done);
 
-    __ addi_d(SP, SP, -6 * wordSize);
-    __ st_d(S0, SP, 0 * wordSize);
-    __ st_d(S1, SP, 1 * wordSize);
-    __ st_d(S2, SP, 2 * wordSize);
-    __ st_d(S3, SP, 3 * wordSize);
-    __ st_d(S4, SP, 4 * wordSize);
+    __ push(RegSet::of(S0, S1, S2, S3, RA));
 
 #ifdef ASSERT
     __ block_comment("assert consistent ckoff/ckval");
@@ -2434,20 +2432,8 @@ class StubGenerator: public StubCodeGenerator {
       decorators |= IS_DEST_UNINITIALIZED;
     }
 
-    __ move(S0, A0);
-    __ move(S1, A1);
-    __ move(S2, A2);
-    __ move(S3, A3);
-    __ move(S4, A4);
-
     BarrierSetAssembler *bs = BarrierSet::barrier_set()->barrier_set_assembler();
-    bs->arraycopy_prologue(_masm, decorators, is_oop, to, count);
-
-    __ move(A0, S0);
-    __ move(A1, S1);
-    __ move(A2, S2);
-    __ move(A3, S3);
-    __ move(A4, S4);
+    bs->arraycopy_prologue(_masm, decorators, is_oop, to, count, wb_pre_saved_regs);
 
     // save the original count
     __ move(count_save, count);
@@ -2492,19 +2478,10 @@ class StubGenerator: public StubCodeGenerator {
 
     __ bind(L_do_card_marks);
 
-    __ move(S0, count);
-
-    bs->arraycopy_epilogue(_masm, decorators, is_oop, start_to, count_save, tmp2);
-
-    __ move(count, S0);
+    bs->arraycopy_epilogue(_masm, decorators, is_oop, start_to, count_save, tmp2, wb_post_saved_regs);
 
     __ bind(L_done_pop);
-    __ ld_d(S0, SP, 0 * wordSize);
-    __ ld_d(S1, SP, 1 * wordSize);
-    __ ld_d(S2, SP, 2 * wordSize);
-    __ ld_d(S3, SP, 3 * wordSize);
-    __ ld_d(S4, SP, 4 * wordSize);
-    __ addi_d(SP, SP, 6 * wordSize);
+    __ pop(RegSet::of(S0, S1, S2, S3, RA));
 
 #ifndef PRODUCT
     __ li(SCR2, (address)&SharedRuntime::_checkcast_array_copy_ctr);
