@@ -518,4 +518,11 @@ inline NativeCallTrampolineStub* nativeCallTrampolineStub_at(address addr) {
   assert(ni->is_NativeCallTrampolineStub_at(), "no call trampoline found");
   return (NativeCallTrampolineStub*)addr;
 }
+
+class NativeMembar : public NativeInstruction {
+public:
+  unsigned int get_hint() { return Assembler::low(insn_word(), 4); }
+  void set_hint(int hint) { Assembler::patch(addr_at(0), 4, hint); }
+};
+
 #endif // CPU_LOONGARCH_NATIVEINST_LOONGARCH_HPP

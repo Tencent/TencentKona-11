@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2017, 2022, Loongson Technology. All rights reserved.
+ * Copyright (c) 2017, 2023, Loongson Technology. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1826,7 +1826,7 @@ void MacroAssembler::cmpxchg(Address addr, Register oldval, Register newval,
 
   bind(fail);
   if (barrier)
-    membar(LoadLoad);
+    dbar(0x700);
   if (retold && oldval != R0)
     move(oldval, resflag);
   move(resflag, R0);
@@ -1849,7 +1849,7 @@ void MacroAssembler::cmpxchg(Address addr, Register oldval, Register newval,
 
   bind(neq);
   if (barrier)
-    membar(LoadLoad);
+    dbar(0x700);
   if (retold && oldval != R0)
     move(oldval, tmp);
   if (fail)
@@ -1874,7 +1874,7 @@ void MacroAssembler::cmpxchg32(Address addr, Register oldval, Register newval,
 
   bind(fail);
   if (barrier)
-    membar(LoadLoad);
+    dbar(0x700);
   if (retold && oldval != R0)
     move(oldval, resflag);
   move(resflag, R0);
@@ -1899,7 +1899,7 @@ void MacroAssembler::cmpxchg32(Address addr, Register oldval, Register newval, R
 
   bind(neq);
   if (barrier)
-    membar(LoadLoad);
+    dbar(0x700);
   if (retold && oldval != R0)
     move(oldval, tmp);
   if (fail)
@@ -2277,7 +2277,7 @@ void MacroAssembler::fast_unlock(Register objReg, Register boxReg, Register resR
       move(AT, R0);
       bnez(scrReg, DONE_SET);
 
-      membar(Assembler::Membar_mask_bits(LoadLoad|LoadStore));
+      membar(Assembler::Membar_mask_bits(LoadStore|StoreStore));
       st_d(R0, Address(tmpReg, ObjectMonitor::owner_offset_in_bytes() - 2));
       li(resReg, 1);
       b(DONE);
@@ -4482,10 +4482,14 @@ void MacroAssembler::membar(Membar_mask_bits hint){
   address last = code()->last_insn();
   if (last != NULL && ((NativeInstruction*)last)->is_sync() && prev == last) {
     code()->set_last_insn(NULL);
+    NativeMembar *membar = (NativeMembar*)prev;
+    // merged membar
+    // e.g. LoadLoad and LoadLoad|LoadStore to LoadLoad|LoadStore
+    membar->set_hint(membar->get_hint() & (~hint & 0xF));
     block_comment("merged membar");
   } else {
     code()->set_last_insn(pc());
-    dbar(hint);
+    Assembler::membar(hint);
   }
 }
 
