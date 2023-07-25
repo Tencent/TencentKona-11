@@ -1380,3 +1380,7 @@ void LIRGenerator::do_FmaIntrinsic(Intrinsic* x) {
 void LIRGenerator::do_vectorizedMismatch(Intrinsic* x) {
   fatal("vectorizedMismatch intrinsic is not implemented on this platform");
 }
+
+void LIRGenerator::do_UTF8_UTF16_decode(Intrinsic* x) {
+  fatal("UTF8_UTF16_decode intrinsic is not implemented on this platform");
+}
