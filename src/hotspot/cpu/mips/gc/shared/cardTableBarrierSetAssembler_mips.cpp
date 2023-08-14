@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2018, 2022, Loongson Technology. All rights reserved.
+ * Copyright (c) 2018, 2023, Loongson Technology. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -59,7 +59,7 @@ void CardTableBarrierSetAssembler::gen_write_ref_array_post_barrier(MacroAssembl
   __ beq(count, R0, L_done); // zero count - nothing to do
   __ delayed()->nop();
 
-  if (UseConcMarkSweepGC) __ sync();
+  if (ct->scanned_concurrently()) __ membar(Assembler::StoreStore);
 
   __ set64(tmp, disp);
 
@@ -108,8 +108,6 @@ void CardTableBarrierSetAssembler::store_check(MacroAssembler* masm, Register ob
 
   jbyte dirty = CardTable::dirty_card_val();
   if (UseCondCardMark) {
-    Untested("Untested");
-    __ warn("store_check Untested");
     Label L_already_dirty;
     __ membar(Assembler::StoreLoad);
     __ lb(AT, tmp, 0);
@@ -120,7 +118,7 @@ void CardTableBarrierSetAssembler::store_check(MacroAssembler* masm, Register ob
     __ bind(L_already_dirty);
   } else {
     if (ct->scanned_concurrently()) {
-      __ membar(Assembler::StoreLoad);
+      __ membar(Assembler::StoreStore);
     }
     __ sb(R0, tmp, 0);
   }

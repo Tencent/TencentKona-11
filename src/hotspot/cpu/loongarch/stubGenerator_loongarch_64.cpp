@@ -707,8 +707,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // disjoint large copy
   void generate_disjoint_large_copy(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label loop, le32, le16, le8, lt8;
 
@@ -788,8 +788,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // disjoint large copy lsx
   void generate_disjoint_large_copy_lsx(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label loop, le64, le32, le16, lt16;
 
@@ -870,8 +870,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // disjoint large copy lasx
   void generate_disjoint_large_copy_lasx(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label loop, le128, le64, le32, lt32;
 
@@ -952,8 +952,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // conjoint large copy
   void generate_conjoint_large_copy(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label loop, le32, le16, le8, lt8;
 
@@ -1030,8 +1030,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // conjoint large copy lsx
   void generate_conjoint_large_copy_lsx(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label loop, le64, le32, le16, lt16;
 
@@ -1109,8 +1109,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // conjoint large copy lasx
   void generate_conjoint_large_copy_lasx(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label loop, le128, le64, le32, lt32;
 
@@ -1188,8 +1188,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // Byte small copy: less than { int:9, lsx:17, lasx:33 } elements.
   void generate_byte_small_copy(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label L;
     __ bind(entry);
@@ -1554,8 +1554,8 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_disjoint_byte_copy(bool aligned, Label &small, Label &large,
                                       Label &large_aligned, const char * name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
     if (UseLASX)
@@ -1594,8 +1594,8 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_conjoint_byte_copy(bool aligned, Label &small, Label &large,
                                       Label &large_aligned, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
     array_overlap_test(StubRoutines::jbyte_disjoint_arraycopy(), 0);
@@ -1621,8 +1621,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // Short small copy: less than { int:9, lsx:9, lasx:17 } elements.
   void generate_short_small_copy(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label L;
     __ bind(entry);
@@ -1833,8 +1833,8 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_disjoint_short_copy(bool aligned, Label &small, Label &large,
                                        Label &large_aligned, const char * name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
     if (UseLASX)
@@ -1873,8 +1873,8 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_conjoint_short_copy(bool aligned, Label &small, Label &large,
                                        Label &large_aligned, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
     array_overlap_test(StubRoutines::jshort_disjoint_arraycopy(), 1);
@@ -1900,8 +1900,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // Int small copy: less than { int:7, lsx:7, lasx:9 } elements.
   void generate_int_small_copy(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label L;
     __ bind(entry);
@@ -2137,8 +2137,8 @@ class StubGenerator: public StubCodeGenerator {
   address generate_disjoint_int_oop_copy(bool aligned, bool is_oop, Label &small,
                                          Label &large, Label &large_aligned, const char *name,
                                          int small_limit, bool dest_uninitialized = false) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
     gen_maybe_oop_copy(is_oop, true, aligned, small, large, large_aligned,
@@ -2165,8 +2165,8 @@ class StubGenerator: public StubCodeGenerator {
   address generate_conjoint_int_oop_copy(bool aligned, bool is_oop, Label &small,
                                          Label &large, Label &large_aligned, const char *name,
                                          int small_limit, bool dest_uninitialized = false) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
     if (is_oop) {
@@ -2183,8 +2183,8 @@ class StubGenerator: public StubCodeGenerator {
 
   // Long small copy: less than { int:4, lsx:4, lasx:5 } elements.
   void generate_long_small_copy(Label &entry, const char *name) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
 
     Label L;
     __ bind(entry);
@@ -2287,8 +2287,8 @@ class StubGenerator: public StubCodeGenerator {
   address generate_disjoint_long_oop_copy(bool aligned, bool is_oop, Label &small,
                                           Label &large, Label &large_aligned, const char *name,
                                           int small_limit, bool dest_uninitialized = false) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
     gen_maybe_oop_copy(is_oop, true, aligned, small, large, large_aligned,
@@ -2315,8 +2315,8 @@ class StubGenerator: public StubCodeGenerator {
   address generate_conjoint_long_oop_copy(bool aligned, bool is_oop, Label &small,
                                           Label &large, Label &large_aligned, const char *name,
                                           int small_limit, bool dest_uninitialized = false) {
-    StubCodeMark mark(this, "StubRoutines", name);
     __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
     if (is_oop) {
