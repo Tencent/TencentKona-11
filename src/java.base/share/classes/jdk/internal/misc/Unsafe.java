@@ -3315,6 +3315,15 @@ public final class Unsafe {
     public native void fullFence();
 
     /**
+     * Report oom message to jvm, This effect applies to the oom parameter.
+     * This is an internal api and external calls are not recommended.
+     * After the call will trigger other oom parameters, 
+     * such as ExitOnOutOfMemoryError, CrashOnOutOfMemoryError, HeapDumpOnOutOfMemoryError, serious impact on the process.
+     * 
+     */
+    public native void reportJavaOutOfMemory0(String message);
+
+    /**
      * Ensures that loads before the fence will not be reordered with
      * loads after the fence.
      */
@@ -3724,4 +3733,5 @@ public final class Unsafe {
     private native int getLoadAverage0(double[] loadavg, int nelems);
     private native boolean unalignedAccess0();
     private native boolean isBigEndian0();
+
 }

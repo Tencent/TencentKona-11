@@ -69,6 +69,14 @@ class Bits {                            // package-private
 
     private static int PAGE_SIZE = -1;
 
+    private static boolean reportOomOnDirectMemoryOom = false;
+
+    static {
+        reportOomOnDirectMemoryOom = Boolean.getBoolean("jdk.nio.reportOomOnDirectMemoryOom");
+    }
+
+
+
     static int pageSize() {
         if (PAGE_SIZE == -1)
             PAGE_SIZE = UNSAFE.pageSize();
@@ -171,8 +179,15 @@ class Bits {                            // package-private
                 }
             }
 
+            OutOfMemoryError error = new OutOfMemoryError
+                    ("Cannot reserve "
+                            + size + " bytes of direct buffer memory (allocated: "
+                            + RESERVED_MEMORY.get() + ", limit: " + MAX_MEMORY + ")");
+            if (reportOomOnDirectMemoryOom) {
+                UNSAFE.reportJavaOutOfMemory0(error.getMessage());
+            }
             // no luck
-            throw new OutOfMemoryError("Direct buffer memory");
+            throw error;
 
         } finally {
             if (interrupted) {
