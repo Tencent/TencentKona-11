@@ -1007,7 +1007,7 @@ UNSAFE_ENTRY(jint, Unsafe_GetLoadAverage0(JNIEnv *env, jobject unsafe, jdoubleAr
   return ret;
 } UNSAFE_END
 
-UNSAFE_LEAF (void, Unsafe_ReportJavaOutOfMemory0(JNIEnv *env, jobject unsafe,jstring message)) {
+UNSAFE_ENTRY (void, Unsafe_ReportJavaOutOfMemory0(JNIEnv *env, jobject unsafe,jstring message)) {
         char *utf_message = java_lang_String::as_utf8_string(JNIHandles::resolve_non_null(message));
         report_java_out_of_memory(utf_message);
 } UNSAFE_END
