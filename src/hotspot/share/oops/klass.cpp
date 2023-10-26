@@ -26,7 +26,7 @@
 #include "classfile/classLoaderData.inline.hpp"
 #include "classfile/classLoaderDataGraph.inline.hpp"
 #include "classfile/dictionary.hpp"
-#include "classfile/javaClasses.hpp"
+#include "classfile/javaClasses.inline.hpp"
 #include "classfile/systemDictionary.hpp"
 #include "classfile/vmSymbols.hpp"
 #include "gc/shared/collectedHeap.inline.hpp"
@@ -792,7 +792,7 @@ void Klass::verify_on(outputStream* st) {
   }
 
   if (java_mirror_no_keepalive() != NULL) {
-    guarantee(oopDesc::is_oop(java_mirror_no_keepalive()), "should be instance");
+    guarantee(java_lang_Class::is_instance(java_mirror_no_keepalive()), "should be instance");
   }
 }
 

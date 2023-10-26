@@ -988,7 +988,7 @@ class Method : public Metadata {
     InstanceKlass* holder = method_holder();
     Method* new_method = holder->method_with_idnum(orig_method_idnum());
 
-    assert(new_method != NULL, "method_with_idnum() should not be NULL");
+    assert(new_method != NULL, "method_with_idnum() should not be null");
     assert(this != new_method, "sanity check");
     return new_method;
   }
