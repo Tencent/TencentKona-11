@@ -867,3 +867,18 @@ jdk/jfr/event/oldobject/TestLargeRootSet.java                   8205651    gener
 
 ############################################################################
 
+# For Kona CI/CD
+
+com/sun/jndi/ldap/LdapPoolTimeoutTest.java 8000000 generic-all
+
+javax/accessibility/4529616/AccessibleJTableCellTest.java 8000000 generic-all
+javax/accessibility/4670319/AccessibleJTreePCESourceTest.java 8000000 generic-all
+javax/accessibility/4715503/AccessibleJTableCellBoundingRectangleTest.java 8000000 generic-all
+javax/accessibility/8283015/AccessibleJTableCellNameTest.java 8000000 generic-all
+javax/accessibility/JTable/BooleanRendererHasAccessibleActionTest.java 8000000 generic-all
+javax/accessibility/AccessibleJTableSelectionTest.java 8000000 generic-all
+javax/accessibility/JFileChooserAccessibleDescriptionTest.java 8000000 generic-all
+javax/accessibility/JRootPaneAccessiblAtTest.java 8000000 generic-all
+javax/accessibility/JScrollPaneAccessibleRelationsTest.java 8000000 generic-all
+
+#############################################################################
