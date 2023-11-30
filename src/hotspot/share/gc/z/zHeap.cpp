@@ -64,7 +64,7 @@ ZHeap* ZHeap::_heap = NULL;
 ZHeap::ZHeap() :
     _workers(),
     _object_allocator(_workers.nworkers()),
-    _page_allocator(heap_min_size(), heap_max_size(), heap_max_reserve_size()),
+    _page_allocator(heap_min_size(), heap_initial_size(), heap_max_size(), heap_max_reserve_size()),
     _pagetable(),
     _forwarding_table(),
     _mark(&_workers, &_pagetable),
@@ -90,6 +90,10 @@ size_t ZHeap::heap_min_size() const {
 size_t ZHeap::heap_max_size() const {
   const size_t aligned_max_size = align_up(MaxHeapSize, ZGranuleSize);
   return MIN2(aligned_max_size, ZAddressOffsetMax);
+}
+
+size_t ZHeap::heap_initial_size() const {
+  return InitialHeapSize;
 }
 
 size_t ZHeap::heap_max_reserve_size() const {

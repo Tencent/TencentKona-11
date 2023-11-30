@@ -84,7 +84,10 @@ public:
 
 ZPage* const ZPageAllocator::gc_marker = (ZPage*)-1;
 
-ZPageAllocator::ZPageAllocator(size_t min_capacity, size_t max_capacity, size_t max_reserve) :
+ZPageAllocator::ZPageAllocator(size_t min_capacity,
+		size_t initial_capacity,
+		size_t max_capacity,
+		size_t max_reserve) :
     _lock(),
     _virtual(),
     _physical(max_capacity),
@@ -97,12 +100,33 @@ ZPageAllocator::ZPageAllocator(size_t min_capacity, size_t max_capacity, size_t 
     _allocated(0),
     _reclaimed(0),
     _queue(),
-    _detached() {}
+    _detached(),
+    _initialized(false) {
+  if (!_virtual.is_initialized() || !_physical.is_initialized()) {
+    return;
+  }
+
+  log_info(gc, init)("Min Capacity: " SIZE_FORMAT "M", min_capacity / M);
+  log_info(gc, init)("Initial Capacity: " SIZE_FORMAT "M", initial_capacity / M);
+  log_info(gc, init)("Max Capacity: " SIZE_FORMAT "M", max_capacity / M);
+  log_info(gc, init)("Max Reserve: " SIZE_FORMAT "M", max_reserve / M);
+
+  size_t current_max_capacity = _physical.current_max_capacity();
+  if (current_max_capacity < initial_capacity) {
+    log_error(gc)("Failed to allocate initial Java heap (" SIZE_FORMAT "M), current_max_capacity (" SIZE_FORMAT "M)",
+		    initial_capacity / M, current_max_capacity / M);
+    return;
+  }
+
+  // Successfully initialized
+  _initialized = true;
+}
 
 bool ZPageAllocator::is_initialized() const {
   return _physical.is_initialized() &&
          _virtual.is_initialized() &&
-         _pre_mapped.is_initialized();
+         _pre_mapped.is_initialized() &&
+         _initialized;
 }
 
 size_t ZPageAllocator::max_capacity() const {

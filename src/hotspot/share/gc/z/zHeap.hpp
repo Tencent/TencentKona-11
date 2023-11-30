@@ -71,6 +71,7 @@ private:
 
   size_t heap_min_size() const;
   size_t heap_max_size() const;
+  size_t heap_initial_size() const;
   size_t heap_max_reserve_size() const;
 
   void before_flip();
