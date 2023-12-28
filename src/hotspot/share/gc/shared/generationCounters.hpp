@@ -40,6 +40,8 @@ private:
                   size_t curr_capacity);
 
  protected:
+  // Elastic Max Heap
+  PerfVariable*      _max_size;     // max size can be changed when ElasticMaxHeap is on
   PerfVariable*      _current_size;
   VirtualSpace*      _virtual_space;
 
@@ -56,7 +58,7 @@ private:
   // constructor. The need for such an constructor should be eliminated
   // when VirtualSpace and PSVirtualSpace are unified.
   GenerationCounters()
-             : _name_space(NULL), _current_size(NULL), _virtual_space(NULL) {}
+             : _name_space(NULL), _current_size(NULL), _virtual_space(NULL), _max_size(NULL) {}
 
   // This constructor is used for subclasses that do not have a space
   // associated with them (e.g, in G1).
@@ -71,6 +73,9 @@ private:
   ~GenerationCounters();
 
   virtual void update_all();
+
+  // Elastic Max Heap
+  void update_max_size(size_t size);
 
   const char* name_space() const        { return _name_space; }
 

@@ -1238,6 +1238,11 @@ class ConcurrentMarkSweepGeneration: public CardGeneration {
   // Resize the generation after a non-compacting
   // collection.
   void compute_new_size_free_list();
+
+  // Elastic Max Heap
+  virtual void update_gen_max_counter(size_t size) {
+    _gen_counters->update_max_size(size);
+  }
 };
 
 //

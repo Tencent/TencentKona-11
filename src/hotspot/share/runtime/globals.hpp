@@ -2696,6 +2696,12 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
                                                                             \
   manageable(bool, FreeHeapPhysicalMemory, false,                           \
           "Free physical memory after fullgc or shrink operation")          \
+                                                                            \
+  product(bool, ElasticMaxHeap, false,                                      \
+          "Allow change max heap size during runtime with jcmd")            \
+                                                                            \
+  product(uintx, ElasticMaxHeapShrinkMinFreeRatio, 40,                      \
+          "minimal ratio of free bytes after elastic max heap shirnk")          
 
 #define VM_FLAGS(develop,                                                   \
                  develop_pd,                                                \

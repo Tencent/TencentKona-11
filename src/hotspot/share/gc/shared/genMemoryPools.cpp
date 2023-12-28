@@ -31,11 +31,12 @@
 #endif
 
 ContiguousSpacePool::ContiguousSpacePool(ContiguousSpace* space,
+                                         DefNewGeneration* gen,
                                          const char* name,
                                          size_t max_size,
                                          bool support_usage_threshold) :
   CollectedMemoryPool(name, space->capacity(), max_size,
-                      support_usage_threshold), _space(space) {
+                      support_usage_threshold), _space(space), _gen(gen) {
 }
 
 size_t ContiguousSpacePool::used_in_bytes() {

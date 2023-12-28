@@ -325,6 +325,30 @@ public:
   virtual void execute(DCmdSource source, TRAPS);
 };
 
+// Elastic Max Heap cmd
+class ElasticMaxHeapDCmd : public DCmdWithParser {
+protected:
+  DCmdArgument<MemorySizeArgument> _new_max_heap_size;
+public:
+  ElasticMaxHeapDCmd(outputStream* output, bool heap);
+  static const char* name() {
+    return "GC.elastic_max_heap";
+  }
+  static const char* description() {
+    return "Try elastic max heap size during runtime.";
+  }
+  static const char* impact() {
+    return "Medium";
+  }
+  static const JavaPermission permission() {
+    JavaPermission p = {"java.lang.management.ManagementPermission",
+                        "monitor", NULL};
+    return p;
+  }
+  static int num_arguments();
+  virtual void execute(DCmdSource source, TRAPS);
+};
+
 #if INCLUDE_SERVICES   // Heap dumping supported
 // See also: dump_heap in attachListener.cpp
 class HeapDumpDCmd : public DCmdWithParser {

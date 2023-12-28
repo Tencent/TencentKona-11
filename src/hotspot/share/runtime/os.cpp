@@ -1898,6 +1898,10 @@ bool os::unmap_memory(char *addr, size_t bytes) {
   return result;
 }
 
+bool os::free_heap_physical_memory(char *addr, size_t bytes) {
+  return pd_free_heap_physical_memory(addr, bytes);
+}
+
 void os::free_memory(char *addr, size_t bytes, size_t alignment_hint) {
   pd_free_memory(addr, bytes, alignment_hint);
 }

@@ -45,6 +45,7 @@
 #include "gc/shared/spaceDecorator.hpp"
 #include "gc/shared/strongRootsScope.hpp"
 #include "gc/shared/weakProcessor.hpp"
+#include "gc/shared/elasticMaxHeap.hpp"
 #include "logging/log.hpp"
 #include "memory/iterator.inline.hpp"
 #include "memory/resourceArea.hpp"
@@ -380,6 +381,10 @@ void DefNewGeneration::compute_new_size() {
   size_t new_size_before = _virtual_space.committed_size();
   size_t min_new_size = initial_size();
   size_t max_new_size = reserved().byte_size();
+  // ElasticMaxHeap
+  if (ElasticMaxHeap) {
+    max_new_size = EMH_size();
+  }
   assert(min_new_size <= new_size_before &&
          new_size_before <= max_new_size,
          "just checking");
@@ -393,6 +398,27 @@ void DefNewGeneration::compute_new_size() {
   // Compute desired new generation size based on NewRatio and NewSizeThreadIncrease
   // and reverts to previous value if any overflow happens
   size_t desired_new_size = adjust_for_thread_increase(new_size_candidate, new_size_before, alignment);
+
+  // ElasticMaxHeap
+  // setting desired_new_size as exp_EMH_size with following conditions
+  // 1. exp_EMH_size is set (!= 0)
+  // 2. young gen is empty (fullGC)
+  // 3. exp_EMH_size < current young committed size
+  // 4. exp_EMH_size >= Xms
+  // 5. exp_EMH_size < desired_new_size
+  size_t exp_size = exp_EMH_size();
+  if (ElasticMaxHeap &&
+      used() == 0 &&
+      exp_size > 0 &&
+      exp_size < new_size_before &&
+      exp_size >= min_new_size &&
+      exp_size < desired_new_size) {
+    guarantee(exp_size % alignment == 0, "must be");
+    guarantee(exp_size <= max_new_size, "must be");
+    guarantee(to()->is_empty() && from()->is_empty() && eden()->is_empty(), "must be");
+    desired_new_size = exp_size;
+    log_info(emh)("NewGeneration: shrink according to ElasticMaxHeap");
+  }
 
   // Adjust new generation size
   desired_new_size = MAX2(MIN2(desired_new_size, max_new_size), min_new_size);
@@ -436,6 +462,17 @@ void DefNewGeneration::compute_new_size() {
         "  [allowed " SIZE_FORMAT "K extra for %d threads]",
           thread_increase_size/K, threads_count);
       }
+  // ElasticMaxHeap
+  if (ElasticMaxHeap && exp_size > 0) {
+    size_t current_byte_size = _virtual_space.committed_size();
+    log_info(emh)("DefNewGeneration ElasticMaxHeap adjust %s, expect "
+                  SIZE_FORMAT "K, actual " SIZE_FORMAT "K, min "
+                  SIZE_FORMAT "K",
+                  (exp_size >= current_byte_size) ? "success" : "fail",
+                  exp_size / K,
+                  current_byte_size / K,
+                  min_new_size / K);
+  }
 }
 
 void DefNewGeneration::younger_refs_iterate(OopsInGenClosure* cl, uint n_threads) {
@@ -462,7 +499,11 @@ size_t DefNewGeneration::free() const {
 
 size_t DefNewGeneration::max_capacity() const {
   const size_t alignment = GenCollectedHeap::heap()->collector_policy()->space_alignment();
-  const size_t reserved_bytes = reserved().byte_size();
+  size_t reserved_bytes = reserved().byte_size();
+  if (ElasticMaxHeap) {
+    guarantee(EMH_size() <= reserved_bytes, "must be");
+    reserved_bytes = EMH_size();
+  }
   return reserved_bytes - compute_survivor_size(reserved_bytes, alignment);
 }
 

@@ -149,6 +149,7 @@ class os: AllStatic {
                              bool allow_exec);
   static bool   pd_unmap_memory(char *addr, size_t bytes);
   static void   pd_free_memory(char *addr, size_t bytes, size_t alignment_hint);
+  static bool   pd_free_heap_physical_memory(char *addr, size_t bytes);
   static void   pd_realign_memory(char *addr, size_t bytes, size_t alignment_hint);
 
   static size_t page_size_for_region(size_t region_size, size_t min_pages, bool must_be_aligned);
@@ -393,6 +394,7 @@ class os: AllStatic {
                              bool allow_exec);
   static bool   unmap_memory(char *addr, size_t bytes);
   static void   free_memory(char *addr, size_t bytes, size_t alignment_hint);
+  static bool   free_heap_physical_memory(char *addr, size_t bytes);
   static void   realign_memory(char *addr, size_t bytes, size_t alignment_hint);
 
   // NUMA-specific interface

@@ -197,6 +197,7 @@ CollectedHeap::CollectedHeap() :
   _is_gc_active(false),
   _total_collections(0),
   _total_full_collections(0),
+  _current_max_heap_size(MaxHeapSize),
   _gc_cause(GCCause::_no_gc),
   _gc_lastcause(GCCause::_no_gc)
 {

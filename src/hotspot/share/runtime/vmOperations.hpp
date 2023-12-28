@@ -131,6 +131,7 @@
   template(PrintMetadata)                         \
   template(GTestExecuteAtSafepoint)               \
   template(JFROldObject)                          \
+  template(ElasticMaxHeap)                        \
 
 class VM_Operation: public CHeapObj<mtInternal> {
  public:

@@ -65,7 +65,8 @@ HeapRegionManager::HeapRegionManager() :
   _free_list("Free list", new MasterFreeRegionListChecker()),
   _available_map(mtGC),
   _num_committed(0),
-  _allocated_heapregions_length(0)
+  _allocated_heapregions_length(0),
+  _EMH_length(0)
 { }
 
 void HeapRegionManager::initialize(G1RegionToSpaceMapper* heap_storage,
@@ -88,6 +89,8 @@ void HeapRegionManager::initialize(G1RegionToSpaceMapper* heap_storage,
 
   MemRegion reserved = heap_storage->reserved();
   _regions.initialize(reserved.start(), reserved.end(), HeapRegion::GrainBytes);
+
+  _EMH_length = (uint)_regions.length();
 
   _available_map.initialize(_regions.length());
 }
@@ -242,6 +245,13 @@ uint HeapRegionManager::expand_by(uint num_regions, WorkGang* pretouch_workers) 
 uint HeapRegionManager::expand_at(uint start, uint num_regions, WorkGang* pretouch_workers) {
   if (num_regions == 0) {
     return 0;
+  }
+  // Elastic Max Heap: expand upper bound limit
+  if (ElasticMaxHeap) {
+    uint available_regions = EMH_length() - length();
+    guarantee(EMH_length() >= length(), "must be");
+    guarantee(available_regions <= max_length() && available_regions <= EMH_length(), "must be");
+    num_regions = MIN2(num_regions, available_regions);
   }
 
   uint cur = start;

@@ -30,6 +30,7 @@
 #include "classfile/stringTable.hpp"
 #include "classfile/symbolTable.hpp"
 #include "gc/shared/collectorPolicy.hpp"
+#include "gc/shared/elasticMaxHeap.hpp"
 #include "gc/shared/gcArguments.hpp"
 #include "gc/shared/gcConfig.hpp"
 #include "logging/log.hpp"
@@ -1697,6 +1698,8 @@ void Arguments::set_conservative_max_heap_alignment() {
 jint Arguments::set_ergonomics_flags() {
   GCConfig::initialize();
 
+  ElasticMaxHeapChecker::check_common_options();
+  
   set_conservative_max_heap_alignment();
 
 #ifndef ZERO
@@ -1828,6 +1831,33 @@ void Arguments::set_heap_size() {
       set_min_heap_size(MIN2((size_t)reasonable_minimum, InitialHeapSize));
       log_trace(gc, heap)("  Minimum heap size " SIZE_FORMAT, min_heap_size());
     }
+  }
+
+  // Elastic Max Heap
+  // 1. ElasticMaxHeapSize should be used together with Xmx
+  // 2. record initial MaxHeapSize, set new MaxHeapSize equal to ElasticMaxHeapSize
+  // 3. need to do init shrink to initial Xmx later
+  if (FLAG_IS_CMDLINE(ElasticMaxHeapSize)) {
+    if (!ElasticMaxHeap) {
+      jio_fprintf(defaultStream::error_stream(),
+                  "-XX:ElasticMaxHeapSize should be used together with -XX:+ElasticMaxHeap\n");
+      vm_exit(1);
+    }
+    if (!FLAG_IS_CMDLINE(MaxHeapSize)) {
+      jio_fprintf(defaultStream::error_stream(),
+                  "-XX:ElasticMaxHeapSize should be used together with -Xmx/-XX:MaxHeapSize\n");
+      vm_exit(1);
+    }
+    if (ElasticMaxHeapSize <= MaxHeapSize) {
+      jio_fprintf(defaultStream::error_stream(),
+                  "ElasticMaxHeapSize should be larger than MaxHeapSize\n");
+      vm_exit(1);
+    }
+
+    ElasticMaxHeapConfig::set_initial_max_heap_size((size_t)MaxHeapSize);
+    size_t _heap_alignment = CollectorPolicy::compute_heap_alignment();
+    size_t aligned_elastic_max_heap_size = align_up(ElasticMaxHeapSize, _heap_alignment);
+    FLAG_SET_CMDLINE(size_t, MaxHeapSize, aligned_elastic_max_heap_size);
   }
 }
 
@@ -2618,6 +2648,19 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args, bool* patch_m
         return JNI_EINVAL;
       }
       if (FLAG_SET_CMDLINE(size_t, MaxHeapSize, (size_t)long_max_heap_size) != JVMFlag::SUCCESS) {
+        return JNI_EINVAL;
+      }
+    // ElasticMaxHeapSize
+    } else if (match_option(option, "-XX:ElasticMaxHeapSize=", &tail)) {
+      julong long_elastic_max_heap_size = 0;
+      ArgsRange errcode = parse_memory_size(tail, &long_elastic_max_heap_size, 1);
+      if (errcode != arg_in_range) {
+        jio_fprintf(defaultStream::error_stream(),
+                    "Invalid elastic maximum heap size: %s\n", option->optionString);
+        describe_range_error(errcode);
+        return JNI_EINVAL;
+      }
+      if (FLAG_SET_CMDLINE(size_t, ElasticMaxHeapSize, (size_t)long_elastic_max_heap_size) != JVMFlag::SUCCESS) {
         return JNI_EINVAL;
       }
     // Xmaxf

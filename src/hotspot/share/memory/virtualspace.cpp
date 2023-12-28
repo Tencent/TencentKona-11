@@ -669,6 +669,7 @@ VirtualSpace::VirtualSpace() {
   _upper_alignment        = 0;
   _special                = false;
   _executable             = false;
+  _EMH_size               = 0;    // Elastic Max Heap
 }
 
 
@@ -687,6 +688,9 @@ bool VirtualSpace::initialize_with_granularity(ReservedSpace rs, size_t committe
 
   _low = low_boundary();
   _high = low();
+
+  // Elastic Max Heap
+  _EMH_size = reserved_size();
 
   _special = rs.special();
   _executable = rs.executable();
@@ -748,6 +752,7 @@ void VirtualSpace::release() {
   _upper_alignment        = 0;
   _special                = false;
   _executable             = false;
+  _EMH_size               = 0;
 }
 
 
@@ -762,6 +767,9 @@ size_t VirtualSpace::reserved_size() const {
 
 
 size_t VirtualSpace::uncommitted_size()  const {
+  if (ElasticMaxHeap) {
+    return EMH_size() - committed_size();
+  }
   return reserved_size() - committed_size();
 }
 
@@ -927,6 +935,19 @@ bool VirtualSpace::expand_by(size_t bytes, bool pre_touch) {
 
   _high += bytes;
   return true;
+}
+
+// Elastic Max Heap
+void VirtualSpace::set_EMH_size(size_t new_size) {
+  guarantee(new_size <= reserved_size(), "must be");
+  guarantee(new_size >= committed_size(), "must be");
+  _EMH_size = new_size;
+}
+
+size_t VirtualSpace::EMH_size() const {
+  guarantee(_EMH_size <= reserved_size(), "must be");
+  guarantee(_EMH_size >= committed_size(), "must be");
+  return _EMH_size;
 }
 
 // A page is uncommitted if the contents of the entire page is deemed unusable.

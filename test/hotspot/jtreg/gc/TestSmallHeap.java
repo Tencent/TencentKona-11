@@ -111,7 +111,7 @@ public class TestSmallHeap {
         analyzer.shouldHaveExitValue(0);
 
         expectedMaxHeap = Math.max(expectedMaxHeap, minMaxHeap);
-        long maxHeapSize = Long.parseLong(analyzer.firstMatch("MaxHeapSize.+=\\s+(\\d+)",1));
+        long maxHeapSize = Long.parseLong(analyzer.firstMatch("MaxHeapSize.+=\\s+(\\d+).+command line",1));
         long actualHeapSize = Long.parseLong(analyzer.firstMatch(VerifyHeapSize.actualMsg + "(\\d+)",1));
         Asserts.assertEQ(maxHeapSize, expectedMaxHeap);
         Asserts.assertLessThanOrEqual(actualHeapSize, maxHeapSize);

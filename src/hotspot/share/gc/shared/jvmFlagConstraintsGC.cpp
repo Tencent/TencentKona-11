@@ -337,6 +337,15 @@ JVMFlag::Error MaxHeapSizeConstraintFunc(size_t value, bool verbose) {
   return status;
 }
 
+JVMFlag::Error ElasticMaxHeapSizeConstraintFunc(size_t value, bool verbose) {
+  JVMFlag::Error status = MaxSizeForHeapAlignment("ElasticMaxHeapSize", value, verbose);
+
+  if (status == JVMFlag::SUCCESS) {
+    status = CheckMaxHeapSizeAndSoftRefLRUPolicyMSPerMB(value, SoftRefLRUPolicyMSPerMB, verbose);
+  }
+  return status;
+}
+
 JVMFlag::Error HeapBaseMinAddressConstraintFunc(size_t value, bool verbose) {
   // If an overflow happened in Arguments::set_heap_size(), MaxHeapSize will have too large a value.
   // Check for this by ensuring that MaxHeapSize plus the requested min base address still fit within max_uintx.

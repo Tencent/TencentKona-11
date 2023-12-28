@@ -109,6 +109,11 @@ class Generation: public CHeapObj<mtGC> {
   // Statistics for garbage collection
   GCStats* _gc_stats;
 
+  // expected ElasticMaxHeap size during full gc (temp value), 0 means do not adjust
+  // min_gen_size <= _expected_EMH_size  <= _reserved size.
+  // will be cleared after ElasticMaxHeap VM operation.
+  size_t _exp_EMH_size;
+
   // Initialize the generation.
   Generation(ReservedSpace rs, size_t initial_byte_size);
 
@@ -542,6 +547,27 @@ public:
   // Performance Counter support
   virtual void update_counters() = 0;
   virtual CollectorCounters* counters() { return _gc_counters; }
+
+  // ElasticMaxHeap
+  size_t EMH_size() const { return _virtual_space.EMH_size(); }
+  void set_EMH_size(size_t size) {
+    guarantee(size <= _reserved.byte_size(), "must be");
+    _virtual_space.set_EMH_size(size);
+  }
+
+  size_t exp_EMH_size() const { return _exp_EMH_size; }
+  void set_exp_EMH_size(size_t size) {
+    guarantee(size <= _reserved.byte_size(), "must be");
+    _exp_EMH_size = size;
+  }
+
+  virtual void update_gen_max_counter(size_t size) {
+    guarantee(false, "NYI");
+  }
+
+  size_t committed_size() const {
+    return _virtual_space.committed_size();
+  }
 
   GCMemoryManager* gc_manager() const {
     assert(_gc_manager != NULL, "not initialized yet");

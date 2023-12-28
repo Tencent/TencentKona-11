@@ -66,6 +66,7 @@
   LOG_TAG(defaultmethods) \
   LOG_TAG(director) \
   LOG_TAG(dump) \
+  LOG_TAG(emh) \
   LOG_TAG(ergo) \
   LOG_TAG(event) \
   LOG_TAG(exceptions) \

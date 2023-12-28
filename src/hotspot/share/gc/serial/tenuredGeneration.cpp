@@ -194,6 +194,7 @@ TenuredGeneration::expand_and_allocate(size_t word_size,
                                        bool is_tlab,
                                        bool parallel) {
   assert(!is_tlab, "TenuredGeneration does not support TLAB allocation");
+  guarantee(!ElasticMaxHeap, "TenuredGeneration do not support Elastic Max Heap.");
   if (parallel) {
     MutexLocker x(ParGCRareEvent_lock);
     HeapWord* result = NULL;

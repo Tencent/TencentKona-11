@@ -2079,6 +2079,11 @@ void os::pd_free_memory(char *addr, size_t bytes, size_t alignment_hint) {
   ::madvise(addr, bytes, MADV_DONTNEED);
 }
 
+// to be implemented
+bool os::pd_free_heap_physical_memory(char *addr, size_t bytes) {
+  return false;
+}
+
 void os::numa_make_global(char *addr, size_t bytes) {
 }
 

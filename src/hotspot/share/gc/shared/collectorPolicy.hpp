@@ -91,6 +91,7 @@ class CollectorPolicy : public CHeapObj<mtGC> {
 class GenCollectorPolicy : public CollectorPolicy {
   friend class TestGenCollectorPolicy;
   friend class VMStructs;
+  friend class PS_ElasticMaxHeapOp;
 
 protected:
   size_t _min_young_size;

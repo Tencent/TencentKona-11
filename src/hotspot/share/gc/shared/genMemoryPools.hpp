@@ -34,15 +34,21 @@ class Generation;
 class ContiguousSpacePool : public CollectedMemoryPool {
 private:
   ContiguousSpace* _space;
+  DefNewGeneration* _gen;
 
 public:
   ContiguousSpacePool(ContiguousSpace* space,
+                      DefNewGeneration* gen,
                       const char* name,
                       size_t max_size,
                       bool support_usage_threshold);
 
   ContiguousSpace* space() { return _space; }
   MemoryUsage get_memory_usage();
+  size_t max_size() const {
+    // Eden's max_size = max_size of Young Gen - the current committed size of survivor spaces
+    return _gen->Generation::max_capacity() - _gen->from()->capacity() - _gen->to()->capacity();
+  }
   size_t used_in_bytes();
 };
 
@@ -58,6 +64,9 @@ public:
 
   MemoryUsage get_memory_usage();
 
+  size_t max_size() const {
+    return _young_gen->from()->capacity();
+  }
   size_t used_in_bytes();
   size_t committed_in_bytes();
 };
@@ -69,6 +78,7 @@ public:
   GenerationPool(Generation* gen, const char* name, bool support_usage_threshold);
 
   MemoryUsage get_memory_usage();
+  size_t max_size() const { return _gen->max_capacity(); }
   size_t used_in_bytes();
 };
 

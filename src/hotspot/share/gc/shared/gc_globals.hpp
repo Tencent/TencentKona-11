@@ -732,6 +732,10 @@
           "Maximum heap size (in bytes)")                                   \
           constraint(MaxHeapSizeConstraintFunc,AfterErgo)                   \
                                                                             \
+  product(size_t, ElasticMaxHeapSize, ScaleForWordSize(96*M),               \
+          "Elastic maximum heap size (in bytes)")                           \
+          constraint(ElasticMaxHeapSizeConstraintFunc,AfterErgo)            \
+                                                                            \
   product(size_t, OldSize, ScaleForWordSize(4*M),                           \
           "Initial tenured generation size (in bytes)")                     \
           range(0, max_uintx)                                               \
