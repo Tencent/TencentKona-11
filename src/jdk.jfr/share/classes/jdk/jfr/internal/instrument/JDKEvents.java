@@ -42,6 +42,7 @@ import jdk.jfr.events.JavaNativeFreeEvent;
 import jdk.jfr.events.JavaNativeReallocateEvent;
 import jdk.jfr.events.DeserializationEvent;
 import jdk.jfr.events.SecurityPropertyModificationEvent;
+import jdk.jfr.events.SecurityProviderServiceEvent;
 import jdk.jfr.events.SocketReadEvent;
 import jdk.jfr.events.SocketWriteEvent;
 import jdk.jfr.events.TLSHandshakeEvent;
@@ -60,6 +61,7 @@ public final class JDKEvents {
     private static final Class<?>[] mirrorEventClasses = {
         DeserializationEvent.class,
         SecurityPropertyModificationEvent.class,
+        SecurityProviderServiceEvent.class,
         TLSHandshakeEvent.class,
         X509CertificateEvent.class,
         X509ValidationEvent.class
@@ -78,6 +80,7 @@ public final class JDKEvents {
         ActiveRecordingEvent.class,
         jdk.internal.event.DeserializationEvent.class,
         jdk.internal.event.SecurityPropertyModificationEvent.class,
+        jdk.internal.event.SecurityProviderServiceEvent.class,
         jdk.internal.event.TLSHandshakeEvent.class,
         jdk.internal.event.X509CertificateEvent.class,
         jdk.internal.event.X509ValidationEvent.class,
