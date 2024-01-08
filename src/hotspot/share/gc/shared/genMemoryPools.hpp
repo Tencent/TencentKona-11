@@ -26,6 +26,7 @@
 #define SHARE_VM_GC_SHARED_GENMEMORYPOOLS_HPP
 
 #include "services/memoryPool.hpp"
+#include "gc/serial/defNewGeneration.hpp"
 
 class ContiguousSpace;
 class DefNewGeneration;

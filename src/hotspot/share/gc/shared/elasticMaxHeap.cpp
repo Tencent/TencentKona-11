@@ -22,7 +22,10 @@
 #include "gc/shared/elasticMaxHeap.hpp"
 #include "gc/g1/g1CollectedHeap.hpp"
 #include "gc/g1/g1Policy.hpp"
+#include "gc/serial/defNewGeneration.hpp"
+#include "gc/parallel/parallelScavengeHeap.hpp"
 #include "logging/logStream.hpp"
+#include "runtime/vmThread.hpp"
 
 size_t ElasticMaxHeapConfig::_initial_max_heap_size = 0;
 
