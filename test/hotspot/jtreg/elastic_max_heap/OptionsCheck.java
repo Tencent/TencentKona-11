@@ -56,7 +56,7 @@ public class OptionsCheck extends TestBase {
     }
 
     public static void LaunchAndCheck(String[] contains, String[] not_contains, String... command) throws Exception {
-        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(true, command);
+        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(command);
         OutputAnalyzer output = new OutputAnalyzer(pb.start());
         System.out.println(output.getOutput());
         if (contains != null) {

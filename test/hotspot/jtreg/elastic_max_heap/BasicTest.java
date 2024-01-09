@@ -43,7 +43,7 @@ public class BasicTest extends TestBase {
     private static void test(String heap_type) throws Exception {
         // Xms = 100M - 1B, Xmx = 600M - 1B, ElasticMaxHeapSize = 1G - 1B
         // unaligned arguments should be fine
-        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(true, heap_type, "-XX:+ElasticMaxHeap", "-Xms104857599", "-Xmx629145599", "-XX:ElasticMaxHeapSize=1073741823", "NotActiveHeap");
+        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(heap_type, "-XX:+ElasticMaxHeap", "-Xms104857599", "-Xmx629145599", "-XX:ElasticMaxHeapSize=1073741823", "NotActiveHeap");
         Process p = pb.start();
         try {
             long pid = getPidOfProcess(p);

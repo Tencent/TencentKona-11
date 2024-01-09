@@ -40,8 +40,7 @@ public class JmapHeapTest extends TestBase {
     }
 
     private static void test(String heap_type) throws Exception {
-        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(true,
-                                                                  heap_type,
+        ProcessBuilder pb = ProcessTools.createJavaProcessBuilder(heap_type,
                                                                   "-XX:+ElasticMaxHeap",
                                                                   "-Xms100M",
                                                                   "-Xmx600M",
