@@ -53,6 +53,7 @@ private:
   ssize_t                  _reclaimed;
   ZList<ZPageAllocRequest> _queue;
   ZList<ZPage>             _detached;
+  bool                     _initialized;
 
   static ZPage* const      gc_marker;
 
@@ -80,7 +81,7 @@ private:
   void detach_memory(const ZVirtualMemory& vmem, ZPhysicalMemory& pmem);
 
 public:
-  ZPageAllocator(size_t min_capacity, size_t max_capacity, size_t max_reserve);
+  ZPageAllocator(size_t min_capacity, size_t initial_capacity, size_t max_capacity, size_t max_reserve);
 
   bool is_initialized() const;
 

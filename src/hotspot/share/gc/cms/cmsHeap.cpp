@@ -43,13 +43,16 @@
 class CompactibleFreeListSpacePool : public CollectedMemoryPool {
 private:
   CompactibleFreeListSpace* _space;
+  ConcurrentMarkSweepGeneration* _gen;
 public:
   CompactibleFreeListSpacePool(CompactibleFreeListSpace* space,
+                               ConcurrentMarkSweepGeneration* gen,
                                const char* name,
                                size_t max_size,
                                bool support_usage_threshold) :
     CollectedMemoryPool(name, space->capacity(), max_size, support_usage_threshold),
-    _space(space) {
+    _space(space),
+    _gen(gen) {
   }
 
   MemoryUsage get_memory_usage() {
@@ -59,7 +62,7 @@ public:
 
     return MemoryUsage(initial_size(), used, committed, max_heap_size);
   }
-
+  size_t max_size() const { return _gen->max_capacity(); }
   size_t used_in_bytes() {
     return _space->used_stable();
   }
@@ -102,6 +105,7 @@ void CMSHeap::initialize_serviceability() {
 
   ParNewGeneration* young = young_gen();
   _eden_pool = new ContiguousSpacePool(young->eden(),
+                                       young,
                                        "Par Eden Space",
                                        young->max_eden_size(),
                                        false);
@@ -113,6 +117,7 @@ void CMSHeap::initialize_serviceability() {
 
   ConcurrentMarkSweepGeneration* old = (ConcurrentMarkSweepGeneration*) old_gen();
   _old_pool = new CompactibleFreeListSpacePool(old->cmsSpace(),
+                                               old,
                                                "CMS Old Gen",
                                                old->reserved().byte_size(),
                                                true);

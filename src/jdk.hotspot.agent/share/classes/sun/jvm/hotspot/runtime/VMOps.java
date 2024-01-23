@@ -83,5 +83,6 @@ public enum VMOps {
   ReportJavaOutOfMemory,
   Exit,
   LinuxDllLoad,
-  Terminating
+  Terminating,
+  ElasticMaxHeap
 }

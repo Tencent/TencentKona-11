@@ -57,8 +57,14 @@ PSGenerationCounters::PSGenerationCounters(const char* name,
       min_capacity, CHECK);
 
     cname = PerfDataManager::counter_name(_name_space, "maxCapacity");
-    PerfDataManager::create_constant(SUN_GC, cname, PerfData::U_Bytes,
-      max_capacity, CHECK);
+    // Elastic Max Heap
+    if (ElasticMaxHeap) {
+      _max_size = PerfDataManager::create_variable(SUN_GC, cname, PerfData::U_Bytes,
+        _ps_virtual_space->reserved_size(), CHECK);
+    } else {
+      PerfDataManager::create_constant(SUN_GC, cname, PerfData::U_Bytes,
+        _ps_virtual_space->reserved_size(), CHECK);
+    }
 
     cname = PerfDataManager::counter_name(_name_space, "capacity");
     _current_size = PerfDataManager::create_variable(SUN_GC, cname,

@@ -60,7 +60,6 @@ tools/javac/importscope/T8193717.java                                           
 # javap
 
 tools/javap/output/RepeatingTypeAnnotations.java                                8057687    generic-all    emit correct byte code an attributes for type annotations
-tools/javap/T6587786.java                                                       8195589    generic-all    T6587786.java failed after JDK-8189997
 
 ###########################################################################
 #
@@ -78,3 +77,9 @@ tools/sjavac/ClasspathDependencies.java						8158002	   generic-all	  Requires i
 #
 # jdeps 
 
+
+############################################################################
+
+# For Kona CI/CD
+
+jdk/javadoc/doclet/testIOException/TestIOException.java 8000000 generic-all

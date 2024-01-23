@@ -153,6 +153,9 @@ class G1CollectedHeap : public CollectedHeap {
   // Testing classes.
   friend class G1CheckCSetFastTableClosure;
 
+  // Elastic Max Heap
+  friend class G1_ElasticMaxHeapOp;
+
 private:
   G1YoungRemSetSamplingThread* _young_gen_sampling_thread;
 
@@ -203,7 +206,7 @@ private:
   // free_list_only is true, it will only rebuild the master free
   // list. It is called after a Full GC (free_list_only == false) or
   // after heap shrinking (free_list_only == true).
-  void rebuild_region_sets(bool free_list_only);
+  void rebuild_region_sets(bool free_list_only, bool is_elastic_max_heap_shrink = false);
 
   // Callback for region mapping changed events.
   G1RegionMappingChangedListener _listener;
@@ -1430,6 +1433,30 @@ public:
 
 private:
   size_t _max_heap_capacity;
+
+  // Elastic Max Heap
+  // expected ElasticMaxHeap size during full gc (temp value)
+  // 0 means do not adjust
+  // min_gen_size <= _exp_EMH_size <= _reserved_size
+  // will be cleared after ElasticMaxHeap VM operation
+  size_t _exp_EMH_size;
+
+public:
+  size_t exp_EMH_size() const { return _exp_EMH_size; }
+  void set_exp_EMH_size(size_t size) {
+    guarantee(size <= _hrm.reserved().byte_size(), "must be");
+    _exp_EMH_size = size;
+  }
+
+  void set_EMH_length(uint len) {
+    _hrm.set_EMH_length(len);
+  }
+
+  void update_gen_max_counter(size_t size) {
+    guarantee(ElasticMaxHeap, "must be");
+    _g1mm->young_collection_counters()->update_max_size(size);
+    _g1mm->old_collection_counters()->update_max_size(size);
+  }
 };
 
 class G1ParEvacuateFollowersClosure : public VoidClosure {

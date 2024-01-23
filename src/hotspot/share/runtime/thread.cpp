@@ -38,6 +38,7 @@
 #include "gc/shared/gcId.hpp"
 #include "gc/shared/gcLocker.inline.hpp"
 #include "gc/shared/workgroup.hpp"
+#include "gc/shared/elasticMaxHeap.hpp"
 #include "interpreter/interpreter.hpp"
 #include "interpreter/linkResolver.hpp"
 #include "interpreter/oopMapCache.hpp"
@@ -4086,6 +4087,23 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
 #ifdef ASSERT
   _vm_complete = true;
 #endif
+
+  // ElasticMaxHeap
+  if (ElasticMaxHeap && FLAG_IS_CMDLINE(ElasticMaxHeapSize)) {
+    // MaxHeapSize has been replaced with ElasticMaxHeapSize,
+    // need to shrink to initial MaxHeapSize
+    size_t initial_max_heap_size = ElasticMaxHeapConfig::initial_max_heap_size();
+    guarantee((size_t)MaxHeapSize > initial_max_heap_size, "should be");
+    bool success = Universe::heap()->update_elastic_max_heap(initial_max_heap_size, 
+                                                             tty,
+                                                             true /* init shrink */);
+    if (!success) {
+      jio_fprintf(defaultStream::error_stream(),
+                  "VM failed to initialize heap, \n"
+                  "try to use a larger Xmx\n");
+      vm_exit(1);
+    }
+  }
 
   if (DumpSharedSpaces) {
     MetaspaceShared::preload_and_dump(CHECK_JNI_ERR);

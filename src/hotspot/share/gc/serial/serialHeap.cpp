@@ -55,6 +55,7 @@ void SerialHeap::initialize_serviceability() {
   // Add a memory pool for each space and young gen doesn't
   // support low memory detection as it is expected to get filled up.
   _eden_pool = new ContiguousSpacePool(young->eden(),
+                                       young,
                                        "Eden Space",
                                        young->max_eden_size(),
                                        false /* support_usage_threshold */);

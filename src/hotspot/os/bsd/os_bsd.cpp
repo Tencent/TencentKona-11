@@ -863,9 +863,10 @@ bool os::create_attached_thread(JavaThread* thread) {
   // and save the caller's signal mask
   os::Bsd::hotspot_sigmask(thread);
 
-  log_info(os, thread)("Thread attached (tid: " UINTX_FORMAT ", pthread id: " UINTX_FORMAT ").",
-    os::current_thread_id(), (uintx) pthread_self());
-
+  log_info(os, thread)("Thread attached (tid: " UINTX_FORMAT ", pthread id: " UINTX_FORMAT
+                       ", stack: " PTR_FORMAT " - " PTR_FORMAT " (" SIZE_FORMAT "K) ).",
+                       os::current_thread_id(), (uintx) pthread_self(),
+                       p2i(thread->stack_base()), p2i(thread->stack_end()), thread->stack_size() / K);
   return true;
 }
 
@@ -2077,6 +2078,11 @@ void os::pd_realign_memory(char *addr, size_t bytes, size_t alignment_hint) {
 
 void os::pd_free_memory(char *addr, size_t bytes, size_t alignment_hint) {
   ::madvise(addr, bytes, MADV_DONTNEED);
+}
+
+// to be implemented
+bool os::pd_free_heap_physical_memory(char *addr, size_t bytes) {
+  return false;
 }
 
 void os::numa_make_global(char *addr, size_t bytes) {

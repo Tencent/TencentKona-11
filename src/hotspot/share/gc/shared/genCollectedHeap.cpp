@@ -37,6 +37,7 @@
 #include "gc/shared/cardTableRS.hpp"
 #include "gc/shared/collectedHeap.inline.hpp"
 #include "gc/shared/collectorCounters.hpp"
+#include "gc/shared/elasticMaxHeap.hpp"
 #include "gc/shared/gcId.hpp"
 #include "gc/shared/gcLocker.hpp"
 #include "gc/shared/gcPolicyCounters.hpp"
@@ -130,6 +131,8 @@ jint GenCollectedHeap::initialize() {
   _old_gen = _old_gen_spec->init(old_rs, rem_set());
   clear_incremental_collection_failed();
 
+  // Elastic Max Heap
+  ElasticMaxHeapChecker::check_GenCollected_options();
   return JNI_OK;
 }
 

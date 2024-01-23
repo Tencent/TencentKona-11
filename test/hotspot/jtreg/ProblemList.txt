@@ -291,3 +291,10 @@ vmTestbase/nsk/jdb/exclude/exclude001/exclude001.java 8197938 windows-all
 vmTestbase/nsk/jdwp/ThreadReference/ForceEarlyReturn/forceEarlyReturn001/forceEarlyReturn001.java 7199837 generic-all
 
 #############################################################################
+
+# For Kona CI/CD
+
+containers/docker/TestPids.java 8000000 generic-all
+runtime/MemberName/MemberNameLeak.java 8000000 generic-all
+
+#############################################################################

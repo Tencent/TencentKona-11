@@ -57,6 +57,8 @@ Generation::Generation(ReservedSpace rs, size_t initial_size) :
   }
   _reserved = MemRegion((HeapWord*)_virtual_space.low_boundary(),
           (HeapWord*)_virtual_space.high_boundary());
+  // ElasticMaxHeap
+  _exp_EMH_size = 0;
 }
 
 size_t Generation::initial_size() {
@@ -74,6 +76,11 @@ size_t Generation::used_stable() const {
 }
 
 size_t Generation::max_capacity() const {
+  // Elastic Max Heap
+  if (ElasticMaxHeap) {
+    guarantee(_virtual_space.EMH_size() <= reserved().byte_size(), "must be");
+    return _virtual_space.EMH_size();
+  }
   return reserved().byte_size();
 }
 
