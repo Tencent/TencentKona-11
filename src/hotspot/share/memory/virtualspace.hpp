@@ -148,6 +148,9 @@ class VirtualSpace {
   // os::commit_memory() or os::uncommit_memory().
   bool _special;
 
+  // Elastic Max Heap
+  size_t _EMH_size;
+
   // Need to know if commit should be executable.
   bool   _executable;
 
@@ -218,6 +221,10 @@ class VirtualSpace {
   size_t committed_size() const;
   // Memory left to use/expand in this virtual space
   size_t uncommitted_size() const;
+
+  // Elastic Max Heap
+  void set_EMH_size(size_t new_size);
+  size_t EMH_size() const;
 
   bool   contains(const void* p) const;
 

@@ -92,6 +92,9 @@ class HeapRegionManager: public CHeapObj<mtGC> {
   // Internal only. The highest heap region +1 we allocated a HeapRegion instance for.
   uint _allocated_heapregions_length;
 
+  // The max number of regions controlled by Elastic Max Heap
+  uint _EMH_length;
+
   HeapWord* heap_bottom() const { return _regions.bottom_address_mapped(); }
   HeapWord* heap_end() const {return _regions.end_address_mapped(); }
 
@@ -202,6 +205,13 @@ public:
 
   // Return the maximum number of regions in the heap.
   uint max_length() const { return (uint)_regions.length(); }
+
+  uint EMH_length() const { return (uint)_EMH_length; }
+
+  void set_EMH_length(uint len) {
+    guarantee(len <= max_length(), "must be");
+    _EMH_length = len;
+  }
 
   MemoryUsage get_auxiliary_data_memory_usage() const;
 

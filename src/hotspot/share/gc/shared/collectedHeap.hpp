@@ -122,6 +122,9 @@ class CollectedHeap : public CHeapObj<mtGC> {
   // Used for filler objects (static, but initialized in ctor).
   static size_t _filler_array_max_size;
 
+  // Elastic Max Heap
+  size_t _current_max_heap_size;
+
   unsigned int _total_collections;          // ... started
   unsigned int _total_full_collections;     // ... started
   NOT_PRODUCT(volatile size_t _promotion_failure_alot_count;)
@@ -613,6 +616,17 @@ class CollectedHeap : public CHeapObj<mtGC> {
     return (CIFireOOMAt > 1 && _fire_out_of_memory_count >= CIFireOOMAt);
   }
 #endif
+
+public:
+  // Elastic Max Heap
+  // 1. change elastic max heap size
+  // 2. return true if resize success or not
+  bool update_elastic_max_heap(size_t new_size, outputStream* st, bool init_shrink = false);
+  
+  size_t current_max_heap_size() const { return _current_max_heap_size; }
+  void set_current_max_heap_size(size_t new_size) {
+    _current_max_heap_size = new_size;
+  }
 };
 
 // Class to set and reset the GC cause for a CollectedHeap.

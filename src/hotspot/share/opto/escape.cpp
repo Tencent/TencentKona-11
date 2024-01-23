@@ -1075,6 +1075,7 @@ void ConnectionGraph::process_call_arguments(CallNode *call) {
                   strcmp(call->as_CallLeaf()->_name, "mulAdd") == 0 ||
                   strcmp(call->as_CallLeaf()->_name, "montgomery_multiply") == 0 ||
                   strcmp(call->as_CallLeaf()->_name, "montgomery_square") == 0 ||
+                  strcmp(call->as_CallLeaf()->_name, "utf8_to_utf16_decoder") == 0 ||
                   strcmp(call->as_CallLeaf()->_name, "vectorizedMismatch") == 0)
                  ))) {
             call->dump();

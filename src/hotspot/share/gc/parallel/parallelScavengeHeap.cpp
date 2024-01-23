@@ -40,6 +40,7 @@
 #include "gc/shared/gcHeapSummary.hpp"
 #include "gc/shared/gcLocker.hpp"
 #include "gc/shared/gcWhen.hpp"
+#include "gc/shared/elasticMaxHeap.hpp"
 #include "logging/log.hpp"
 #include "memory/iterator.hpp"
 #include "memory/metaspaceCounters.hpp"
@@ -60,6 +61,10 @@ GCTaskManager* ParallelScavengeHeap::_gc_task_manager = NULL;
 
 jint ParallelScavengeHeap::initialize() {
   const size_t heap_size = _collector_policy->max_heap_byte_size();
+
+  // ElasticMaxHeap
+  // update _current_max_heap_size after collector_policy initialization
+  _current_max_heap_size = MaxHeapSize;
 
   ReservedSpace heap_rs = Universe::reserve_heap(heap_size, _collector_policy->heap_alignment());
 
@@ -186,6 +191,11 @@ bool ParallelScavengeHeap::is_maximal_no_gc() const {
 
 size_t ParallelScavengeHeap::max_capacity() const {
   size_t estimated = reserved_region().byte_size();
+  // Elastic Max Heap
+  if (ElasticMaxHeap) {
+    guarantee(current_max_heap_size() <= estimated, "must be");
+    estimated = current_max_heap_size();
+  }
   if (UseAdaptiveSizePolicy) {
     estimated -= _size_policy->max_survivor_size(young_gen()->max_size());
   } else {
