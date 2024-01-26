@@ -159,7 +159,7 @@ void VM_Version::get_processor_features() {
   _supports_cx8 = true;
 
   if (UseG1GC && FLAG_IS_DEFAULT(MaxGCPauseMillis)) {
-    FLAG_SET_CMDLINE(uintx, MaxGCPauseMillis, 650);
+    FLAG_SET_DEFAULT(MaxGCPauseMillis, 150);
   }
 
   if (supports_lsx()) {
