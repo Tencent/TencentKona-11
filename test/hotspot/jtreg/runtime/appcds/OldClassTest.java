@@ -67,6 +67,7 @@ public class OldClassTest implements Opcodes {
 
     TestCommon.run(
         "-cp", jar,
+        "-verbose:class",
         "Hello")
       .assertNormalExit(out -> {
           out.shouldContain("Hello Unicode world (Old)");
@@ -81,6 +82,7 @@ public class OldClassTest implements Opcodes {
 
     TestCommon.run(
         "-cp", classpath,
+        "-verbose:class",
         "Hello")
       .assertNormalExit(out -> {
           out.shouldContain("Hello Unicode world (Old)");
