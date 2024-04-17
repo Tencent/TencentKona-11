@@ -2130,7 +2130,7 @@ WB_END
 class VM_WhiteBoxCleanMetaspaces : public VM_WhiteBoxOperation {
  public:
   void doit() {
-    ClassLoaderDataGraph::do_unloading(true);
+    ClassLoaderDataGraph::do_unloading();
   }
 };
 
