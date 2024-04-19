@@ -44,6 +44,12 @@
 #include "utilities/bitMap.inline.hpp"
 #include "utilities/macros.hpp"
 
+/*
+ * This file has been modified by Loongson Technology in 2022, These
+ * modifications are Copyright (c) 2022, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 
 Compiler::Compiler() : AbstractCompiler(compiler_c1) {
 }
@@ -211,7 +217,7 @@ bool Compiler::is_intrinsic_supported(const methodHandle& method) {
   case vmIntrinsics::_updateCRC32:
   case vmIntrinsics::_updateBytesCRC32:
   case vmIntrinsics::_updateByteBufferCRC32:
-#if defined(SPARC) || defined(S390) || defined(PPC64) || defined(AARCH64)
+#if defined(SPARC) || defined(S390) || defined(PPC64) || defined(AARCH64) || defined(LOONGARCH64)
   case vmIntrinsics::_updateBytesCRC32C:
   case vmIntrinsics::_updateDirectByteBufferCRC32C:
 #endif

@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2023, These
+ * modifications are Copyright (c) 2023, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 #include "precompiled.hpp"
 #include "classfile/vmSymbols.hpp"
 #include "jfr/jfrEvents.hpp"
@@ -308,6 +314,9 @@ void ObjectMonitor::enter(TRAPS) {
   }
 
   assert(_owner != Self, "invariant");
+  // Thread _succ != current assertion load reording before Thread if (_succ == current) _succ = nullptr.
+  // But expect order is firstly if (_succ == current) _succ = nullptr then _succ != current assertion.
+  DEBUG_ONLY(LOONGARCH64_ONLY(__asm__ __volatile__ ("dbar 0x700\n");)MIPS64_ONLY(OrderAccess::loadload();))
   assert(_succ != Self, "invariant");
   assert(Self->is_Java_thread(), "invariant");
   JavaThread * jt = (JavaThread *) Self;
@@ -469,6 +478,7 @@ void ObjectMonitor::EnterI(TRAPS) {
   }
 
   // The Spin failed -- Enqueue and park the thread ...
+  DEBUG_ONLY(LOONGARCH64_ONLY(__asm__ __volatile__ ("dbar 0x700\n");)MIPS64_ONLY(OrderAccess::loadload();))
   assert(_succ != Self, "invariant");
   assert(_owner != Self, "invariant");
   assert(_Responsible != Self, "invariant");

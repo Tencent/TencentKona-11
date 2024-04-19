@@ -22,6 +22,13 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021. These
+ * modifications are Copyright (c) 2018, 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ *
+ */
+
 package sun.jvm.hotspot.utilities;
 
 /** Provides canonicalized OS and CPU information for the rest of the
@@ -54,7 +61,7 @@ public class PlatformInfo {
 
   public static boolean knownCPU(String cpu) {
     final String[] KNOWN =
-        new String[] {"i386", "x86", "x86_64", "amd64", "sparc", "sparcv9", "ppc64", "ppc64le", "aarch64"};
+        new String[] {"i386", "x86", "x86_64", "amd64", "sparc", "sparcv9", "ppc64", "ppc64le", "aarch64", "mips64", "mips64el", "loongarch64"};
 
     for(String s : KNOWN) {
       if(s.equals(cpu))
@@ -100,6 +107,12 @@ public class PlatformInfo {
 
     if (cpu.equals("ppc64le"))
       return "ppc64";
+
+    if (cpu.equals("mips64el"))
+      return "mips64";
+
+    if (cpu.equals("loongarch64"))
+      return "loongarch64";
 
     return cpu;
 

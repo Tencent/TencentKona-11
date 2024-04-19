@@ -1204,7 +1204,7 @@ class Compile : public Phase {
   bool           in_scratch_emit_size() const   { return _in_scratch_emit_size;     }
 
   enum ScratchBufferBlob {
-#if defined(PPC64)
+#if defined(PPC64) || defined(MIPS64) || defined(LOONGARCH64)
     MAX_inst_size       = 2048,
 #else
     MAX_inst_size       = 1024,

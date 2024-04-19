@@ -1150,6 +1150,9 @@ void LIR_Assembler::emit_opBranch(LIR_OpBranch* op) {
   __ b(*(op->label()), acond);
 }
 
+void LIR_Assembler::emit_opCmpBranch(LIR_OpCmpBranch* op) {
+  ShouldNotReachHere();
+}
 
 void LIR_Assembler::emit_opConvert(LIR_OpConvert* op) {
   LIR_Opr src  = op->in_opr();
@@ -3080,6 +3083,10 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
   __ call(entry, relocInfo::runtime_call_type);
 
   __ bind(*stub->continuation());
+}
+
+void LIR_Assembler::cmp_cmove(LIR_Condition condition, LIR_Opr left, LIR_Opr right, LIR_Opr src1, LIR_Opr src2, LIR_Opr result, BasicType type) {
+  ShouldNotReachHere();
 }
 
 #ifdef ASSERT

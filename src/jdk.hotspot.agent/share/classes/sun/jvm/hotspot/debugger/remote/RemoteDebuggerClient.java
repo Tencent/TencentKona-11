@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021, These
+ * modifications are Copyright (c) 2019, 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 package sun.jvm.hotspot.debugger.remote;
 
 import java.rmi.*;
@@ -34,6 +40,8 @@ import sun.jvm.hotspot.debugger.remote.sparc.*;
 import sun.jvm.hotspot.debugger.remote.x86.*;
 import sun.jvm.hotspot.debugger.remote.amd64.*;
 import sun.jvm.hotspot.debugger.remote.ppc64.*;
+import sun.jvm.hotspot.debugger.remote.mips64.*;
+import sun.jvm.hotspot.debugger.remote.loongarch64.*;
 
 /** An implementation of Debugger which wraps a
     RemoteDebugger, providing remote debugging via RMI.
@@ -73,6 +81,16 @@ public class RemoteDebuggerClient extends DebuggerBase implements JVMDebugger {
         unalignedAccessesOkay = true;
       } else if (cpu.equals("ppc64")) {
         threadFactory = new RemotePPC64ThreadFactory(this);
+        cachePageSize = 4096;
+        cacheNumPages = parseCacheNumPagesProperty(cacheSize / cachePageSize);
+        unalignedAccessesOkay = true;
+      } else if (cpu.equals("mips64") || cpu.equals("mips64el")) {
+        threadFactory = new RemoteMIPS64ThreadFactory(this);
+        cachePageSize = 4096;
+        cacheNumPages = parseCacheNumPagesProperty(cacheSize / cachePageSize);
+        unalignedAccessesOkay = true;
+      } else if (cpu.equals("loongarch64")) {
+        threadFactory = new RemoteLOONGARCH64ThreadFactory(this);
         cachePageSize = 4096;
         cacheNumPages = parseCacheNumPagesProperty(cacheSize / cachePageSize);
         unalignedAccessesOkay = true;

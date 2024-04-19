@@ -263,7 +263,8 @@ void ZBarrierSetAssembler::try_resolve_jobject_in_native(MacroAssembler* masm,
 #define __ ce->masm()->
 
 void ZBarrierSetAssembler::generate_c1_load_barrier_test(LIR_Assembler* ce,
-                                                         LIR_Opr ref) const {
+                                                         LIR_Opr ref,
+                                                         LIR_Opr res) const {
   __ testptr(ref->as_register(), address_bad_mask_from_thread(r15_thread));
 }
 

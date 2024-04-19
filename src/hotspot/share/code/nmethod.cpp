@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021. These
+ * modifications are Copyright (c) 2018, 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 #include "precompiled.hpp"
 #include "jvm.h"
 #include "code/codeCache.hpp"
@@ -2155,7 +2161,8 @@ void nmethod::verify_scopes() {
         //verify_interrupt_point(iter.addr());
         break;
       case relocInfo::runtime_call_type:
-      case relocInfo::runtime_call_w_cp_type: {
+      NOT_MIPS64(case relocInfo::runtime_call_w_cp_type:)
+      {
         address destination = iter.reloc()->value();
         // Right now there is no way to find out which entries support
         // an interrupt point.  It would be nice if we had this
@@ -2392,7 +2399,8 @@ const char* nmethod::reloc_string_for(u_char* begin, u_char* end) {
           return st.as_string();
         }
         case relocInfo::runtime_call_type:
-        case relocInfo::runtime_call_w_cp_type: {
+        NOT_MIPS64(case relocInfo::runtime_call_w_cp_type:)
+        {
           stringStream st;
           st.print("runtime_call");
           CallRelocation* r = (CallRelocation*)iter.reloc();

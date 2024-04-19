@@ -21,10 +21,17 @@
  * questions.
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2021, These
+ * modifications are Copyright (c) 2021, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 
 /* @test
  * @bug 8167408
  * @requires (os.arch != "aarch64") & (os.arch != "arm")
+ * @requires (os.arch != "mips64el") & (os.arch != "loongarch64")
  * @run main/othervm/native -Xcomp -XX:+CriticalJNINatives compiler.runtime.criticalnatives.lookup.LookUp
  */
 package compiler.runtime.criticalnatives.lookup;
