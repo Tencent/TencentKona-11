@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -50,6 +50,7 @@ uint32_t Symbol::pack_length_and_refcount(int length, int refcount) {
 
 Symbol::Symbol(const u1* name, int length, int refcount) {
   _length_and_refcount =  pack_length_and_refcount(length, refcount);
+  assert(length <= max_length(), "SymbolTable should have caught this!");
   _identity_hash = (short)os::random();
   // _body[0..1] are allocated in the header just by coincidence in the current
   // implementation of Symbol. They are read by identity_hash(), so make sure they

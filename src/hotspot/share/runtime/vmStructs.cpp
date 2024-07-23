@@ -1526,6 +1526,8 @@ typedef PaddedEnd<ObjectMonitor>              PaddedObjectMonitor;
   declare_c2_type(MaxNode, AddNode)                                       \
   declare_c2_type(MaxINode, MaxNode)                                      \
   declare_c2_type(MinINode, MaxNode)                                      \
+  declare_c2_type(MaxLNode, MaxNode)                                      \
+  declare_c2_type(MinLNode, MaxNode)                                      \
   declare_c2_type(MaxFNode, MaxNode)                                      \
   declare_c2_type(MinFNode, MaxNode)                                      \
   declare_c2_type(MaxDNode, MaxNode)                                      \
