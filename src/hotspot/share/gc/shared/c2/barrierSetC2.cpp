@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2023, These
+ * modifications are Copyright (c) 2023, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 #include "precompiled.hpp"
 #include "gc/shared/c2/barrierSetC2.hpp"
 #include "opto/arraycopynode.hpp"
@@ -197,6 +203,8 @@ public:
 
     bool is_volatile = (decorators & MO_SEQ_CST) != 0;
     bool is_acquire = (decorators & MO_ACQUIRE) != 0;
+    bool is_relaxed = (decorators & MO_RELAXED) != 0;
+    bool is_unsafe = (decorators & C2_UNSAFE_ACCESS) != 0;
 
     // If reference is volatile, prevent following volatiles ops from
     // floating up before the volatile access.
@@ -227,6 +235,13 @@ public:
         assert(_leading_membar == NULL || support_IRIW_for_not_multiple_copy_atomic_cpu, "no leading membar expected");
         Node* mb = kit->insert_mem_bar(Op_MemBarAcquire, n);
         mb->as_MemBar()->set_trailing_load();
+      } else if (is_relaxed && is_unsafe) {
+#ifdef LOONGARCH64
+        assert(kit != NULL, "unsupported at optimization time");
+        Node* n = _access.raw_access();
+        Node* mb = kit->insert_mem_bar(Op_SameAddrLoadFence, n);
+        mb->as_MemBar()->set_trailing_load();
+#endif
       }
     }
   }

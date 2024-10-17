@@ -6438,6 +6438,17 @@ instruct membar_storestore() %{
   ins_pipe(empty);
 %}
 
+instruct same_addr_load_fence() %{
+  match(SameAddrLoadFence);
+  ins_cost(400);
+
+  format %{ "MEMBAR @ same_addr_load_fence" %}
+  ins_encode %{
+    __ dbar(0x700);
+  %}
+  ins_pipe(pipe_slow);
+%}
+
 //----------Move Instructions--------------------------------------------------
 instruct castX2P(mRegP dst, mRegL src) %{
   match(Set dst (CastX2P src));
