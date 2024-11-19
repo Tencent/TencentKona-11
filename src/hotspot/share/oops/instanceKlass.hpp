@@ -1155,7 +1155,7 @@ public:
   Method* method_at_itable(Klass* holder, int index, TRAPS);
 
 #if INCLUDE_JVMTI
-  void adjust_default_methods(InstanceKlass* holder, bool* trace_name_printed);
+  void adjust_default_methods(bool* trace_name_printed);
 #endif // INCLUDE_JVMTI
 
   void clean_weak_instanceklass_links();
@@ -1270,6 +1270,8 @@ private:
   bool idnum_can_increment() const      { return has_been_redefined(); }
   inline jmethodID* methods_jmethod_ids_acquire() const;
   inline void release_set_methods_jmethod_ids(jmethodID* jmeths);
+  // This nulls out jmethodIDs for all methods in 'klass'
+  static void clear_jmethod_ids(InstanceKlass* klass);
 
   // Lock during initialization
 public:

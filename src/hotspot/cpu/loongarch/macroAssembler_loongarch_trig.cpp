@@ -1,6 +1,6 @@
 /* Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2018, Cavium. All rights reserved. (By BELLSOFT)
- * Copyright (c) 2022, Loongson Technology. All rights reserved.
+ * Copyright (c) 2022, 2024, Loongson Technology. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -899,7 +899,7 @@ void MacroAssembler::generate__kernel_rem_pio2(address two_over_pi, address pio2
       b(Q_DONE);
     bind(JX_IS_0);
       if (UseLASX) {
-        xvfmul_d(v28, v18, v6);                // f[0,1] * x[0]
+        xvfmul_d(v28, v18, v6);                // f[0,3] * x[0]
         fmul_d(v30, v19, v6);                  // f[4] * x[0]
       } else {
         vfmul_d(v28, v18, v6);                 // f[0,1] * x[0]
@@ -1128,6 +1128,7 @@ void MacroAssembler::generate__kernel_rem_pio2(address two_over_pi, address pio2
           st_w(tmp2, SCR2, 0);
           addi_w(SCR1, SCR1, 24);
           addi_w(jz, jz, 1);
+          alsl_d(SCR2, jz, iqBase, 2 - 1);
           st_w(tmp3, SCR2, 0);                               // iq[jz] = (int) fw
           b(Z_ZERO_CHECK_DONE);
         bind(Z_IS_LESS_THAN_TWO24B);

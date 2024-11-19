@@ -82,6 +82,9 @@ public final class RSAPrivateCrtKeyImpl
      */
     public static RSAPrivateKey newKey(KeyType type, String format,
             byte[] encoded) throws InvalidKeyException {
+        if (format == null || encoded == null || encoded.length == 0) {
+            throw new InvalidKeyException("Missing key encoding");
+        }
         switch (format) {
         case "PKCS#8":
             RSAPrivateCrtKeyImpl key = new RSAPrivateCrtKeyImpl(encoded);
@@ -154,10 +157,6 @@ public final class RSAPrivateCrtKeyImpl
      * Construct a key from its encoding. Called from newKey above.
      */
     private RSAPrivateCrtKeyImpl(byte[] encoded) throws InvalidKeyException {
-        if (encoded == null || encoded.length == 0) {
-            throw new InvalidKeyException("Missing key encoding");
-        }
-
         decode(encoded);
         RSAKeyFactory.checkRSAProviderKeyLengths(n.bitLength(), e);
         try {
@@ -278,14 +277,6 @@ public final class RSAPrivateCrtKeyImpl
     @Override
     public AlgorithmParameterSpec getParams() {
         return keyParams;
-    }
-
-    // return a string representation of this key for debugging
-    @Override
-    public String toString() {
-        return "SunRsaSign " + type.keyAlgo + " private CRT key, "
-               + n.bitLength() + " bits" + "\n  params: " + keyParams
-               + "\n  modulus: " + n + "\n  private exponent: " + d;
     }
 
     // utility method for parsing DER encoding of RSA private keys in PKCS#1

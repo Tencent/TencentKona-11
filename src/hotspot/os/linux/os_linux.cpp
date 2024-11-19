@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 1999, 2022, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2015, 2022 SAP SE. All rights reserved.
+ * Copyright (c) 1999, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2024 SAP SE. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -374,7 +374,7 @@ pid_t os::Linux::gettid() {
 julong os::Linux::host_swap() {
   struct sysinfo si;
   sysinfo(&si);
-  return (julong)si.totalswap;
+  return (julong)(si.totalswap * si.mem_unit);
 }
 
 // Most versions of linux have a bug where the number of processors are
@@ -1654,14 +1654,6 @@ void os::abort(bool dump_core, void* siginfo, const void* context) {
     if (DumpPrivateMappingsInCore) {
       ClassLoader::close_jrt_image();
     }
-#ifndef PRODUCT
-    fdStream out(defaultStream::output_fd());
-    out.print_raw("Current thread is ");
-    char buf[16];
-    jio_snprintf(buf, sizeof(buf), UINTX_FORMAT, os::current_thread_id());
-    out.print_raw_cr(buf);
-    out.print_raw_cr("Dumping core ...");
-#endif
     ::abort(); // dump core
   }
 
@@ -1710,14 +1702,6 @@ const char* os::dll_file_extension() { return ".so"; }
 // This must be hard coded because it's the system's temporary
 // directory not the java application's temp directory, ala java.io.tmpdir.
 const char* os::get_temp_directory() { return "/tmp"; }
-
-static bool file_exists(const char* filename) {
-  struct stat statbuf;
-  if (filename == NULL || strlen(filename) == 0) {
-    return false;
-  }
-  return os::stat(filename, &statbuf) == 0;
-}
 
 // check if addr is inside libjvm.so
 bool os::address_is_in_vm(address addr) {
@@ -2327,7 +2311,6 @@ const char* distro_files[] = {
   "/etc/mandrake-release",
   "/etc/sun-release",
   "/etc/redhat-release",
-  "/etc/SuSE-release",
   "/etc/lsb-release",
   "/etc/turbolinux-release",
   "/etc/gentoo-release",
@@ -2335,6 +2318,7 @@ const char* distro_files[] = {
   "/etc/angstrom-version",
   "/etc/system-release",
   "/etc/os-release",
+  "/etc/SuSE-release", // Deprecated in favor of os-release since SuSE 12
   NULL };
 
 void os::Linux::print_distro_info(outputStream* st) {
@@ -2752,7 +2736,7 @@ static void print_sys_devices_cpu_info(outputStream* st, char* buf, size_t bufle
       snprintf(hbuf_type, 60, "/sys/devices/system/cpu/cpu0/cache/index%u/type", i);
       snprintf(hbuf_size, 60, "/sys/devices/system/cpu/cpu0/cache/index%u/size", i);
       snprintf(hbuf_coherency_line_size, 80, "/sys/devices/system/cpu/cpu0/cache/index%u/coherency_line_size", i);
-      if (file_exists(hbuf_level)) {
+      if (os::file_exists(hbuf_level)) {
         _print_ascii_file_h("cache level", hbuf_level, st);
         _print_ascii_file_h("cache type", hbuf_type, st);
         _print_ascii_file_h("cache size", hbuf_size, st);

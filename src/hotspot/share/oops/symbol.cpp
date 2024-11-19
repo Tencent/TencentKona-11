@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,12 +37,17 @@
 #include "runtime/signature.hpp"
 
 Symbol::Symbol(const u1* name, int length, int refcount) {
+  assert(length <= max_length(), "SymbolTable should have caught this!");
   _refcount = refcount;
   _length = length;
   _identity_hash = (short)os::random();
-  for (int i = 0; i < _length; i++) {
-    byte_at_put(i, name[i]);
-  }
+  // _body[0..1] are allocated in the header just by coincidence in the current
+  // implementation of Symbol. They are read by identity_hash(), so make sure they
+  // are initialized.
+  // No other code should assume that _body[0..1] are always allocated. E.g., do
+  // not unconditionally read base()[0] as that will be invalid for an empty Symbol.
+  _body[0] = _body[1] = 0;
+  memcpy(_body, name, length);
 }
 
 void* Symbol::operator new(size_t sz, int len, TRAPS) throw() {
