@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,10 +27,13 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.File;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,6 +46,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import sun.hotspot.code.Compiler;
 import sun.hotspot.cpuinfo.CPUInfo;
@@ -77,6 +82,10 @@ public class VMProps implements Callable<Map<String, String>> {
             }
             map.put(key, value);
         }
+
+        public void putAll(Map<String, String> map) {
+            map.entrySet().forEach(e -> put(e.getKey(), () -> e.getValue()));
+        }
     }
 
     /**
@@ -87,6 +96,7 @@ public class VMProps implements Callable<Map<String, String>> {
      */
     @Override
     public Map<String, String> call() {
+        log("Entering call()");
         SafeMap map = new SafeMap();
         map.put("vm.flavor", this::vmFlavor);
         map.put("vm.compMode", this::vmCompMode);
@@ -119,10 +129,12 @@ public class VMProps implements Callable<Map<String, String>> {
         map.put("vm.musl", this::isMusl);
         map.put("release.implementor", this::implementor);
         map.put("vm.flagless", this::isFlagless);
+        map.putAll(xOptFlags()); // -Xmx4g -> @requires vm.opt.x.Xmx == "4g" )
         vmGC(map); // vm.gc.X = true/false
         vmOptFinalFlags(map);
 
         dump(map.map);
+        log("Leaving call()");
         return map.map;
     }
 
@@ -452,6 +464,8 @@ public class VMProps implements Callable<Map<String, String>> {
      * @return true if docker is supported in a given environment
      */
     protected String dockerSupport() {
+        log("Entering dockerSupport()");
+
         boolean isSupported = true;
         if (Platform.isLinux()) {
            // currently docker testing is only supported for Linux,
@@ -470,6 +484,8 @@ public class VMProps implements Callable<Map<String, String>> {
            }
         }
 
+        log("dockerSupport(): platform check: isSupported = " + isSupported);
+
         if (isSupported) {
            try {
               isSupported = checkDockerSupport();
@@ -478,15 +494,59 @@ public class VMProps implements Callable<Map<String, String>> {
            }
          }
 
+        log("dockerSupport(): returning isSupported = " + isSupported);
         return "" + isSupported;
     }
 
+    // Configures process builder to redirect process stdout and stderr to a file.
+    // Returns file names for stdout and stderr.
+    private Map<String, String> redirectOutputToLogFile(String msg, ProcessBuilder pb, String fileNameBase) {
+        Map<String, String> result = new HashMap<>();
+        String timeStamp = Instant.now().toString().replace(":", "-").replace(".", "-");
+
+        String stdoutFileName = String.format("./%s-stdout--%s.log", fileNameBase, timeStamp);
+        pb.redirectOutput(new File(stdoutFileName));
+        log(msg + ": child process stdout redirected to " + stdoutFileName);
+        result.put("stdout", stdoutFileName);
+
+        String stderrFileName = String.format("./%s-stderr--%s.log", fileNameBase, timeStamp);
+        pb.redirectError(new File(stderrFileName));
+        log(msg + ": child process stderr redirected to " + stderrFileName);
+        result.put("stderr", stderrFileName);
+
+        return result;
+    }
+
+    private void printLogfileContent(Map<String, String> logFileNames) {
+        logFileNames.entrySet().stream()
+            .forEach(entry ->
+                {
+                    log("------------- " + entry.getKey());
+                    try {
+                        Files.lines(Path.of(entry.getValue()))
+                            .forEach(line -> log(line));
+                    } catch (IOException ie) {
+                        log("Exception while reading file: " + ie);
+                    }
+                    log("-------------");
+                });
+    }
+
     private boolean checkDockerSupport() throws IOException, InterruptedException {
+        log("checkDockerSupport(): entering");
         ProcessBuilder pb = new ProcessBuilder(Container.ENGINE_COMMAND, "ps");
+        Map<String, String> logFileNames = redirectOutputToLogFile("checkDockerSupport(): <container> ps",
+                                                      pb, "container-ps");
         Process p = pb.start();
         p.waitFor(10, TimeUnit.SECONDS);
+        int exitValue = p.exitValue();
 
-        return (p.exitValue() == 0);
+        log(String.format("checkDockerSupport(): exitValue = %s, pid = %s", exitValue, p.pid()));
+        if (exitValue != 0) {
+            printLogfileContent(logFileNames);
+        }
+
+        return (exitValue == 0);
     }
 
     /**
@@ -518,19 +578,18 @@ public class VMProps implements Callable<Map<String, String>> {
      * Checks if we are in <i>almost</i> out-of-box configuration, i.e. the flags
      * which JVM is started with don't affect its behavior "significantly".
      * {@code TEST_VM_FLAGLESS} enviroment variable can be used to force this
-     * method to return true and allow any flags.
+     * method to return true or false and allow or reject any flags.
      *
      * @return true if there are no JVM flags
      */
     private String isFlagless() {
         boolean result = true;
-        if (System.getenv("TEST_VM_FLAGLESS") != null) {
-            return "" + result;
+        String flagless = System.getenv("TEST_VM_FLAGLESS");
+        if (flagless != null) {
+            return "" + "true".equalsIgnoreCase(flagless);
         }
 
-        List<String> allFlags = new ArrayList<String>();
-        Collections.addAll(allFlags, System.getProperty("test.vm.opts", "").trim().split("\\s+"));
-        Collections.addAll(allFlags, System.getProperty("test.java.opts", "").trim().split("\\s+"));
+        List<String> allFlags = allFlags().collect(Collectors.toList());
 
         // check -XX flags
         var ignoredXXFlags = Set.of(
@@ -573,6 +632,35 @@ public class VMProps implements Callable<Map<String, String>> {
         return "" + result;
     }
 
+    private Stream<String> allFlags() {
+        return Stream.of((System.getProperty("test.vm.opts", "") + " " + System.getProperty("test.java.opts", "")).trim().split("\\s+"));
+    }
+
+    /**
+     * Parses extra options, options that start with -X excluding the
+     * bare -X option (as it is not considered an extra option).
+     * Ignores extra options not starting with -X
+     *
+     * This could be improved to handle extra options not starting
+     * with -X as well as "standard" options.
+     */
+    private Map<String, String> xOptFlags() {
+        return allFlags()
+            .filter(s -> s.startsWith("-X") && !s.startsWith("-XX:") && !s.equals("-X"))
+            .map(s -> s.replaceFirst("-", ""))
+            .map(flag -> {
+                String[] split = flag.split("[:0123456789]", 2);
+                return split.length == 2 ? new String[] {split[0], flag.substring(split[0].length(), flag.length() - split[1].length()), split[1]}
+                    : split;
+            })
+            .collect(Collectors.toMap(a -> "vm.opt.x." + a[0],
+                                      a -> (a.length == 1)
+                                      ? "true" // -Xnoclassgc
+                                      : (a[1].equals(":")
+                                         ? a[2]            // ["-XshowSettings", ":", "system"]
+                                         : a[1] + a[2]))); // ["-Xmx", "4", "g"]
+    }
+
     /**
      * Dumps the map to the file if the file name is given as the property.
      * This functionality could be helpful to know context in the real
@@ -593,6 +681,40 @@ public class VMProps implements Callable<Map<String, String>> {
         } catch (IOException e) {
             throw new RuntimeException("Failed to dump properties into '"
                     + dumpFileName + "'", e);
+        }
+    }
+
+    /**
+     * Log diagnostic message.
+     *
+     * @param msg
+     */
+    protected static void log(String msg) {
+        // Always log to a file.
+        logToFile(msg);
+
+        // Also log to stderr; guarded by property to avoid excessive verbosity.
+        // By jtreg design stderr produced here will be visible
+        // in the output of a parent process. Note: stdout should not be used
+        // for logging as jtreg parses that output directly and only echoes it
+        // in the event of a failure.
+        if (Boolean.getBoolean("jtreg.log.vmprops")) {
+            System.err.println("VMProps: " + msg);
+        }
+    }
+
+    /**
+     * Log diagnostic message to a file.
+     *
+     * @param msg
+     */
+    protected static void logToFile(String msg) {
+        String fileName = "./vmprops.log";
+        try {
+            Files.writeString(Paths.get(fileName), msg + "\n", Charset.forName("ISO-8859-1"),
+                    StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to log into '" + fileName + "'", e);
         }
     }
 

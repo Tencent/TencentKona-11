@@ -3511,7 +3511,6 @@ void TemplateTable::invokeinterface(int byte_no) {
 
   __ bind(no_such_method);
   // throw exception
-  __ pop(Rmethod);           // pop return address (pushed by prepare_invoke)
   __ restore_bcp();
   __ restore_locals();
   // Pass arguments for generating a verbose error message.
@@ -3525,7 +3524,6 @@ void TemplateTable::invokeinterface(int byte_no) {
 
   __ bind(no_such_interface);
   // throw exception
-  __ pop(Rmethod);           // pop return address (pushed by prepare_invoke)
   __ restore_bcp();
   __ restore_locals();
   // Pass arguments for generating a verbose error message.

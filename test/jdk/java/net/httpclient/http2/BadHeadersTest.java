@@ -23,13 +23,14 @@
 
 /*
  * @test
+ * @bug 8303965
  * @modules java.base/sun.net.www.http
  *          java.net.http/jdk.internal.net.http.common
  *          java.net.http/jdk.internal.net.http.frame
  *          java.net.http/jdk.internal.net.http.hpack
- * @library /lib/testlibrary server
+ * @library /test/lib server
  * @build Http2TestServer
- * @build jdk.testlibrary.SimpleSSLContext
+ * @build jdk.test.lib.net.SimpleSSLContext
  * @run testng/othervm -Djdk.internal.httpclient.debug=true BadHeadersTest
  */
 
@@ -38,7 +39,7 @@ import jdk.internal.net.http.frame.ContinuationFrame;
 import jdk.internal.net.http.frame.HeaderFrame;
 import jdk.internal.net.http.frame.HeadersFrame;
 import jdk.internal.net.http.frame.Http2Frame;
-import jdk.testlibrary.SimpleSSLContext;
+import jdk.test.lib.net.SimpleSSLContext;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
@@ -201,20 +202,26 @@ public class BadHeadersTest {
     // Assertions based on implementation specific detail messages. Keep in
     // sync with implementation.
     static void assertDetailMessage(Throwable throwable, int iterationIndex) {
-        assertTrue(throwable instanceof IOException,
-                   "Expected IOException, got, " + throwable);
-        assertTrue(throwable.getMessage().contains("protocol error"),
-                "Expected \"protocol error\" in: " + throwable.getMessage());
+        try {
+            assertTrue(throwable instanceof IOException,
+                    "Expected IOException, got, " + throwable);
+            assertTrue(throwable.getMessage().contains("malformed response"),
+                    "Expected \"malformed response\" in: " + throwable.getMessage());
 
-        if (iterationIndex == 0) { // unknown
-            assertTrue(throwable.getMessage().contains("Unknown pseudo-header"),
-                    "Expected \"Unknown pseudo-header\" in: " + throwable.getMessage());
-        } else if (iterationIndex == 4) { // unexpected
-            assertTrue(throwable.getMessage().contains(" Unexpected pseudo-header"),
-                    "Expected \" Unexpected pseudo-header\" in: " + throwable.getMessage());
-        } else {
-            assertTrue(throwable.getMessage().contains("Bad header"),
-                    "Expected \"Bad header\" in: " + throwable.getMessage());
+            if (iterationIndex == 0) { // unknown
+                assertTrue(throwable.getMessage().contains("Unknown pseudo-header"),
+                        "Expected \"Unknown pseudo-header\" in: " + throwable.getMessage());
+            } else if (iterationIndex == 4) { // unexpected
+                assertTrue(throwable.getMessage().contains(" Unexpected pseudo-header"),
+                        "Expected \" Unexpected pseudo-header\" in: " + throwable.getMessage());
+            } else {
+                assertTrue(throwable.getMessage().contains("Bad header"),
+                        "Expected \"Bad header\" in: " + throwable.getMessage());
+            }
+        } catch (AssertionError e) {
+            System.out.println("Exception does not match expectation: " + throwable);
+            throwable.printStackTrace(System.out);
+            throw e;
         }
     }
 
