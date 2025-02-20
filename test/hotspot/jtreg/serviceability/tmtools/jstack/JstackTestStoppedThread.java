@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * @summary for thread stopped with leaked Synchronizer, jstack should find and print warning
  * @modules java.base/jdk.internal.misc
  * @library /test/lib
- * @run main JstackTestStoppedThread
+ * @run main/othervm JstackTestStoppedThread
  */
 public class JstackTestStoppedThread {
   /*
