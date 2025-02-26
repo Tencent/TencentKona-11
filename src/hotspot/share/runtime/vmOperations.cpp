@@ -249,7 +249,7 @@ void VM_FindDeadlocks::doit() {
   // originating thread.
   _setter.set();
 
-  _deadlocks = ThreadService::find_deadlocks_at_safepoint(_setter.list(), _concurrent_locks);
+  _deadlocks = ThreadService::find_deadlocks_at_safepoint(_setter.list(), _concurrent_locks, _out);
   if (_out != NULL) {
     int num_deadlocks = 0;
     for (DeadlockCycle* cycle = _deadlocks; cycle != NULL; cycle = cycle->next()) {
