@@ -122,7 +122,7 @@ public:
   static void   reset_contention_count_stat(JavaThread* thread);
   static void   reset_contention_time_stat(JavaThread* thread);
 
-  static DeadlockCycle*       find_deadlocks_at_safepoint(ThreadsList * t_list, bool object_monitors_only);
+  static DeadlockCycle*       find_deadlocks_at_safepoint(ThreadsList * t_list, bool object_monitors_only, outputStream* out);
 
   // GC support
   static void   oops_do(OopClosure* f);

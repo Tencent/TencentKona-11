@@ -359,7 +359,7 @@ void ThreadService::reset_contention_time_stat(JavaThread* thread) {
 }
 
 // Find deadlocks involving object monitors and concurrent locks if concurrent_locks is true
-DeadlockCycle* ThreadService::find_deadlocks_at_safepoint(ThreadsList * t_list, bool concurrent_locks) {
+DeadlockCycle* ThreadService::find_deadlocks_at_safepoint(ThreadsList * t_list, bool concurrent_locks, outputStream* out) {
   assert(SafepointSynchronize::is_at_safepoint(), "must be at safepoint");
 
   // This code was modified from the original Threads::find_deadlocks code.
@@ -433,6 +433,15 @@ DeadlockCycle* ThreadService::find_deadlocks_at_safepoint(ThreadsList * t_list, 
             // This JavaThread (if there is one) is protected by the
             // ThreadsListSetter in VM_FindDeadlocks::doit().
             currentThread = threadObj != NULL ? java_lang_Thread::thread(threadObj) : NULL;
+            if (currentThread == NULL && threadObj != NULL) {
+              outputStream* st = out != NULL ? out : tty;
+              ResourceMark rm;
+              // warning threadObj might stopped unexpectly and Synchronizer will never release
+              st->print_cr("WARNING: Thread \"%s\" waitting blocker's owner \"%s\" is already stopped without unlock",
+                           jt->name(),
+                           JavaThread::name_for(threadObj));
+              st->flush();
+            }
           } else {
             currentThread = NULL;
           }
