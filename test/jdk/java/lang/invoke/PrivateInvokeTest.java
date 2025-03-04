@@ -67,8 +67,6 @@ public class PrivateInvokeTest {
         String vstr = System.getProperty(THIS_CLASS.getSimpleName()+".verbose");
         if (vstr == null)
             vstr = System.getProperty(THIS_CLASS.getName()+".verbose");
-        if (vstr == null)
-            vstr = System.getProperty("test.verbose");
         if (vstr != null)  verbose = Integer.parseInt(vstr);
     }
     private static int referenceKind(Method m) {
