@@ -22,6 +22,12 @@
  *
  */
 
+/*
+ * This file has been modified by Loongson Technology in 2025, These
+ * modifications are Copyright (c) 2022, 2025, Loongson Technology, and are made
+ * available on the same license terms set forth above.
+ */
+
 #include "precompiled.hpp"
 #include "c1/c1_Compilation.hpp"
 #include "c1/c1_Compiler.hpp"
@@ -43,12 +49,6 @@
 #include "runtime/sharedRuntime.hpp"
 #include "utilities/bitMap.inline.hpp"
 #include "utilities/macros.hpp"
-
-/*
- * This file has been modified by Loongson Technology in 2022, These
- * modifications are Copyright (c) 2022, Loongson Technology, and are made
- * available on the same license terms set forth above.
- */
 
 
 Compiler::Compiler() : AbstractCompiler(compiler_c1) {
