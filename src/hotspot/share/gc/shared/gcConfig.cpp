@@ -115,9 +115,15 @@ void GCConfig::select_gc_ergonomically() {
     FLAG_SET_ERGO_IF_DEFAULT(bool, UseSerialGC, true);
 #endif
   } else {
+    // TODO: EMH does not support default GenCollectedHeap now,
+    // use PS as default when GC is not set in command line
+    if (ElasticMaxHeap) {
+      FLAG_SET_ERGO_IF_DEFAULT(bool, UseParallelGC, true);
+    } else {
 #if INCLUDE_SERIALGC
-    FLAG_SET_ERGO_IF_DEFAULT(bool, UseSerialGC, true);
+      FLAG_SET_ERGO_IF_DEFAULT(bool, UseSerialGC, true);
 #endif
+    }
   }
 }
 
