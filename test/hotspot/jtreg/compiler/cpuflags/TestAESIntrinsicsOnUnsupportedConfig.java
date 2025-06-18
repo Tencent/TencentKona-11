@@ -28,7 +28,7 @@
  *          java.management
  *
  * @build sun.hotspot.WhiteBox
- * @requires !(vm.cpu.features ~= ".*aes.*")
+ * @requires !(vm.cpu.features ~= ".*aes.*" | os.arch == "loongarch64")
  * @requires vm.compiler1.enabled | !vm.graal.enabled
  * @run driver ClassFileInstaller sun.hotspot.WhiteBox
  *                                sun.hotspot.WhiteBox$WhiteBoxPermission

@@ -74,7 +74,9 @@ void G1BarrierSetC1::pre_barrier(LIRAccess& access, LIR_Opr addr_opr,
   // Read the marking-in-progress flag.
   LIR_Opr flag_val = gen->new_register(T_INT);
   __ load(mark_active_flag_addr, flag_val);
+#ifndef LOONGARCH64
   __ cmp(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0));
+#endif
 
   LIR_PatchCode pre_val_patch_code = lir_patch_none;
 
@@ -103,7 +105,11 @@ void G1BarrierSetC1::pre_barrier(LIRAccess& access, LIR_Opr addr_opr,
     slow = new G1PreBarrierStub(pre_val);
   }
 
+#ifndef LOONGARCH64
   __ branch(lir_cond_notEqual, T_INT, slow);
+#else
+  __ cmp_branch(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0), T_INT, slow);
+#endif
   __ branch_destination(slow->continuation());
 }
 
@@ -168,10 +174,17 @@ void G1BarrierSetC1::post_barrier(LIRAccess& access, LIR_OprDesc* addr, LIR_OprD
   }
   assert(new_val->is_register(), "must be a register at this point");
 
+#ifndef LOONGARCH64
   __ cmp(lir_cond_notEqual, xor_shift_res, LIR_OprFact::intptrConst(NULL_WORD));
+#endif
 
   CodeStub* slow = new G1PostBarrierStub(addr, new_val);
+#ifndef LOONGARCH64
   __ branch(lir_cond_notEqual, LP64_ONLY(T_LONG) NOT_LP64(T_INT), slow);
+#else
+  __ cmp_branch(lir_cond_notEqual, xor_shift_res, LIR_OprFact::intptrConst(NULL_WORD),
+                LP64_ONLY(T_LONG) NOT_LP64(T_INT), slow);
+#endif
   __ branch_destination(slow->continuation());
 }
 

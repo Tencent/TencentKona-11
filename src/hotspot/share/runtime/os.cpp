@@ -1242,7 +1242,8 @@ bool os::is_first_C_frame(frame* fr) {
   if ((uintptr_t)fr->sender_sp() == (uintptr_t)-1 || is_pointer_bad(fr->sender_sp())) return true;
 
   uintptr_t old_fp = (uintptr_t)fr->link_or_null();
-  if (old_fp == 0 || old_fp == (uintptr_t)-1 || old_fp == ufp ||
+  // The check for old_fp and ufp is harmful on LoongArch due to their special ABIs.
+  if (old_fp == 0 || old_fp == (uintptr_t)-1 NOT_LOONGARCH64(|| old_fp == ufp) ||
     is_pointer_bad(fr->link_or_null())) return true;
 
   // stack grows downwards; if old_fp is below current fp or if the stack

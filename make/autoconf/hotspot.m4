@@ -340,6 +340,12 @@ AC_DEFUN_ONCE([HOTSPOT_SETUP_JVM_FEATURES],
     HOTSPOT_TARGET_CPU_ARCH=arm
   fi
 
+  # Override hotspot cpu definitions for LOONGARCH platforms
+  if test "x$OPENJDK_TARGET_CPU" = xloongarch64 && test "x$HOTSPOT_TARGET_CPU" != xzero; then
+    HOTSPOT_TARGET_CPU=loongarch_64
+    HOTSPOT_TARGET_CPU_ARCH=loongarch
+  fi
+
   # Verify that dependencies are met for explicitly set features.
   if HOTSPOT_CHECK_JVM_FEATURE(jvmti) && ! HOTSPOT_CHECK_JVM_FEATURE(services); then
     AC_MSG_ERROR([Specified JVM feature 'jvmti' requires feature 'services'])
@@ -426,10 +432,11 @@ AC_DEFUN_ONCE([HOTSPOT_SETUP_JVM_FEATURES],
     JVM_FEATURES_jvmci=""
     INCLUDE_JVMCI="false"
   else
-    # Only enable jvmci on x86_64, sparcv9 and aarch64
+    # Only enable jvmci on x86_64, sparcv9, aarch64 and loongarch64
     if test "x$OPENJDK_TARGET_CPU" = "xx86_64" || \
        test "x$OPENJDK_TARGET_CPU" = "xsparcv9" || \
-       test "x$OPENJDK_TARGET_CPU" = "xaarch64" ; then
+       test "x$OPENJDK_TARGET_CPU" = "xaarch64" || \
+       test "x$OPENJDK_TARGET_CPU" = "xloongarch64" ; then
       AC_MSG_RESULT([yes])
       JVM_FEATURES_jvmci="jvmci"
       INCLUDE_JVMCI="true"

@@ -389,7 +389,11 @@ oop oopDesc::forward_to_atomic(oop p, atomic_memory_order order) {
     // forwarding pointer.
     oldMark = curMark;
   }
+#ifndef LOONGARCH64
   return forwardee();
+#else
+  return (oop)oldMark->decode_pointer();
+#endif
 }
 
 // Note that the forwardee is not the same thing as the displaced_mark.
