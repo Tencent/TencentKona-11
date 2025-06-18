@@ -98,7 +98,11 @@ int VtableStubs::_itab_stub_size = 0;
 
 #if defined(PRODUCT)
   // These values are good for the PRODUCT case (no tracing).
+#if defined LOONGARCH64
+  static const int first_vtableStub_size = 128;
+#else
   static const int first_vtableStub_size =  64;
+#endif
   static const int first_itableStub_size = 256;
 #else
   // These values are good for the non-PRODUCT case (when tracing can be switched on).

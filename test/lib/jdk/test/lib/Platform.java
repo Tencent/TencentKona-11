@@ -229,6 +229,10 @@ public class Platform {
         return isArch("(i386)|(x86(?!_64))");
     }
 
+    public static boolean isLoongArch64() {
+        return isArch("loongarch64");
+    }
+
     public static String getOsArch() {
         return osArch;
     }

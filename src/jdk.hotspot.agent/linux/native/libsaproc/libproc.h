@@ -37,7 +37,7 @@
 #include <asm/ptrace.h>
 #define user_regs_struct  pt_regs
 #endif
-#if defined(aarch64) || defined(arm64)
+#if defined(aarch64) || defined(arm64) || defined(loongarch64)
 #include <asm/ptrace.h>
 #define user_regs_struct user_pt_regs
 #elif defined(arm)

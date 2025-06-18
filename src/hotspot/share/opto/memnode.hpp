@@ -1318,6 +1318,16 @@ public:
   virtual uint ideal_reg() const { return 0; } // not matched in the AD file
 };
 
+#ifdef LOONGARCH64
+// Used to prevent LoadLoad reorder for same address.
+class SameAddrLoadFenceNode: public MemBarNode {
+public:
+  SameAddrLoadFenceNode(Compile* C, int alias_idx, Node* precedent)
+    : MemBarNode(C, alias_idx, precedent) {}
+  virtual int Opcode() const;
+};
+#endif
+
 class OnSpinWaitNode: public MemBarNode {
 public:
   OnSpinWaitNode(Compile* C, int alias_idx, Node* precedent)

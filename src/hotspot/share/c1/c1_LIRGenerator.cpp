@@ -480,13 +480,23 @@ void LIRGenerator::array_range_check(LIR_Opr array, LIR_Opr index,
                                     CodeEmitInfo* null_check_info, CodeEmitInfo* range_check_info) {
   CodeStub* stub = new RangeCheckStub(range_check_info, index, array);
   if (index->is_constant()) {
+#ifndef LOONGARCH64
     cmp_mem_int(lir_cond_belowEqual, array, arrayOopDesc::length_offset_in_bytes(),
                 index->as_jint(), null_check_info);
     __ branch(lir_cond_belowEqual, T_INT, stub); // forward branch
+#else
+    cmp_mem_int_branch(lir_cond_belowEqual, array, arrayOopDesc::length_offset_in_bytes(),
+                       index->as_jint(), stub, null_check_info); // forward branch
+#endif
   } else {
+#ifndef LOONGARCH64
     cmp_reg_mem(lir_cond_aboveEqual, index, array,
                 arrayOopDesc::length_offset_in_bytes(), T_INT, null_check_info);
     __ branch(lir_cond_aboveEqual, T_INT, stub); // forward branch
+#else
+    cmp_reg_mem_branch(lir_cond_aboveEqual, index, array, arrayOopDesc::length_offset_in_bytes(),
+                       T_INT, stub, null_check_info); // forward branch
+#endif
   }
 }
 
@@ -494,12 +504,22 @@ void LIRGenerator::array_range_check(LIR_Opr array, LIR_Opr index,
 void LIRGenerator::nio_range_check(LIR_Opr buffer, LIR_Opr index, LIR_Opr result, CodeEmitInfo* info) {
   CodeStub* stub = new RangeCheckStub(info, index);
   if (index->is_constant()) {
+#ifndef LOONGARCH64
     cmp_mem_int(lir_cond_belowEqual, buffer, java_nio_Buffer::limit_offset(), index->as_jint(), info);
     __ branch(lir_cond_belowEqual, T_INT, stub); // forward branch
+#else
+    cmp_mem_int_branch(lir_cond_belowEqual, buffer, java_nio_Buffer::limit_offset(),
+                       index->as_jint(), stub, info); // forward branch
+#endif
   } else {
+#ifndef LOONGARCH64
     cmp_reg_mem(lir_cond_aboveEqual, index, buffer,
                 java_nio_Buffer::limit_offset(), T_INT, info);
     __ branch(lir_cond_aboveEqual, T_INT, stub); // forward branch
+#else
+    cmp_reg_mem_branch(lir_cond_aboveEqual, index, buffer, java_nio_Buffer::limit_offset(),
+                       T_INT, stub, info); // forward branch
+#endif
   }
   __ move(index, result);
 }
@@ -935,6 +955,7 @@ LIR_Opr LIRGenerator::force_to_spill(LIR_Opr value, BasicType t) {
   return tmp;
 }
 
+#ifndef LOONGARCH64
 void LIRGenerator::profile_branch(If* if_instr, If::Condition cond) {
   if (if_instr->should_profile()) {
     ciMethod* method = if_instr->profiled_method();
@@ -971,6 +992,51 @@ void LIRGenerator::profile_branch(If* if_instr, If::Condition cond) {
     __ move(data_reg, data_addr);
   }
 }
+#else
+void LIRGenerator::profile_branch(If* if_instr, If::Condition cond, LIR_Opr left, LIR_Opr right) {
+  if (if_instr->should_profile()) {
+    ciMethod* method = if_instr->profiled_method();
+    assert(method != NULL, "method should be set if branch is profiled");
+    ciMethodData* md = method->method_data_or_null();
+    assert(md != NULL, "Sanity");
+    ciProfileData* data = md->bci_to_data(if_instr->profiled_bci());
+    assert(data != NULL, "must have profiling data");
+    assert(data->is_BranchData(), "need BranchData for two-way branches");
+    int taken_count_offset     = md->byte_offset_of_slot(data, BranchData::taken_offset());
+    int not_taken_count_offset = md->byte_offset_of_slot(data, BranchData::not_taken_offset());
+    if (if_instr->is_swapped()) {
+      int t = taken_count_offset;
+      taken_count_offset = not_taken_count_offset;
+      not_taken_count_offset = t;
+    }
+
+    LIR_Opr md_reg = new_register(T_METADATA);
+    __ metadata2reg(md->constant_encoding(), md_reg);
+
+    LIR_Opr data_offset_reg = new_pointer_register();
+    if (left == LIR_OprFact::illegalOpr && right == LIR_OprFact::illegalOpr) {
+      __ cmove(lir_cond(cond),
+               LIR_OprFact::intptrConst(taken_count_offset),
+               LIR_OprFact::intptrConst(not_taken_count_offset),
+               data_offset_reg, as_BasicType(if_instr->x()->type()));
+    } else {
+      __ cmp_cmove(lir_cond(cond), left, right,
+                   LIR_OprFact::intptrConst(taken_count_offset),
+                   LIR_OprFact::intptrConst(not_taken_count_offset),
+                   data_offset_reg, as_BasicType(if_instr->x()->type()));
+    }
+
+    // MDO cells are intptr_t, so the data_reg width is arch-dependent.
+    LIR_Opr data_reg = new_pointer_register();
+    LIR_Address* data_addr = new LIR_Address(md_reg, data_offset_reg, data_reg->type());
+    __ move(data_addr, data_reg);
+    // Use leal instead of add to avoid destroying condition codes on x86
+    LIR_Address* fake_incr_value = new LIR_Address(data_reg, DataLayout::counter_increment, T_INT);
+    __ leal(LIR_OprFact::address(fake_incr_value), data_reg);
+    __ move(data_reg, data_addr);
+  }
+}
+#endif
 
 // Phi technique:
 // This is about passing live values from one basic block to the other.
@@ -1316,8 +1382,13 @@ void LIRGenerator::do_isPrimitive(Intrinsic* x) {
   }
 
   __ move(new LIR_Address(rcvr.result(), java_lang_Class::klass_offset_in_bytes(), T_ADDRESS), temp, info);
+#ifndef LOONGARCH64
   __ cmp(lir_cond_notEqual, temp, LIR_OprFact::metadataConst(0));
   __ cmove(lir_cond_notEqual, LIR_OprFact::intConst(0), LIR_OprFact::intConst(1), result, T_BOOLEAN);
+#else
+  __ cmp_cmove(lir_cond_notEqual, temp, LIR_OprFact::metadataConst(0),
+               LIR_OprFact::intConst(0), LIR_OprFact::intConst(1), result, T_BOOLEAN);
+#endif
 }
 
 
@@ -1599,8 +1670,13 @@ void LIRGenerator::do_StoreIndexed(StoreIndexed* x) {
 
   if (GenerateRangeChecks && needs_range_check) {
     if (use_length) {
+#ifndef LOONGARCH64
       __ cmp(lir_cond_belowEqual, length.result(), index.result());
       __ branch(lir_cond_belowEqual, T_INT, new RangeCheckStub(range_check_info, index.result(), array.result()));
+#else
+      CodeStub* stub = new RangeCheckStub(range_check_info, index.result(), array.result());
+      __ cmp_branch(lir_cond_belowEqual, length.result(), index.result(), T_INT, stub);
+#endif
     } else {
       array_range_check(array.result(), index.result(), null_check_info, range_check_info);
       // range_check also does the null check
@@ -1788,12 +1864,20 @@ void LIRGenerator::do_NIOCheckIndex(Intrinsic* x) {
     CodeStub* stub = new RangeCheckStub(info, index.result());
     LIR_Opr buf_obj = access_resolve(IS_NOT_NULL | ACCESS_READ, buf.result());
     if (index.result()->is_constant()) {
+#ifndef LOONGARCH64
       cmp_mem_int(lir_cond_belowEqual, buf_obj, java_nio_Buffer::limit_offset(), index.result()->as_jint(), info);
       __ branch(lir_cond_belowEqual, T_INT, stub);
+#else
+      cmp_mem_int_branch(lir_cond_belowEqual, buf.result(), java_nio_Buffer::limit_offset(), index.result()->as_jint(), stub, info);
+#endif
     } else {
+#ifndef LOONGARCH64
       cmp_reg_mem(lir_cond_aboveEqual, index.result(), buf_obj,
                   java_nio_Buffer::limit_offset(), T_INT, info);
       __ branch(lir_cond_aboveEqual, T_INT, stub);
+#else
+      cmp_reg_mem_branch(lir_cond_aboveEqual, index.result(), buf.result(), java_nio_Buffer::limit_offset(), T_INT, stub, info);
+#endif
     }
     __ move(index.result(), result);
   } else {
@@ -1871,8 +1955,13 @@ void LIRGenerator::do_LoadIndexed(LoadIndexed* x) {
     } else if (use_length) {
       // TODO: use a (modified) version of array_range_check that does not require a
       //       constant length to be loaded to a register
+#ifndef LOONGARCH64
       __ cmp(lir_cond_belowEqual, length.result(), index.result());
       __ branch(lir_cond_belowEqual, T_INT, new RangeCheckStub(range_check_info, index.result(), array.result()));
+#else
+      CodeStub* stub = new RangeCheckStub(range_check_info, index.result(), array.result());
+      __ cmp_branch(lir_cond_belowEqual, length.result(), index.result(), T_INT, stub);
+#endif
     } else {
       array_range_check(array.result(), index.result(), null_check_info, range_check_info);
       // The range check performs the null check, so clear it out for the load
@@ -2245,19 +2334,33 @@ void LIRGenerator::do_SwitchRanges(SwitchRangeArray* x, LIR_Opr value, BlockBegi
     int high_key = one_range->high_key();
     BlockBegin* dest = one_range->sux();
     if (low_key == high_key) {
+#ifndef LOONGARCH64
       __ cmp(lir_cond_equal, value, low_key);
       __ branch(lir_cond_equal, T_INT, dest);
+#else
+      __ cmp_branch(lir_cond_equal, value, low_key, T_INT, dest);
+#endif
     } else if (high_key - low_key == 1) {
+#ifndef LOONGARCH64
       __ cmp(lir_cond_equal, value, low_key);
       __ branch(lir_cond_equal, T_INT, dest);
       __ cmp(lir_cond_equal, value, high_key);
       __ branch(lir_cond_equal, T_INT, dest);
+#else
+      __ cmp_branch(lir_cond_equal, value, low_key, T_INT, dest);
+      __ cmp_branch(lir_cond_equal, value, high_key, T_INT, dest);
+#endif
     } else {
       LabelObj* L = new LabelObj();
+#ifndef LOONGARCH64
       __ cmp(lir_cond_less, value, low_key);
       __ branch(lir_cond_less, T_INT, L->label());
       __ cmp(lir_cond_lessEqual, value, high_key);
       __ branch(lir_cond_lessEqual, T_INT, dest);
+#else
+      __ cmp_branch(lir_cond_less, value, low_key, T_INT, L->label());
+      __ cmp_branch(lir_cond_lessEqual, value, high_key, T_INT, dest);
+#endif
       __ branch_destination(L->label());
     }
   }
@@ -2357,12 +2460,20 @@ void LIRGenerator::do_TableSwitch(TableSwitch* x) {
     __ move(LIR_OprFact::intptrConst(default_count_offset), data_offset_reg);
     for (int i = 0; i < len; i++) {
       int count_offset = md->byte_offset_of_slot(data, MultiBranchData::case_count_offset(i));
+#ifndef LOONGARCH64
       __ cmp(lir_cond_equal, value, i + lo_key);
       __ move(data_offset_reg, tmp_reg);
       __ cmove(lir_cond_equal,
                LIR_OprFact::intptrConst(count_offset),
                tmp_reg,
                data_offset_reg, T_INT);
+#else
+      __ move(data_offset_reg, tmp_reg);
+      __ cmp_cmove(lir_cond_equal, value, LIR_OprFact::intConst(i + lo_key),
+                   LIR_OprFact::intptrConst(count_offset),
+                   tmp_reg,
+                   data_offset_reg, T_INT);
+#endif
     }
 
     LIR_Opr data_reg = new_pointer_register();
@@ -2376,8 +2487,12 @@ void LIRGenerator::do_TableSwitch(TableSwitch* x) {
     do_SwitchRanges(create_lookup_ranges(x), value, x->default_sux());
   } else {
     for (int i = 0; i < len; i++) {
+#ifndef LOONGARCH64
       __ cmp(lir_cond_equal, value, i + lo_key);
       __ branch(lir_cond_equal, T_INT, x->sux_at(i));
+#else
+      __ cmp_branch(lir_cond_equal, value, i + lo_key, T_INT, x->sux_at(i));
+#endif
     }
     __ jump(x->default_sux());
   }
@@ -2415,12 +2530,20 @@ void LIRGenerator::do_LookupSwitch(LookupSwitch* x) {
     __ move(LIR_OprFact::intptrConst(default_count_offset), data_offset_reg);
     for (int i = 0; i < len; i++) {
       int count_offset = md->byte_offset_of_slot(data, MultiBranchData::case_count_offset(i));
+#ifndef LOONGARCH64
       __ cmp(lir_cond_equal, value, x->key_at(i));
       __ move(data_offset_reg, tmp_reg);
       __ cmove(lir_cond_equal,
                LIR_OprFact::intptrConst(count_offset),
                tmp_reg,
                data_offset_reg, T_INT);
+#else
+      __ move(data_offset_reg, tmp_reg);
+      __ cmp_cmove(lir_cond_equal, value, LIR_OprFact::intConst(x->key_at(i)),
+                   LIR_OprFact::intptrConst(count_offset),
+                   tmp_reg,
+                   data_offset_reg, T_INT);
+#endif
     }
 
     LIR_Opr data_reg = new_pointer_register();
@@ -2435,8 +2558,12 @@ void LIRGenerator::do_LookupSwitch(LookupSwitch* x) {
   } else {
     int len = x->length();
     for (int i = 0; i < len; i++) {
+#ifndef LOONGARCH64
       __ cmp(lir_cond_equal, value, x->key_at(i));
       __ branch(lir_cond_equal, T_INT, x->sux_at(i));
+#else
+      __ cmp_branch(lir_cond_equal, value, x->key_at(i), T_INT, x->sux_at(i));
+#endif
     }
     __ jump(x->default_sux());
   }
@@ -2946,8 +3073,13 @@ void LIRGenerator::do_IfOp(IfOp* x) {
   f_val.dont_load_item();
   LIR_Opr reg = rlock_result(x);
 
+#ifndef LOONGARCH64
   __ cmp(lir_cond(x->cond()), left.result(), right.result());
   __ cmove(lir_cond(x->cond()), t_val.result(), f_val.result(), reg, as_BasicType(x->x()->type()));
+#else
+  __ cmp_cmove(lir_cond(x->cond()), left.result(), right.result(),
+               t_val.result(), f_val.result(), reg, as_BasicType(x->x()->type()));
+#endif
 }
 
 #ifdef JFR_HAVE_INTRINSICS
@@ -2991,8 +3123,12 @@ void LIRGenerator::do_getEventWriter(Intrinsic* x) {
   __ move(LIR_OprFact::oopConst(NULL), result);
   LIR_Opr jobj = new_register(T_METADATA);
   __ move_wide(jobj_addr, jobj);
+#ifndef LOONGARCH64
   __ cmp(lir_cond_equal, jobj, LIR_OprFact::metadataConst(0));
   __ branch(lir_cond_equal, T_OBJECT, L_end->label());
+#else
+  __ cmp_branch(lir_cond_equal, jobj, LIR_OprFact::metadataConst(0), T_OBJECT, L_end->label());
+#endif
 
   access_load(IN_NATIVE, T_OBJECT, LIR_OprFact::address(new LIR_Address(jobj, T_OBJECT)), result);
 
@@ -3301,6 +3437,15 @@ void LIRGenerator::do_ProfileInvoke(ProfileInvoke* x) {
 
 void LIRGenerator::increment_backedge_counter_conditionally(LIR_Condition cond, LIR_Opr left, LIR_Opr right, CodeEmitInfo* info, int left_bci, int right_bci, int bci) {
   if (compilation()->count_backedges()) {
+#ifdef LOONGARCH64
+    LIR_Opr step = new_register(T_INT);
+    LIR_Opr plus_one = LIR_OprFact::intConst(InvocationCounter::count_increment);
+    LIR_Opr zero = LIR_OprFact::intConst(0);
+    __ cmp_cmove(cond, left, right,
+                 (left_bci < bci) ? plus_one : zero,
+                 (right_bci < bci) ? plus_one : zero,
+                 step, left->type());
+#else
 #if defined(X86) && !defined(_LP64)
     // BEWARE! On 32-bit x86 cmp clobbers its left argument so we need a temp copy.
     LIR_Opr left_copy = new_register(left->type());
@@ -3316,6 +3461,7 @@ void LIRGenerator::increment_backedge_counter_conditionally(LIR_Condition cond, 
         (left_bci < bci) ? plus_one : zero,
         (right_bci < bci) ? plus_one : zero,
         step, left->type());
+#endif
     increment_backedge_counter(info, step, bci);
   }
 }
@@ -3354,8 +3500,12 @@ void LIRGenerator::decrement_age(CodeEmitInfo* info) {
     // DeoptimizeStub will reexecute from the current state in code info.
     CodeStub* deopt = new DeoptimizeStub(info, Deoptimization::Reason_tenured,
                                          Deoptimization::Action_make_not_entrant);
+#ifndef LOONGARCH64
     __ cmp(lir_cond_lessEqual, result, LIR_OprFact::intConst(0));
     __ branch(lir_cond_lessEqual, T_INT, deopt);
+#else
+    __ cmp_branch(lir_cond_lessEqual, result, LIR_OprFact::intConst(0), T_INT, deopt);
+#endif
   }
 }
 
@@ -3401,8 +3551,12 @@ void LIRGenerator::increment_event_counter_impl(CodeEmitInfo* info,
     int freq = frequency << InvocationCounter::count_shift;
     if (freq == 0) {
       if (!step->is_constant()) {
+#ifndef LOONGARCH64
         __ cmp(lir_cond_notEqual, step, LIR_OprFact::intConst(0));
         __ branch(lir_cond_notEqual, T_ILLEGAL, overflow);
+#else
+        __ cmp_branch(lir_cond_notEqual, step, LIR_OprFact::intConst(0), T_ILLEGAL, overflow);
+#endif
       } else {
         __ branch(lir_cond_always, T_ILLEGAL, overflow);
       }
@@ -3410,12 +3564,21 @@ void LIRGenerator::increment_event_counter_impl(CodeEmitInfo* info,
       LIR_Opr mask = load_immediate(freq, T_INT);
       if (!step->is_constant()) {
         // If step is 0, make sure the overflow check below always fails
+#ifndef LOONGARCH64
         __ cmp(lir_cond_notEqual, step, LIR_OprFact::intConst(0));
         __ cmove(lir_cond_notEqual, result, LIR_OprFact::intConst(InvocationCounter::count_increment), result, T_INT);
+#else
+        __ cmp_cmove(lir_cond_notEqual, step, LIR_OprFact::intConst(0),
+                     result, LIR_OprFact::intConst(InvocationCounter::count_increment), result, T_INT);
+#endif
       }
       __ logical_and(result, mask, result);
+#ifndef LOONGARCH64
       __ cmp(lir_cond_equal, result, LIR_OprFact::intConst(0));
       __ branch(lir_cond_equal, T_INT, overflow);
+#else
+      __ cmp_branch(lir_cond_equal, result, LIR_OprFact::intConst(0), T_INT, overflow);
+#endif
     }
     __ branch_destination(overflow->continuation());
   }
@@ -3528,8 +3691,12 @@ void LIRGenerator::do_RangeCheckPredicate(RangeCheckPredicate *x) {
     CodeEmitInfo *info = state_for(x, x->state());
     CodeStub* stub = new PredicateFailedStub(info);
 
+#ifndef LOONGARCH64
     __ cmp(lir_cond(cond), left, right);
     __ branch(lir_cond(cond), right->type(), stub);
+#else
+    __ cmp_branch(lir_cond(cond), left, right, right->type(), stub);
+#endif
   }
 }
 
@@ -3676,8 +3843,13 @@ LIR_Opr LIRGenerator::mask_boolean(LIR_Opr array, LIR_Opr value, CodeEmitInfo*& 
   __ move(new LIR_Address(klass, in_bytes(Klass::layout_helper_offset()), T_INT), layout);
   int diffbit = Klass::layout_helper_boolean_diffbit();
   __ logical_and(layout, LIR_OprFact::intConst(diffbit), layout);
+#ifndef LOONGARCH64
   __ cmp(lir_cond_notEqual, layout, LIR_OprFact::intConst(0));
   __ cmove(lir_cond_notEqual, value_fixed, value, value_fixed, T_BYTE);
+#else
+  __ cmp_cmove(lir_cond_notEqual, layout, LIR_OprFact::intConst(0),
+               value_fixed, value, value_fixed, T_BYTE);
+#endif
   value = value_fixed;
   return value;
 }

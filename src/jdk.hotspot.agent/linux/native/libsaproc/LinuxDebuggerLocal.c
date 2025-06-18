@@ -58,6 +58,10 @@
 #include "sun_jvm_hotspot_debugger_aarch64_AARCH64ThreadContext.h"
 #endif
 
+#ifdef loongarch64
+#include "sun_jvm_hotspot_debugger_loongarch64_LOONGARCH64ThreadContext.h"
+#endif
+
 static jfieldID p_ps_prochandle_ID = 0;
 static jfieldID threadList_ID = 0;
 static jfieldID loadObjectList_ID = 0;
@@ -397,7 +401,7 @@ JNIEXPORT jbyteArray JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLo
   return (err == PS_OK)? array : 0;
 }
 
-#if defined(i386) || defined(amd64) || defined(sparc) || defined(sparcv9) | defined(ppc64) || defined(ppc64le) || defined(aarch64)
+#if defined(i386) || defined(amd64) || defined(sparc) || defined(sparcv9) | defined(ppc64) || defined(ppc64le) || defined(aarch64) || defined(loongarch64)
 JNIEXPORT jlongArray JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLocal_getThreadIntegerRegisterSet0
   (JNIEnv *env, jobject this_obj, jint lwp_id) {
 
@@ -424,6 +428,9 @@ JNIEXPORT jlongArray JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLo
 #endif
 #if defined(sparc) || defined(sparcv9)
 #define NPRGREG sun_jvm_hotspot_debugger_sparc_SPARCThreadContext_NPRGREG
+#endif
+#ifdef loongarch64
+#define NPRGREG sun_jvm_hotspot_debugger_loongarch64_LOONGARCH64ThreadContext_NPRGREG
 #endif
 #if defined(ppc64) || defined(ppc64le)
 #define NPRGREG sun_jvm_hotspot_debugger_ppc64_PPC64ThreadContext_NPRGREG
@@ -533,6 +540,18 @@ JNIEXPORT jlongArray JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLo
     regs[REG_INDEX(PC)] = gregs.pc;
   }
 #endif /* aarch64 */
+
+#if defined(loongarch64)
+
+#define REG_INDEX(reg) sun_jvm_hotspot_debugger_loongarch64_LOONGARCH64ThreadContext_##reg
+
+  {
+    int i;
+    for (i = 0; i < 31; i++)
+      regs[i] = gregs.regs[i];
+    regs[REG_INDEX(PC)] = gregs.csr_era;
+  }
+#endif /* loongarch64 */
 
 #if defined(ppc64) || defined(ppc64le)
 #define REG_INDEX(reg) sun_jvm_hotspot_debugger_ppc64_PPC64ThreadContext_##reg

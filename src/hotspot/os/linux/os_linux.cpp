@@ -4093,6 +4093,7 @@ size_t os::Linux::find_large_page_size() {
     IA64_ONLY(256 * M)
     PPC_ONLY(4 * M)
     S390_ONLY(1 * M)
+    LOONGARCH64_ONLY(4 * M); //In LoongArch _large_page_size is seted 4*M. // TODO: LA
     SPARC_ONLY(4 * M);
 #endif // ZERO
 

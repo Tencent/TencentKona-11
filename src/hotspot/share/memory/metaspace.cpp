@@ -1084,12 +1084,12 @@ void Metaspace::allocate_metaspace_compressed_klass_ptrs(char* requested_addr, a
   // Don't use large pages for the class space.
   bool large_pages = false;
 
-#if !(defined(AARCH64) || defined(PPC64))
+#if !(defined(AARCH64) || defined(PPC64) || defined(LOONGARCH64))
   ReservedSpace metaspace_rs = ReservedSpace(compressed_class_space_size(),
                                              _reserve_alignment,
                                              large_pages,
                                              requested_addr);
-#else // AARCH64 || PPC64
+#else // AARCH64 || PPC64 || LOONGARCH64
 
   ReservedSpace metaspace_rs;
 
@@ -1115,7 +1115,7 @@ void Metaspace::allocate_metaspace_compressed_klass_ptrs(char* requested_addr, a
     // below 32g to get a zerobased CCS. For simplicity we reuse the search
     // strategy for AARCH64.
 
-    size_t increment = AARCH64_ONLY(4*)G;
+    size_t increment = AARCH64_ONLY(4*)LOONGARCH64_ONLY(4*)G;
     for (char *a = align_up(requested_addr, increment);
          a < (char*)(1024*G);
          a += increment) {
@@ -1146,7 +1146,7 @@ void Metaspace::allocate_metaspace_compressed_klass_ptrs(char* requested_addr, a
     }
   }
 
-#endif // AARCH64 || PPC64
+#endif // AARCH64 || PPC64 || LOONGARCH64
 
   if (!metaspace_rs.is_reserved()) {
 #if INCLUDE_CDS
