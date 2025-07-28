@@ -1636,6 +1636,12 @@ void Arguments::set_use_compressed_oops() {
   // the only value that can override MaxHeapSize if we are
   // to use UseCompressedOops is InitialHeapSize.
   size_t max_heap_size = MAX2(MaxHeapSize, InitialHeapSize);
+  // ElasticMaxHeap
+  if (ElasticMaxHeap && FLAG_IS_CMDLINE(ElasticMaxHeapSize)) {
+    size_t _heap_alignment = CollectorPolicy::compute_heap_alignment();
+    size_t aligned_elastic_max_heap_size = align_up(ElasticMaxHeapSize, _heap_alignment);
+    max_heap_size = MAX2(aligned_elastic_max_heap_size, InitialHeapSize);
+  }
 
   if (max_heap_size <= max_heap_for_compressed_oops()) {
 #if !defined(COMPILER1) || defined(TIERED)
