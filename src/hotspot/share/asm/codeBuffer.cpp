@@ -1107,7 +1107,7 @@ CodeString* CodeStrings::find(intptr_t offset) const {
 // Convenience for add_comment.
 CodeString* CodeStrings::find_last(intptr_t offset) const {
   CodeString* a = _strings_last;
-  while (a != NULL && !a->is_comment() && a->offset() > offset) {
+  while (a != NULL && !(a->is_comment() && a->offset() == offset)) {
     a = a->_prev;
   }
   return a;
