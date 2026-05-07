@@ -715,6 +715,35 @@
 #endif
 
 
+#ifdef LOONGARCH64
+
+#define VM_STRUCTS_CPU(nonstatic_field, static_field, unchecked_nonstatic_field, volatile_nonstatic_field, nonproduct_nonstatic_field, c2_nonstatic_field, unchecked_c1_static_field, unchecked_c2_static_field) \
+  volatile_nonstatic_field(JavaFrameAnchor, _last_Java_fp, intptr_t*)
+
+#define VM_INT_CONSTANTS_CPU(declare_constant, declare_preprocessor_constant, declare_c1_constant, declare_c2_constant, declare_c2_preprocessor_constant) \
+  declare_constant(VM_Version::CPU_LA32)           \
+  declare_constant(VM_Version::CPU_LA64)           \
+  declare_constant(VM_Version::CPU_LLEXC)          \
+  declare_constant(VM_Version::CPU_SCDLY)          \
+  declare_constant(VM_Version::CPU_LLDBAR)         \
+  declare_constant(VM_Version::CPU_LBT_X86)        \
+  declare_constant(VM_Version::CPU_LBT_ARM)        \
+  declare_constant(VM_Version::CPU_LBT_MIPS)       \
+  declare_constant(VM_Version::CPU_CCDMA)          \
+  declare_constant(VM_Version::CPU_COMPLEX)        \
+  declare_constant(VM_Version::CPU_FP)             \
+  declare_constant(VM_Version::CPU_CRYPTO)         \
+  declare_constant(VM_Version::CPU_LSX)            \
+  declare_constant(VM_Version::CPU_LASX)           \
+  declare_constant(VM_Version::CPU_LAM)            \
+  declare_constant(VM_Version::CPU_LLSYNC)         \
+  declare_constant(VM_Version::CPU_TGTSYNC)        \
+  declare_constant(VM_Version::CPU_ULSYNC)         \
+  declare_constant(VM_Version::CPU_UAL)
+
+#endif
+
+
 #ifdef X86
 
 #define VM_STRUCTS_CPU(nonstatic_field, static_field, unchecked_nonstatic_field, volatile_nonstatic_field, nonproduct_nonstatic_field, c2_nonstatic_field, unchecked_c1_static_field, unchecked_c2_static_field) \

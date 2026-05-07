@@ -32,19 +32,20 @@ import jdk.test.lib.cli.predicate.OrPredicate;
 
 /**
  * Generic test case for SHA-related options targeted to any CPU except
- * AArch64, PPC, S390x, SPARC and X86.
+ * AArch64, PPC, S390x, SPARC, LoongArch64 and X86.
  */
 public class GenericTestCaseForOtherCPU extends
         SHAOptionsBase.TestCase {
     public GenericTestCaseForOtherCPU(String optionName) {
-        // Execute the test case on any CPU except AArch64, PPC, S390x, SPARC and X86.
+        // Execute the test case on any CPU except AArch64, PPC, S390x, SPARC, LoongArch64 and X86.
         super(optionName, new NotPredicate(
                               new OrPredicate(Platform::isAArch64,
                               new OrPredicate(Platform::isS390x,
                               new OrPredicate(Platform::isSparc,
                               new OrPredicate(Platform::isPPC,
+                              new OrPredicate(Platform::isLoongArch64,
                               new OrPredicate(Platform::isX64,
-                                              Platform::isX86)))))));
+                                              Platform::isX86))))))));
     }
 
     @Override

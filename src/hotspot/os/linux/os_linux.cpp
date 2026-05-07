@@ -2467,6 +2467,14 @@ bool os::Linux::query_process_memory_info(os::Linux::meminfo_t* info) {
   return false;
 }
 
+#ifdef LOONGARCH64
+int os::Linux::sched_active_processor_count() {
+  if (OSContainer::is_containerized())
+    return OSContainer::active_processor_count();
+  return os::Linux::active_processor_count();
+}
+#endif
+
 #ifdef __GLIBC__
 // For Glibc, print a one-liner with the malloc tunables.
 // Most important and popular is MALLOC_ARENA_MAX, but we are
@@ -4104,6 +4112,7 @@ size_t os::Linux::find_large_page_size() {
     IA64_ONLY(256 * M)
     PPC_ONLY(4 * M)
     S390_ONLY(1 * M)
+    LOONGARCH64_ONLY(4 * M); //In LoongArch _large_page_size is seted 4*M. // TODO: LA
     SPARC_ONLY(4 * M);
 #endif // ZERO
 

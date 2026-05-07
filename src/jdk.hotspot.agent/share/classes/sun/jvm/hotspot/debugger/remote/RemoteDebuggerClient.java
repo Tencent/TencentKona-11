@@ -34,6 +34,7 @@ import sun.jvm.hotspot.debugger.remote.sparc.*;
 import sun.jvm.hotspot.debugger.remote.x86.*;
 import sun.jvm.hotspot.debugger.remote.amd64.*;
 import sun.jvm.hotspot.debugger.remote.ppc64.*;
+import sun.jvm.hotspot.debugger.remote.loongarch64.*;
 
 /** An implementation of Debugger which wraps a
     RemoteDebugger, providing remote debugging via RMI.
@@ -73,6 +74,11 @@ public class RemoteDebuggerClient extends DebuggerBase implements JVMDebugger {
         unalignedAccessesOkay = true;
       } else if (cpu.equals("ppc64")) {
         threadFactory = new RemotePPC64ThreadFactory(this);
+        cachePageSize = 4096;
+        cacheNumPages = parseCacheNumPagesProperty(cacheSize / cachePageSize);
+        unalignedAccessesOkay = true;
+      } else if (cpu.equals("loongarch64")) {
+        threadFactory = new RemoteLOONGARCH64ThreadFactory(this);
         cachePageSize = 4096;
         cacheNumPages = parseCacheNumPagesProperty(cacheSize / cachePageSize);
         unalignedAccessesOkay = true;

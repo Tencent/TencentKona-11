@@ -209,6 +209,9 @@ macro(StoreFence)
 macro(MemBarReleaseLock)
 macro(MemBarVolatile)
 macro(MemBarStoreStore)
+#ifdef LOONGARCH64
+macro(SameAddrLoadFence)
+#endif
 macro(MergeMem)
 macro(MinD)
 macro(MinF)

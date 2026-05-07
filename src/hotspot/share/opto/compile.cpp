@@ -3436,6 +3436,9 @@ void Compile::final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc) {
       n->set_req(MemBarNode::Precedent, top());
     }
     break;
+#ifdef LOONGARCH64
+  case Op_SameAddrLoadFence:
+#endif
   case Op_MemBarAcquire: {
     if (n->as_MemBar()->trailing_load() && n->req() > MemBarNode::Precedent) {
       // At parse time, the trailing MemBarAcquire for a volatile load

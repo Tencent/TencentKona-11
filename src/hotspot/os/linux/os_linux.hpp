@@ -251,6 +251,8 @@ class Linux {
 
   // none present
 
+  static int sched_active_processor_count();
+
  private:
   static void numa_init();
   static void expand_stack_to(address bottom);
