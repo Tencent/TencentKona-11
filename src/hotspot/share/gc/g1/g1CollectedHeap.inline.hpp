@@ -156,6 +156,10 @@ InCSetState G1CollectedHeap::in_cset_state(const oop obj) {
   return _in_cset_fast_test.at((HeapWord*)obj);
 }
 
+InCSetState G1CollectedHeap::in_cset_state(const void* addr) {
+  return _in_cset_fast_test.at((HeapWord*)addr);
+}
+
 void G1CollectedHeap::register_humongous_region_with_cset(uint index) {
   _in_cset_fast_test.set_humongous(index);
 }

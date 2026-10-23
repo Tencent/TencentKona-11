@@ -205,6 +205,15 @@ inline void G1ScanObjsDuringScanRSClosure::do_oop_work(T* p) {
 
 template <class T>
 inline void G1ScanRSForOptionalClosure::do_oop_work(T* p) {
+  // Entries in the optional collection set may originate from collection set
+  // regions after one or more increments. In that case the region containing
+  // the slot has been evacuated already and the slot is stale; references from
+  // the evacuated objects' copies are picked up via the remembered set of the
+  // optional region instead. Filter these entries out here.
+  // (Backport of JDK-8222492, adapted to the JDK 12 based InCSetState API.)
+  if (_g1h->in_cset_state((const void*)p).is_in_cset()) {
+    return;
+  }
   _scan_cl->do_oop_work(p);
   _scan_cl->trim_queue_partially();
 }
