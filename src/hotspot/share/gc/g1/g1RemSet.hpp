@@ -109,6 +109,10 @@ public:
   // code) any thread calls oops_into_collection_set_do.
   void prepare_for_oops_into_collection_set_do();
   void cleanup_after_oops_into_collection_set_do();
+  // Prepares the given region for remembered set scanning. Must be called when
+  // a region is added to the collection set in the middle of a pause, i.e. for
+  // optional regions between evacuation increments (see JDK-8222492).
+  void prepare_for_oops_into_collection_set_do(uint region_idx);
 
   G1RemSetScanState* scan_state() const { return _scan_state; }
 

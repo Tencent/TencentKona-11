@@ -190,7 +190,7 @@ public:
   void reset() {
     for (uint i = 0; i < _max_regions; i++) {
       _iter_states[i] = Unclaimed;
-      _scan_top[i] = NULL;
+      clear_scan_top(i);
     }
 
     G1ResetScanTopClosure cl(_scan_top);
@@ -254,6 +254,10 @@ public:
 
   HeapWord* scan_top(uint region_idx) const {
     return _scan_top[region_idx];
+  }
+
+  void clear_scan_top(uint region_idx) {
+    _scan_top[region_idx] = NULL;
   }
 
   // Clear the card table of "dirty" regions.
@@ -523,6 +527,10 @@ void G1RemSet::prepare_for_oops_into_collection_set_do() {
   dcqs.concatenate_logs();
 
   _scan_state->reset();
+}
+
+void G1RemSet::prepare_for_oops_into_collection_set_do(uint region_idx) {
+  _scan_state->clear_scan_top(region_idx);
 }
 
 void G1RemSet::cleanup_after_oops_into_collection_set_do() {

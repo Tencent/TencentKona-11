@@ -1112,6 +1112,8 @@ public:
  public:
 
   inline InCSetState in_cset_state(const oop obj);
+  // Variant for raw addresses (e.g. oop slots) that are not oops themselves.
+  inline InCSetState in_cset_state(const void* addr);
 
   // Return "TRUE" iff the given object address is in the reserved
   // region of g1.
