@@ -3871,7 +3871,7 @@ class G1EvacuateOptionalRegionTask : public AbstractGangTask {
 
     for (uint i = _optional->current_index(); i < _optional->current_limit(); i++) {
       HeapRegion* hr = _optional->region_at(i);
-      G1ScanRSForOptionalClosure scan_opt_cl(&obj_cl);
+      G1ScanRSForOptionalClosure scan_opt_cl(_g1h, &obj_cl);
       pss->oops_into_optional_region(hr)->oops_do(&scan_opt_cl, root_cls->raw_strong_oops());
       copy_time += trim_ticks(pss);
 

@@ -29,6 +29,7 @@
 #include "gc/g1/g1CollectorState.hpp"
 #include "gc/g1/g1ParScanThreadState.hpp"
 #include "gc/g1/g1Policy.hpp"
+#include "gc/g1/g1RemSet.hpp"
 #include "gc/g1/heapRegion.inline.hpp"
 #include "gc/g1/heapRegionRemSet.hpp"
 #include "gc/g1/heapRegionSet.hpp"
@@ -136,6 +137,11 @@ void G1CollectionSet::add_old_region(HeapRegion* hr) {
 
   assert(!hr->in_collection_set(), "should not already be in the CSet");
   _g1h->register_old_region_with_cset(hr);
+  // When called in the middle of a pause (optional regions between evacuation
+  // increments), the remembered set scan state of this region must be cleared
+  // so that card scanning skips it like any other collection set region.
+  // (Backport of JDK-8222492.)
+  _g1h->g1_rem_set()->prepare_for_oops_into_collection_set_do(hr->hrm_index());
 
   _collection_set_regions[_collection_set_cur_length++] = hr->hrm_index();
   assert(_collection_set_cur_length <= _collection_set_max_length, "Collection set now larger than maximum size.");
